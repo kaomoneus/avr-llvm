@@ -127,19 +127,19 @@ bool AVRInstrInfo::copyRegToReg (MachineBasicBlock &MBB,
                                    unsigned DestReg, unsigned SrcReg,
                                    const TargetRegisterClass *DestRC,
                                    const TargetRegisterClass *SrcRC) const {
-  
+  DebugLoc DL = DebugLoc::getUnknownLoc(); 
   if (DestRC != SrcRC) {
     // Not yet supported
     return false;
   }  
 
   if (DestRC == AVR::GPRegsRegisterClass) {
-    BuildMI(MBB, I, get(AVR::MOV), DestReg).addReg(SrcReg);
+    BuildMI(MBB, I, DL, get(AVR::MOV), DestReg).addReg(SrcReg);
     return true;
   }
 
   if (DestRC == AVR::WRegsRegisterClass) {
-    BuildMI(MBB, I, get(AVR::MOVW), DestReg).addReg(SrcReg);
+    BuildMI(MBB, I, DL, get(AVR::MOVW), DestReg).addReg(SrcReg);
     return true;
   }
 

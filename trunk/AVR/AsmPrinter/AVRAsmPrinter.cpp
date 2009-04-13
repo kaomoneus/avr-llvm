@@ -16,6 +16,7 @@
 #include "AVR.h"
 #include "AVRTargetMachine.h"
 #include "llvm/CodeGen/AsmPrinter.h"
+#include "llvm/CodeGen/DwarfWriter.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Target/TargetAsmInfo.h"
 #include "llvm/Target/TargetMachine.h"
@@ -32,8 +33,9 @@ using namespace llvm;
 
 namespace {
   struct VISIBILITY_HIDDEN AVRAsmPrinter : public AsmPrinter {
-    AVRAsmPrinter(raw_ostream &O, TargetMachine &TM, const TargetAsmInfo *T)
-      : AsmPrinter(O, TM, T) {
+    AVRAsmPrinter(raw_ostream &O, TargetMachine &TM, const TargetAsmInfo *T,
+                  bool F, bool V)
+      : AsmPrinter(O, TM, T, F, V) {
     }
     private :
     virtual const char *getPassName() const {
@@ -73,8 +75,9 @@ namespace {
 /// regardless of whether the function is in SSA form.
 ///
 FunctionPass *llvm::createAVRCodePrinterPass(raw_ostream &o,
-                                               AVRTargetMachine &tm) {
-  return new AVRAsmPrinter(o, tm, tm.getTargetAsmInfo());
+                                               AVRTargetMachine &tm,
+						bool fast, bool verbose) {
+  return new AVRAsmPrinter(o, tm, tm.getTargetAsmInfo(), fast, verbose);
 }
 #if 1
 bool AVRAsmPrinter::inSameBank (char *s1, char *s2){

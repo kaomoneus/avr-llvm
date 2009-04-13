@@ -55,7 +55,7 @@ public:
   virtual bool addInstSelector(PassManagerBase &PM, bool Fast);
   virtual bool addPrologEpilogInserter(PassManagerBase &PM, bool Fast);
   virtual bool addPreEmitPass(PassManagerBase &PM, bool Fast);
-  virtual bool addAssemblyEmitter(PassManagerBase &PM, bool Fast, 
+  virtual bool addAssemblyEmitter(PassManagerBase &PM, bool Fast, bool Verbose, 
                                   raw_ostream &Out);
 };
 } // end namespace llvm

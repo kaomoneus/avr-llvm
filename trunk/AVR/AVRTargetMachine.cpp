@@ -61,10 +61,11 @@ bool AVRTargetMachine::addPreEmitPass(PassManagerBase &PM, bool Fast)
 }
 
 bool AVRTargetMachine::
-addAssemblyEmitter(PassManagerBase &PM, bool Fast, raw_ostream &Out) 
+addAssemblyEmitter(PassManagerBase &PM, bool Fast, bool Verbose, 
+                   raw_ostream &Out) 
 {
   // Output assembly language.
-  PM.add(createAVRCodePrinterPass(Out, *this));
+  PM.add(createAVRCodePrinterPass(Out, *this, Fast, Verbose));
   return false;
 }
 

@@ -26,7 +26,8 @@ namespace llvm {
 
   FunctionPass *createAVRISelDag(AVRTargetMachine &TM);
   FunctionPass *createAVRCodePrinterPass(raw_ostream &OS, 
-                                         AVRTargetMachine &TM);
+                                         AVRTargetMachine &TM,
+					bool fast, bool verbose);
 } // end namespace llvm;
 
 // Defines symbolic names for AVR registers.  This defines a mapping from
