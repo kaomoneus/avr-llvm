@@ -1,0 +1,36 @@
+Index: configure.ac
+===================================================================
+--- configure.ac	(revision 68947)
++++ configure.ac	(working copy)
+@@ -226,6 +226,7 @@
+   mips-*)                 llvm_cv_target_arch="Mips" ;;
+   pic16-*)                llvm_cv_target_arch="PIC16" ;;
+   xcore-*)                llvm_cv_target_arch="XCore" ;;
++  avr-*)                  llvm_cv_target_arch="AVR" ;;
+   *)                      llvm_cv_target_arch="Unknown" ;;
+ esac])
+ 
+@@ -334,6 +335,7 @@
+     Mips)    AC_SUBST(TARGET_HAS_JIT,0) ;;
+     PIC16)   AC_SUBST(TARGET_HAS_JIT,0) ;;
+     XCore)   AC_SUBST(TARGET_HAS_JIT,0) ;;
++    AVR)     AC_SUBST(TARGET_HAS_JIT,0) ;;
+     *)       AC_SUBST(TARGET_HAS_JIT,0) ;;
+   esac
+ fi
+@@ -397,6 +399,7 @@
+       CellSPU|SPU) TARGETS_TO_BUILD="CellSPU" ;;
+       PIC16)   TARGETS_TO_BUILD="PIC16" ;;
+       XCore)   TARGETS_TO_BUILD="XCore" ;;
++      AVR)     TARGETS_TO_BUILD="AVR" ;;
+       *)       AC_MSG_ERROR([Can not set target to build]) ;;
+     esac
+     ;;
+@@ -413,6 +416,7 @@
+         spu)     TARGETS_TO_BUILD="CellSPU $TARGETS_TO_BUILD" ;;
+         pic16)   TARGETS_TO_BUILD="PIC16 $TARGETS_TO_BUILD" ;;
+         xcore)   TARGETS_TO_BUILD="XCore $TARGETS_TO_BUILD" ;;
++        avr)     TARGETS_TO_BUILD="AVR $TARGETS_TO_BUILD" ;;
+         cbe)     TARGETS_TO_BUILD="CBackend $TARGETS_TO_BUILD" ;;
+         msil)    TARGETS_TO_BUILD="MSIL $TARGETS_TO_BUILD" ;;
+         cpp)     TARGETS_TO_BUILD="CppBackend $TARGETS_TO_BUILD" ;;

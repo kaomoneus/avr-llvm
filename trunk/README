@@ -1,0 +1,28 @@
+==========================
+         AVR LLVM
+==========================
+
+Setup
+=====
+
+1. Check out the LLVM trunk (LLVM_SRC_ROOT)
+2. Copy the AVR subfolder to LLVM_SRC_ROOT/lib/Target
+3. Patch LLVM_SRC_ROOT/configure or the LLVM_SRC_ROOT/autoconf/configure.ac 
+   using diff files located in the patches subfolder
+   (Note: Don't forget to run LLVM_SRC_ROOT/autoconf/AutoRegen.sh if the 
+    configure.ac file was modified)
+
+
+Build
+=====
+
+configure and build LLVM in an empty folder with avr enabled (currently the 
+avr target is NOT enabled by default):
+
+  % LLVM_SRC_ROOT/configure --prefix=$HOME/usr/avr-llvm/ --disable-optimized --enable-targets=avr
+  % make
+
+configure and build the GCC front end:
+
+  % LLVM_GCC_SRC_DIR/configure   --prefix=$HOME/usr/avr-llvm/ --enable-llvm=LLVM_OBJ_DIR --program-prefix=avr-llvm- --enable-languages=c
+  % make LLVM_VERSION_INFO=avr-llvm (svn)
