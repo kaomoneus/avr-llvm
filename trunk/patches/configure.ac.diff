@@ -1,6 +1,6 @@
 Index: configure.ac
 ===================================================================
---- configure.ac	(revision 68947)
+--- configure.ac	(revision 70124)
 +++ configure.ac	(working copy)
 @@ -226,6 +226,7 @@
    mips-*)                 llvm_cv_target_arch="Mips" ;;
@@ -10,7 +10,7 @@ Index: configure.ac
    *)                      llvm_cv_target_arch="Unknown" ;;
  esac])
  
-@@ -334,6 +335,7 @@
+@@ -343,6 +344,7 @@
      Mips)    AC_SUBST(TARGET_HAS_JIT,0) ;;
      PIC16)   AC_SUBST(TARGET_HAS_JIT,0) ;;
      XCore)   AC_SUBST(TARGET_HAS_JIT,0) ;;
@@ -18,7 +18,7 @@ Index: configure.ac
      *)       AC_SUBST(TARGET_HAS_JIT,0) ;;
    esac
  fi
-@@ -397,6 +399,7 @@
+@@ -406,6 +408,7 @@
        CellSPU|SPU) TARGETS_TO_BUILD="CellSPU" ;;
        PIC16)   TARGETS_TO_BUILD="PIC16" ;;
        XCore)   TARGETS_TO_BUILD="XCore" ;;
@@ -26,7 +26,7 @@ Index: configure.ac
        *)       AC_MSG_ERROR([Can not set target to build]) ;;
      esac
      ;;
-@@ -413,6 +416,7 @@
+@@ -422,6 +425,7 @@
          spu)     TARGETS_TO_BUILD="CellSPU $TARGETS_TO_BUILD" ;;
          pic16)   TARGETS_TO_BUILD="PIC16 $TARGETS_TO_BUILD" ;;
          xcore)   TARGETS_TO_BUILD="XCore $TARGETS_TO_BUILD" ;;

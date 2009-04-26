@@ -1,0 +1,15 @@
+==============================
+         Patches
+==============================
+
+this directory contains patches to add AVR back-end to the build-scripts of 
+the LLVM trunk.
+
+- configure.ac.diff
+ this patch should be quite stable and might work even if the base files changes
+
+- configure.diff
+ the confiugre script is autogen'ed using the configure.ac file. Minor changes is
+ the .ac file will result in major changes in the configure script. If the file 
+ changes in the LLVM repo it must be regenerated using the merged configure.ac
+ but setting up the autoregen evironment is not so easy...

@@ -26,3 +26,9 @@ configure and build the GCC front end:
 
   % LLVM_GCC_SRC_DIR/configure   --prefix=$HOME/usr/avr-llvm/ --enable-llvm=LLVM_OBJ_DIR --program-prefix=avr-llvm- --enable-languages=c
   % make LLVM_VERSION_INFO=avr-llvm (svn)
+
+Checkin Rules
+=============
+
+- Alway perform an svn update in the LLVM_SRC_ROOT __and__ in the avr-llvm target directory before checking in changes
+- Ensure that LLVM compiles with the commands above (llvm-gcc is not jet working)
