@@ -1,36 +1,36 @@
-Index: configure.ac
+Index: autoconf/configure.ac
 ===================================================================
---- configure.ac	(revision 70124)
-+++ configure.ac	(working copy)
+--- autoconf/configure.ac	(revision 72865)
++++ autoconf/configure.ac	(working copy)
 @@ -226,6 +226,7 @@
    mips-*)                 llvm_cv_target_arch="Mips" ;;
    pic16-*)                llvm_cv_target_arch="PIC16" ;;
    xcore-*)                llvm_cv_target_arch="XCore" ;;
 +  avr-*)                  llvm_cv_target_arch="AVR" ;;
+   msp430-*)               llvm_cv_target_arch="MSP430" ;;
    *)                      llvm_cv_target_arch="Unknown" ;;
  esac])
- 
-@@ -343,6 +344,7 @@
+@@ -344,6 +345,7 @@
      Mips)    AC_SUBST(TARGET_HAS_JIT,0) ;;
      PIC16)   AC_SUBST(TARGET_HAS_JIT,0) ;;
      XCore)   AC_SUBST(TARGET_HAS_JIT,0) ;;
 +    AVR)     AC_SUBST(TARGET_HAS_JIT,0) ;;
+     MSP430)  AC_SUBST(TARGET_HAS_JIT,0) ;;
      *)       AC_SUBST(TARGET_HAS_JIT,0) ;;
    esac
- fi
-@@ -406,6 +408,7 @@
+@@ -408,6 +410,7 @@
        CellSPU|SPU) TARGETS_TO_BUILD="CellSPU" ;;
        PIC16)   TARGETS_TO_BUILD="PIC16" ;;
        XCore)   TARGETS_TO_BUILD="XCore" ;;
 +      AVR)     TARGETS_TO_BUILD="AVR" ;;
+       MSP430)  TARGETS_TO_BUILD="MSP430" ;;
        *)       AC_MSG_ERROR([Can not set target to build]) ;;
      esac
-     ;;
-@@ -422,6 +425,7 @@
+@@ -425,6 +428,7 @@
          spu)     TARGETS_TO_BUILD="CellSPU $TARGETS_TO_BUILD" ;;
          pic16)   TARGETS_TO_BUILD="PIC16 $TARGETS_TO_BUILD" ;;
          xcore)   TARGETS_TO_BUILD="XCore $TARGETS_TO_BUILD" ;;
 +        avr)     TARGETS_TO_BUILD="AVR $TARGETS_TO_BUILD" ;;
+         msp430)  TARGETS_TO_BUILD="MSP430 $TARGETS_TO_BUILD" ;;
          cbe)     TARGETS_TO_BUILD="CBackend $TARGETS_TO_BUILD" ;;
          msil)    TARGETS_TO_BUILD="MSIL $TARGETS_TO_BUILD" ;;
-         cpp)     TARGETS_TO_BUILD="CppBackend $TARGETS_TO_BUILD" ;;
