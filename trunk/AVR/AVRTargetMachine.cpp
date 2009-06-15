@@ -42,7 +42,7 @@ const TargetAsmInfo *AVRTargetMachine::createTargetAsmInfo() const
 // Pass Pipeline Configuration
 //===----------------------------------------------------------------------===//
 
-bool AVRTargetMachine::addInstSelector(PassManagerBase &PM, bool Fast) 
+bool AVRTargetMachine::addInstSelector(PassManagerBase &PM, CodeGenOpt::Level OptLevel) 
 {
   // Install an instruction selector.
   // FIXME: PM.add(createAVRISelDag(*this));
@@ -50,22 +50,22 @@ bool AVRTargetMachine::addInstSelector(PassManagerBase &PM, bool Fast)
 }
 
 bool AVRTargetMachine::
-addPrologEpilogInserter(PassManagerBase &PM, bool Fast) 
+addPrologEpilogInserter(PassManagerBase &PM, CodeGenOpt::Level OptLevel) 
 {
   return false;
 }
 
-bool AVRTargetMachine::addPreEmitPass(PassManagerBase &PM, bool Fast) 
+bool AVRTargetMachine::addPreEmitPass(PassManagerBase &PM, CodeGenOpt::Level OptLevel) 
 {
   return true;
 }
 
 bool AVRTargetMachine::
-addAssemblyEmitter(PassManagerBase &PM, bool Fast, bool Verbose, 
+addAssemblyEmitter(PassManagerBase &PM, CodeGenOpt::Level OptLevel, bool Verbose, 
                    raw_ostream &Out) 
 {
   // Output assembly language.
-  PM.add(createAVRCodePrinterPass(Out, *this, Fast, Verbose));
+  PM.add(createAVRCodePrinterPass(Out, *this, OptLevel, Verbose));
   return false;
 }
 

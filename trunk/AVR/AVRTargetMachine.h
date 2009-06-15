@@ -52,10 +52,10 @@ public:
   { return &InstrInfo.getRegisterInfo(); }
   virtual const AVRSubtarget *getSubtargetImpl() const 
   { return &Subtarget; }  
-  virtual bool addInstSelector(PassManagerBase &PM, bool Fast);
-  virtual bool addPrologEpilogInserter(PassManagerBase &PM, bool Fast);
-  virtual bool addPreEmitPass(PassManagerBase &PM, bool Fast);
-  virtual bool addAssemblyEmitter(PassManagerBase &PM, bool Fast, bool Verbose, 
+  virtual bool addInstSelector(PassManagerBase &PM, CodeGenOpt::Level OptLevel);
+  virtual bool addPrologEpilogInserter(PassManagerBase &PM, CodeGenOpt::Level OptLevel);
+  virtual bool addPreEmitPass(PassManagerBase &PM, CodeGenOpt::Level OptLevel);
+  virtual bool addAssemblyEmitter(PassManagerBase &PM, CodeGenOpt::Level OptLevel, bool Verbose, 
                                   raw_ostream &Out);
 };
 } // end namespace llvm

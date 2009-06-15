@@ -15,6 +15,7 @@
 #ifndef TARGET_AVR_H
 #define TARGET_AVR_H
 
+#include "llvm/Target/TargetMachine.h"
 #include <iosfwd>
 
 namespace llvm {
@@ -27,7 +28,7 @@ namespace llvm {
   FunctionPass *createAVRISelDag(AVRTargetMachine &TM);
   FunctionPass *createAVRCodePrinterPass(raw_ostream &OS, 
                                          AVRTargetMachine &TM,
-					bool fast, bool verbose);
+					CodeGenOpt::Level OL, bool verbose);
 } // end namespace llvm;
 
 // Defines symbolic names for AVR registers.  This defines a mapping from

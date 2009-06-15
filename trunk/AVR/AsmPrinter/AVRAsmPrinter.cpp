@@ -12,30 +12,40 @@
 //
 //===----------------------------------------------------------------------===//
 
-
+#define DEBUG_TYPE "asm-printer"
 #include "AVR.h"
 #include "AVRTargetMachine.h"
+#include "llvm/Constants.h"
+#include "llvm/DerivedTypes.h"
+#include "llvm/Module.h"
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/DwarfWriter.h"
-#include "llvm/Support/CommandLine.h"
+#include "llvm/CodeGen/MachineFunctionPass.h"
+#include "llvm/CodeGen/MachineConstantPool.h"
+#include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/Target/TargetAsmInfo.h"
+#include "llvm/Target/TargetData.h"
 #include "llvm/Target/TargetMachine.h"
-#include "AVRTargetAsmInfo.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Mangler.h"
-#include "llvm/Function.h"
-#include "llvm/Module.h"
-#include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/DerivedTypes.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/ADT/Statistic.h"
+#include "llvm/ADT/StringExtras.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/MathExtras.h"
+#include <cctype>
+#include <cstring>
+#include <map>
 
 
 using namespace llvm;
 
+STATISTIC(EmittedInsts, "Number of machine instrs printed");
+
 namespace {
   struct VISIBILITY_HIDDEN AVRAsmPrinter : public AsmPrinter {
     AVRAsmPrinter(raw_ostream &O, TargetMachine &TM, const TargetAsmInfo *T,
-                  bool F, bool V)
-      : AsmPrinter(O, TM, T, F, V) {
+                  CodeGenOpt::Level OL, bool V)
+      : AsmPrinter(O, TM, T, OL, V) {
     }
     private :
     virtual const char *getPassName() const {
@@ -69,15 +79,17 @@ namespace {
 
 #include "AVRGenAsmWriter.inc"
 
+using namespace llvm;
 /// createAVRCodePrinterPass - Returns a pass that prints the AVR
 /// assembly code for a MachineFunction to the given output stream,
 /// using the given target machine description.  This should work
 /// regardless of whether the function is in SSA form.
 ///
 FunctionPass *llvm::createAVRCodePrinterPass(raw_ostream &o,
-                                               AVRTargetMachine &tm,
-						bool fast, bool verbose) {
-  return new AVRAsmPrinter(o, tm, tm.getTargetAsmInfo(), fast, verbose);
+                                             AVRTargetMachine &tm,
+                                             CodeGenOpt::Level OptLevel, 
+                                             bool verbose) {
+  return new AVRAsmPrinter(o, tm, tm.getTargetAsmInfo(), OptLevel, verbose);
 }
 #if 1
 bool AVRAsmPrinter::inSameBank (char *s1, char *s2){
@@ -335,7 +347,9 @@ void AVRAsmPrinter::EmitRomData (Module &M)
 */
 void AVRAsmPrinter::EmitUnInitData (Module &M)
 {
-  SwitchToSection(TAI->getBSSSection_());
+
+  assert(0 && "Not yet implemented!");
+ /* SwitchToSection(TAI->getBSSSection_());
   const TargetData *TD = TM.getTargetData();
 
   for (Module::const_global_iterator I = M.global_begin(), E = M.global_end();
@@ -361,7 +375,7 @@ void AVRAsmPrinter::EmitUnInitData (Module &M)
       O << name << " " <<"RES"<< " " << Size ;
       O << "\n";
     }
-  }
+  }*/
 }
 
 bool AVRAsmPrinter::doFinalization(Module &M) {
@@ -371,6 +385,10 @@ bool AVRAsmPrinter::doFinalization(Module &M) {
 }
 
 void AVRAsmPrinter::emitFunctionData(MachineFunction &MF) {
+
+  assert(0 && "Not Yet Implemented");
+/*
+
   const Function *F = MF.getFunction();
   std::string FuncName = Mang->getValueName(F);
   const Module *M = F->getParent();
@@ -418,10 +436,14 @@ void AVRAsmPrinter::emitFunctionData(MachineFunction &MF) {
   emitFunctionTempData(MF, FrameSize);
   if (RetSize > FrameSize)
     O << CurrentFnName << ".dummy" << "RES" << (RetSize - FrameSize); 
+*/
 }
 
 void AVRAsmPrinter::emitFunctionTempData(MachineFunction &MF,
                                            unsigned &FrameSize) {
+
+  assert(0 && "Not Yet Implemented");
+/*
   // Emit temporary variables.
   MachineFrameInfo *FrameInfo = MF.getFrameInfo();
   if (FrameInfo->hasStackObjects()) {
@@ -433,12 +455,11 @@ void AVRAsmPrinter::emitFunctionTempData(MachineFunction &MF,
       O << CurrentFnName << ".tmp RES"<< " " 
         <<indexEnd - indexBegin <<"\n";
     } 
-    /*
     while (indexBegin < indexEnd) {
         O << CurrentFnName << "_tmp_" << indexBegin << " " << "RES"<< " " 
           << 1 << "\n" ;
         indexBegin++;
     }
-    */
-  }
+   /
+  }*/
 }
