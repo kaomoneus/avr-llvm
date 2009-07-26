@@ -31,4 +31,4 @@ Checkin Rules
 =============
 
 - Alway perform an svn update in the LLVM_SRC_ROOT __and__ in the avr-llvm target directory before checking in changes
-- Ensure that LLVM compiles with the commands above (llvm-gcc is not jet working)
+- Ensure that LLVM compiles with the commands above (llvm-gcc is not yet working)

@@ -121,7 +121,7 @@ def mem : Operand<i16> {
 // Instruction operand types
 def simm8      : Operand<i8>;
 
-def AVRWrapper  : SDNode<"PIC16ISD::Wrapper", SDTIntUnaryOp>;
+def AVRWrapper  : SDNode<"AVRISD::Wrapper", SDTIntUnaryOp>;
 
 // so_imm_XFORM - Return a so_imm value packed into the format described for
 // so_imm def below.

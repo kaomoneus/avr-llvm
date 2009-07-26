@@ -1366,7 +1366,7 @@ AVRTargetLowering::EmitInstrWithCustomInserter(MachineInstr *MI,
   MachineFunction *F = BB->getParent();
   MachineBasicBlock *copy0MBB = F->CreateMachineBasicBlock(LLVM_BB);
   MachineBasicBlock *sinkMBB = F->CreateMachineBasicBlock(LLVM_BB);
-  BuildMI(BB, TII.get(AVR::pic16brcond)).addMBB(sinkMBB).addImm(CC);
+  BuildMI(BB, TII.get(AVR::BRCOND)).addMBB(sinkMBB).addImm(CC);
   F->insert(It, copy0MBB);
   F->insert(It, sinkMBB);
 
