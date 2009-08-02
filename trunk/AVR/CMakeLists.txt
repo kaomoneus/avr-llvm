@@ -14,5 +14,5 @@ add_llvm_target(AVRCodeGen
   AVRSubtarget.cpp
   AVRTargetAsmInfo.cpp
   AVRTargetMachine.cpp
-  AVRISelDATToDAG.cpp
+  AVRISelDAGToDAG.cpp
   )
