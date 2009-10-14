@@ -2,7 +2,7 @@
 //
 //                     The LLVM Compiler Infrastructure
 //
-// This file is distributed under the University of Illinois Open Source 
+// This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
@@ -16,9 +16,9 @@
 
 using namespace llvm;
 
-AVRSubtarget::AVRSubtarget(const Module &M, const std::string &FS) {
+AVRSubtarget::AVRSubtarget(const std::string &TT, const std::string &FS) {
+
   std::string CPU = "generic";
-  
 
   // Parse features string.
   ParseSubtargetFeatures(FS, CPU);

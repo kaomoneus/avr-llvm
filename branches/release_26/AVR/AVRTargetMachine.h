@@ -1,4 +1,4 @@
-//===-- AVRTargetMachine.h - Define TargetMachine for AVR -------*- C++ -*-===//
+//===-- AVRTargetMachine.h - Define TargetMachine for AVR ---*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-//                                                                 
+// This file declares the AVR specific subclass of TargetMachine.
 //
 //===----------------------------------------------------------------------===//
 
@@ -17,6 +17,7 @@
 
 #include "AVRInstrInfo.h"
 #include "AVRISelLowering.h"
+#include "AVRFrameInfo.h"
 #include "AVRRegisterInfo.h"
 #include "AVRSubtarget.h"
 #include "llvm/Target/TargetData.h"
@@ -29,35 +30,33 @@ namespace llvm {
 ///
 class AVRTargetMachine : public LLVMTargetMachine {
   AVRSubtarget        Subtarget;
-  const TargetData      DataLayout;       // Calculates type size & alignment
+  const TargetData   DataLayout;       // Calculates type size & alignment
   AVRInstrInfo        InstrInfo;
   AVRTargetLowering   TLInfo;
-  TargetFrameInfo       FrameInfo;
 
-protected:
-  virtual const TargetAsmInfo *createTargetAsmInfo() const;
-  
+  AVRFrameInfo        FrameInfo;
+
 public:
-  AVRTargetMachine(const Module &M, const std::string &FS);
+  AVRTargetMachine(const Target &T, const std::string &TT, const std::string &FS);
 
-  virtual const TargetFrameInfo *getFrameInfo() const 
-  { return &FrameInfo; }
-  virtual const AVRInstrInfo *getInstrInfo() const 
-  { return &InstrInfo; }
-  virtual const TargetData *getTargetData() const    
-  { return &DataLayout; }
-  virtual AVRTargetLowering *getTargetLowering() const 
-  { return const_cast<AVRTargetLowering*>(&TLInfo); }
-  virtual const AVRRegisterInfo *getRegisterInfo() const 
-  { return &InstrInfo.getRegisterInfo(); }
-  virtual const AVRSubtarget *getSubtargetImpl() const 
-  { return &Subtarget; }  
-  virtual bool addInstSelector(PassManagerBase &PM, CodeGenOpt::Level OptLevel);
-  virtual bool addPrologEpilogInserter(PassManagerBase &PM, CodeGenOpt::Level OptLevel);
+  virtual const TargetFrameInfo *getFrameInfo() const { return &FrameInfo; }
+  virtual const AVRInstrInfo *getInstrInfo() const  { return &InstrInfo; }
+  virtual const TargetData *getTargetData() const     { return &DataLayout;}
+  virtual const AVRSubtarget *getSubtargetImpl() const { return &Subtarget; }
+
+  virtual const AVRRegisterInfo *getRegisterInfo() const {
+    return &(InstrInfo.getRegisterInfo());
+  }
+
+  virtual AVRTargetLowering *getTargetLowering() const {
+    return const_cast<AVRTargetLowering*>(&TLInfo);
+  }
+
+  virtual bool addInstSelector(PassManagerBase &PM,
+                               CodeGenOpt::Level OptLevel);
   virtual bool addPreEmitPass(PassManagerBase &PM, CodeGenOpt::Level OptLevel);
-  virtual bool addAssemblyEmitter(PassManagerBase &PM, CodeGenOpt::Level OptLevel, bool Verbose, 
-                                  raw_ostream &Out);
-};
+}; // AVRTargetMachine.
+
 } // end namespace llvm
 
 #endif

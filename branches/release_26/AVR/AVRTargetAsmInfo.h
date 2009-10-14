@@ -17,18 +17,11 @@
 #include "llvm/Target/TargetAsmInfo.h"
 
 namespace llvm {
-
-  // Forward declaration.
-  class AVRTargetMachine;
+  class Target;
+  class StringRef;
 
   struct AVRTargetAsmInfo : public TargetAsmInfo {
-    AVRTargetAsmInfo(const AVRTargetMachine &TM);
-    private:
-    /*const char *RomData8bitsDirective;
-    const char *RomData16bitsDirective;
-    const char *RomData32bitsDirective;
-    const char *getRomDirective(unsigned size) const;
-    virtual const char *getASDirective(unsigned size, unsigned AS) const;*/
+    explicit AVRTargetAsmInfo(const Target &T, const StringRef &TT);
   };
 
 } // namespace llvm
