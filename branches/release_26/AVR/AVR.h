@@ -2,12 +2,12 @@
 //
 //                     The LLVM Compiler Infrastructure
 //
-// This file is distributed under the University of Illinois Open Source 
+// This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
 //
-// This file contains the entry points for global functions defined in 
+// This file contains the entry points for global functions defined in
 // the LLVM AVR back-end.
 //
 //===----------------------------------------------------------------------===//
@@ -16,7 +16,7 @@
 #define TARGET_AVR_H
 
 #include "llvm/Target/TargetMachine.h"
-#include <iosfwd>
+
 
 namespace llvm {
   class AVRTargetMachine;
@@ -26,9 +26,11 @@ namespace llvm {
   class raw_ostream;
 
   FunctionPass *createAVRISelDag(AVRTargetMachine &TM);
-  FunctionPass *createAVRCodePrinterPass(raw_ostream &OS, 
+  FunctionPass *createAVRCodePrinterPass(raw_ostream &OS,
                                          AVRTargetMachine &TM,
 					CodeGenOpt::Level OL, bool verbose);
+  extern Target TheAVRTarget;
+
 } // end namespace llvm;
 
 // Defines symbolic names for AVR registers.  This defines a mapping from
