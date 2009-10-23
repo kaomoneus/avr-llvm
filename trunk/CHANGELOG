@@ -1,5 +1,7 @@
 ===========================
        ChangeLog
 ===========================
+$Id$
+===========================
 
 04.06.09: changed patches for configure and autoconf/configure.ac to llvm revision 72865

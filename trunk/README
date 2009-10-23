@@ -1,16 +1,22 @@
 ==========================
          AVR LLVM
 ==========================
+$Id$
+===========================
+
 
 Setup
 =====
 
 1. Check out the LLVM trunk (LLVM_SRC_ROOT)
 2. Copy the AVR subfolder to LLVM_SRC_ROOT/lib/Target
-3. Patch LLVM_SRC_ROOT/configure or the LLVM_SRC_ROOT/autoconf/configure.ac 
-   using diff files located in the patches subfolder
-   (Note: Don't forget to run LLVM_SRC_ROOT/autoconf/AutoRegen.sh if the 
-    configure.ac file was modified)
+3. Setup configuration tool using 3.a or alternatively 3.b
+   <3.a> Patch LLVM_SRC_ROOT/configure or the LLVM_SRC_ROOT/autoconf/configure.ac 
+      using diff files located in the patches subfolder
+      (Note: Don't forget to run LLVM_SRC_ROOT/autoconf/AutoRegen.sh if the 
+      configure.ac file was modified)
+   <3.b> Patch CMakesList.txt in LLVM_SRC_ROOT with 'trunk/patches/CMakeLists.diff'
+
 
 
 Build
@@ -26,6 +32,20 @@ configure and build the GCC front end:
 
   % LLVM_GCC_SRC_DIR/configure   --prefix=$HOME/usr/avr-llvm/ --enable-llvm=LLVM_OBJ_DIR --program-prefix=avr-llvm- --enable-languages=c
   % make LLVM_VERSION_INFO=avr-llvm (svn)
+
+
+Build (CMake)
+=====
+  Run cmake in the directory you want to use as the built directory (LLVM_OBJ_DIR)
+
+<example> This configures the built scripts in the directory 'llvm' and also makes an Eclipse project file
+
+% cmake -G"Eclipse CDT4 - Unix Makefiles" -DLLVM_TARGETS_TO_BUILD="AVR" \
+                       -DCMAKE_BUILD_TYPE=Debug -DLLVM_BUILD_TOOLS=ON -DLLVM_BUILD_EXAMPLES=OFF -DLLVM_ENABLE_THREADS=OFF ../llvm
+
+  Run make in the directory you want avr-llvm to be built (LLVM_OBJ_DIR)
+
+% make all
 
 Checkin Rules
 =============

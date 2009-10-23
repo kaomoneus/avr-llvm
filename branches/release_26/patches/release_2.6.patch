@@ -1,0 +1,28 @@
+Index: lib/ExecutionEngine/JIT/JITMemoryManager.cpp
+===================================================================
+--- lib/ExecutionEngine/JIT/JITMemoryManager.cpp	(révision 84434)
++++ lib/ExecutionEngine/JIT/JITMemoryManager.cpp	(copie de travail)
+@@ -556,16 +556,17 @@
+ }
+ 
+ DefaultJITMemoryManager::DefaultJITMemoryManager()
+-  : LastSlab(0, 0),
++    :
++#ifdef NDEBUG
++    PoisonMemory(false),
++#else
++    PoisonMemory(true),
++#endif
++    LastSlab(0, 0),
+     BumpSlabAllocator(*this),
+     StubAllocator(DefaultSlabSize, DefaultSizeThreshold, BumpSlabAllocator),
+     DataAllocator(DefaultSlabSize, DefaultSizeThreshold, BumpSlabAllocator) {
+ 
+-#ifdef NDEBUG
+-  PoisonMemory = false;
+-#else
+-  PoisonMemory = true;
+-#endif
+ 
+   // Allocate space for code.
+   sys::MemoryBlock MemBlock = allocateNewSlab(DefaultCodeSlabSize);
