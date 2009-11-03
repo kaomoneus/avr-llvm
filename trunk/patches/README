@@ -9,7 +9,18 @@ the LLVM trunk.
  this patch should be quite stable and might work even if the base files changes
 
 - configure.diff
- the confiugre script is autogen'ed using the configure.ac file. Minor changes is
+ the configure script is autogen'ed using the configure.ac file. Minor changes is
  the .ac file will result in major changes in the configure script. If the file 
  changes in the LLVM repo it must be regenerated using the merged configure.ac
- but setting up the autoregen evironment is not so easy...
+ but setting up the autoregen environment is not so easy...
+
+    [CMake sub-directory]
+
+- CMake.html.patch
+ Patch for documentation 'docs/CMake.html'
+ 
+- CMakeLists.patch
+ Patch to add AVR target to CMake
+ 
+- LLVMLibDeps.cmake.patch
+ Patch for AVR target library dependancys
