@@ -14,7 +14,7 @@ the LLVM trunk.
  changes in the LLVM repo it must be regenerated using the merged configure.ac
  but setting up the autoregen environment is not so easy...
 
-    [CMake sub-directory]
+    [CMake Patches]
 
 - CMake.html.patch
  Patch for documentation 'docs/CMake.html'
@@ -23,4 +23,7 @@ the LLVM trunk.
  Patch to add AVR target to CMake
  
 - LLVMLibDeps.cmake.patch
- Patch for AVR target library dependancys
+ Patch for AVR target library dependency's
+
+- config-ix.cmake.patch
+  'cmake/config-ix.cmake'
