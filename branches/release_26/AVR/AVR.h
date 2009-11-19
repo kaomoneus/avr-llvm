@@ -23,12 +23,15 @@ namespace llvm {
   class FunctionPassManager;
   class FunctionPass;
   class MachineCodeEmitter;
-  class raw_ostream;
+  //class ObjectCodeEmitter;
+  class formatted_raw_ostream;
 
-  FunctionPass *createAVRISelDag(AVRTargetMachine &TM);
-  FunctionPass *createAVRCodePrinterPass(raw_ostream &OS,
+  FunctionPass *createAVRISelDag(AVRTargetMachine &TM,
+                                  CodeGenOpt::Level OptLevel);
+
+/*  FunctionPass *createAVRCodePrinterPass(raw_ostream &OS,
                                          AVRTargetMachine &TM,
-					CodeGenOpt::Level OL, bool verbose);
+            CodeGenOpt::Level OL, bool verbose);*/
   extern Target TheAVRTarget;
 
 } // end namespace llvm;

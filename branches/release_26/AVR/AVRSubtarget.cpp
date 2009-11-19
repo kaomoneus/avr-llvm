@@ -13,6 +13,9 @@
 
 #include "AVRSubtarget.h"
 #include "AVRGenSubtarget.inc"
+#include "llvm/GlobalValue.h"
+#include "llvm/Target/TargetOptions.h"
+#include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
 

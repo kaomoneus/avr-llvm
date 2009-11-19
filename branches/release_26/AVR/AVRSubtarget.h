@@ -14,6 +14,7 @@
 #ifndef AVRSUBTARGET_H
 #define AVRSUBTARGET_H
 
+#include "llvm/Target/TargetInstrItineraries.h"
 #include "llvm/Target/TargetSubtarget.h"
 
 #include <string>

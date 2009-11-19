@@ -12,12 +12,12 @@
 //===----------------------------------------------------------------------===//
 
 
-#ifndef AVR_TARGETMACHINE_H
-#define AVR_TARGETMACHINE_H
+#ifndef LLVM_TARGET_AVR_TARGETMACHINE_H
+#define LLVM_TARGET_AVR_TARGETMACHINE_H
 
 #include "AVRInstrInfo.h"
 #include "AVRISelLowering.h"
-#include "AVRFrameInfo.h"
+//#include "AVRFrameInfo.h"
 #include "AVRRegisterInfo.h"
 #include "AVRSubtarget.h"
 #include "llvm/Target/TargetData.h"
@@ -30,11 +30,11 @@ namespace llvm {
 ///
 class AVRTargetMachine : public LLVMTargetMachine {
   AVRSubtarget        Subtarget;
-  const TargetData   DataLayout;       // Calculates type size & alignment
+  const TargetData    DataLayout;       // Calculates type size & alignment
   AVRInstrInfo        InstrInfo;
   AVRTargetLowering   TLInfo;
-
-  AVRFrameInfo        FrameInfo;
+  TargetFrameInfo     FrameInfo;
+  //AVRFrameInfo        FrameInfo;
 
 public:
   AVRTargetMachine(const Target &T, const std::string &TT, const std::string &FS);
@@ -45,7 +45,7 @@ public:
   virtual const AVRSubtarget *getSubtargetImpl() const { return &Subtarget; }
 
   virtual const AVRRegisterInfo *getRegisterInfo() const {
-    return &(InstrInfo.getRegisterInfo());
+    return &InstrInfo.getRegisterInfo();
   }
 
   virtual AVRTargetLowering *getTargetLowering() const {
@@ -54,7 +54,7 @@ public:
 
   virtual bool addInstSelector(PassManagerBase &PM,
                                CodeGenOpt::Level OptLevel);
-  virtual bool addPreEmitPass(PassManagerBase &PM, CodeGenOpt::Level OptLevel);
+  //virtual bool addPreEmitPass(PassManagerBase &PM, CodeGenOpt::Level OptLevel);
 }; // AVRTargetMachine.
 
 } // end namespace llvm

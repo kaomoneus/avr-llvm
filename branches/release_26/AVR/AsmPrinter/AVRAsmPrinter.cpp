@@ -20,22 +20,53 @@
 #include "llvm/Module.h"
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/DwarfWriter.h"
+
+#include "llvm/CodeGen/MachineModuleInfo.h"
+
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineConstantPool.h"
 #include "llvm/CodeGen/MachineInstr.h"
+#include "llvm/MC/MCStreamer.h"
 #include "llvm/Target/TargetAsmInfo.h"
+
 #include "llvm/Target/TargetData.h"
-#include "llvm/Target/TargetMachine.h"
-#include "llvm/Support/Mangler.h"
-#include "llvm/Support/raw_ostream.h"
+
+#include "llvm/Target/TargetLoweringObjectFile.h"
+#include "llvm/Target/TargetRegistry.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/FormattedStream.h"
+#include "llvm/Support/Mangler.h"
 #include "llvm/Support/MathExtras.h"
 #include <cctype>
 #include <cstring>
 #include <map>
 
+/*
+#include "llvm/Constants.h"
+#include "llvm/DerivedTypes.h"
+#include "llvm/Module.h"
+#include "llvm/CodeGen/AsmPrinter.h"
+#include "llvm/CodeGen/DwarfWriter.h"
+#include "llvm/CodeGen/MachineFunctionPass.h"
+#include "llvm/CodeGen/MachineConstantPool.h"
+#include "llvm/CodeGen/MachineInstr.h"
+#include "llvm/MC/MCStreamer.h"
+#include "llvm/Target/TargetAsmInfo.h"
+#include "llvm/Target/TargetData.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Support/Mangler.h"
+//#include "llvm/Support/raw_ostream.h"
+#include "llvm/ADT/Statistic.h"
+#include "llvm/ADT/StringExtras.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/MathExtras.h"
+//#include <cctype>
+//#include <cstring>
+//#include <map>
+*/
 
 using namespace llvm;
 
@@ -50,8 +81,9 @@ namespace {
     virtual const char *getPassName() const {
       return "AVR Assembly Printer";
     }
-#if 1
+
     bool runOnMachineFunction(MachineFunction &F);
+    void PrintGlobalVariable(const GlobalVariable *GVar);
     void printOperand(const MachineInstr *MI, int opNum);
     void printMemOperand(const MachineInstr *MI, int opNum); // custom printer
     void printCCOperand(const MachineInstr *MI, int opNum);
@@ -69,12 +101,12 @@ namespace {
     protected:
     bool doInitialization(Module &M);
     bool doFinalization(Module &M);
-    bool inSameBank(char *s1, char *s2);
+    //bool inSameBank(char *s1, char *s2); //TODO delete me (PIC stuff?)
 
     private:
-    std::string CurrentBankselLabelInBasicBlock;
-    bool IsRomData;
-#endif
+    //std::string CurrentBankselLabelInBasicBlock;
+    //bool IsRomData;
+
   };
 } // end of namespace
 
@@ -96,7 +128,8 @@ FunctionPass *llvm::createAVRCodePrinterPass(raw_ostream &o,
 }
 #endif
 
-
+//TODO delete me (PIC stuff?)
+/*
 bool AVRAsmPrinter::inSameBank (char *s1, char *s2){
 
   assert (s1 && s2 && "Null pointer assignment");
@@ -123,7 +156,7 @@ bool AVRAsmPrinter::inSameBank (char *s1, char *s2){
 
  _NotInSameBank:
   return false;
-}
+}*/
 
 bool AVRAsmPrinter::printMachineInstruction(const MachineInstr *MI) {
 #if 0
@@ -207,6 +240,9 @@ bool AVRAsmPrinter::runOnMachineFunction(MachineFunction &MF) {
 
 void AVRAsmPrinter::printMemOperand(const MachineInstr *MI, int opNum) {
   printOperand(MI, opNum);
+}
+
+void  AVRAsmPrinter::PrintGlobalVariable(const GlobalVariable *GVar) {
 }
 
 
@@ -391,9 +427,9 @@ void AVRAsmPrinter::EmitUnInitData (Module &M)
 }
 
 bool AVRAsmPrinter::doFinalization(Module &M) {
-/*  O << "\t" << "END\n";
+  O << "\t" << "END\n";
   bool Result = AsmPrinter::doFinalization(M);
-  return Result;*/
+  return Result;
 }
 
 void AVRAsmPrinter::emitFunctionData(MachineFunction &MF) {
@@ -476,3 +512,7 @@ void AVRAsmPrinter::emitFunctionTempData(MachineFunction &MF,
   }*/
 }
 
+// Force static initialization.
+extern "C" void LLVMInitializeAVRAsmPrinter() { 
+  RegisterAsmPrinter<AVRAsmPrinter> X(TheAVRTarget);
+}

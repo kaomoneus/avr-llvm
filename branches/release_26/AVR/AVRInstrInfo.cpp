@@ -31,7 +31,6 @@ AVRInstrInfo::AVRInstrInfo(AVRSubtarget &ST)
   : TargetInstrInfoImpl(AVRInsts, array_lengthof(AVRInsts)),
     RegInfo(ST, *this), Subtarget(ST) {}
 
-
 /// isStoreToStackSlot - If the specified machine instruction is a direct
 /// store to a stack slot, return the virtual or physical register number of
 /// the source reg along with the FrameIndex of the loaded stack slot.  

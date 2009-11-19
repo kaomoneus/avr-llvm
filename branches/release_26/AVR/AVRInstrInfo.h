@@ -18,6 +18,7 @@
 
 #include "AVR.h"
 #include "AVRRegisterInfo.h"
+#include "AVRSubtarget.h"
 #include "llvm/Target/TargetInstrInfo.h"
 
 namespace llvm {
@@ -28,7 +29,7 @@ class AVRInstrInfo : public TargetInstrInfoImpl
   const AVRRegisterInfo RegInfo;
   AVRSubtarget &Subtarget;
 public:
-  explicit AVRInstrInfo(AVRSubtarget &ST);
+  AVRInstrInfo(AVRSubtarget &ST);
 
  /// getRegisterInfo - TargetInstrInfo is a superset of MRegister info.  As
  /// such, whenever a client has an instance of instruction info, it should
