@@ -17,7 +17,7 @@ BUILT_SOURCES = AVRGenRegisterInfo.h.inc AVRGenRegisterNames.inc \
 		AVRGenAsmWriter.inc \
 		AVRGenDAGISel.inc AVRGenCallingConv.inc
 
-DIRS = AsmPrinter
+DIRS = AsmPrinter TargetInfo
 
 include $(LEVEL)/Makefile.common
 
