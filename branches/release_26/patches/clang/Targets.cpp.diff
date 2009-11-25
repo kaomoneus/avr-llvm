@@ -1,0 +1,89 @@
+Index: lib/Basic/Targets.cpp
+===================================================================
+--- lib/Basic/Targets.cpp	(revision 89621)
++++ lib/Basic/Targets.cpp	(working copy)
+@@ -1343,7 +1343,75 @@
+   }
+ }
+ 
++namespace {
++  class AVRTargetInfo : public TargetInfo{
++  public:
++  	AVRTargetInfo(const std::string& triple) : TargetInfo(triple) {
++      TLSSupported = false;
++      IntWidth = 16;
++      LongWidth = LongLongWidth = 32;
++      IntMaxTWidth = 32;
++      PointerWidth = 16;
++      IntAlign = 8;
++      LongAlign = LongLongAlign = 8;
++      PointerAlign = 8;
++      SizeType = UnsignedInt;
++      IntMaxType = SignedLong;
++      UIntMaxType = UnsignedLong;
++      IntPtrType = SignedShort;
++      PtrDiffType = SignedInt;
++      FloatWidth = 32;
++      FloatAlign = 32;
++      DoubleWidth = 32;
++      DoubleAlign = 32;
++      LongDoubleWidth = 32;
++      LongDoubleAlign = 32;
++      FloatFormat = &llvm::APFloat::IEEEsingle;
++      DoubleFormat = &llvm::APFloat::IEEEsingle;
++      LongDoubleFormat = &llvm::APFloat::IEEEsingle;
++      DescriptionString = "e-p:16:8:8-i8:8:8-i16:8:8-i32:8:8-f32:32:32";
+ 
++    }
++    virtual uint64_t getPointerWidthV(unsigned AddrSpace) const { return 16; }
++    virtual uint64_t getPointerAlignV(unsigned AddrSpace) const { return 8; }
++    virtual void getTargetDefines(const LangOptions &Opts,
++                                  std::vector<char> &Defines) const {
++      Define(Defines, "__avr__");
++      Define(Defines, "__eeprom__", "__attribute__((address_space(2)))");
++      Define(Defines, "PROGMEM", "__attribute__((address_space(1)))");
++      Define(Defines, "__ATTR_PROGMEM__", "__attribute__((address_space(1)))");
++      Define(Defines, "__flash__", "__attribute__((address_space(1)))");
++      Define(Defines, "ram", "__attribute__((address_space(0)))");
++
++      /*Define(Defines, "_interrupt",
++             "__attribute__((section(\"interrupt=0x4\"))) \
++             __attribute__((used))");*/
++    }
++    virtual void getTargetBuiltins(const Builtin::Info *&Records,
++                                   unsigned &NumRecords) const {}
++   
++    virtual const char *getTargetPrefix() const {
++      return "avr";
++    }
++    
++    virtual const char *getVAListDeclaration() const {
++      return "";
++    }
++    virtual const char *getClobbers() const {
++      return "";
++    }
++    virtual void getGCCRegNames(const char * const *&Names,
++                                unsigned &NumNames) const {}
++    virtual bool validateAsmConstraint(const char *&Name,
++                                       TargetInfo::ConstraintInfo &info) const {
++      return true;
++    }
++    virtual void getGCCRegAliases(const GCCRegAlias *&Aliases,
++                                  unsigned &NumAliases) const {}
++    //virtual bool useGlobalsForAutomaticVariables() const {return true;}
++  };
++}
++
+ namespace {
+   class SystemZTargetInfo : public TargetInfo {
+     static const char * const GCCRegNames[];
+@@ -1575,6 +1643,8 @@
+     default:
+       return new ARMTargetInfo(T);
+     }
++  case llvm::Triple::avr:
++  	return new AVRTargetInfo(T);
+ 
+   case llvm::Triple::bfin:
+     return new BlackfinTargetInfo(T);

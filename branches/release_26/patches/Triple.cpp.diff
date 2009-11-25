@@ -1,0 +1,30 @@
+Index: lib/Support/Triple.cpp
+===================================================================
+--- lib/Support/Triple.cpp	(revision 89620)
++++ lib/Support/Triple.cpp	(working copy)
+@@ -24,6 +24,7 @@
+     
+   case alpha:   return "alpha";
+   case arm:     return "arm";
++  case avr:     return "avr";
+   case bfin:    return "bfin";
+   case cellspu: return "cellspu";
+   case mips:    return "mips";
+@@ -81,6 +82,8 @@
+     return alpha;
+   if (Name == "arm")
+     return arm;
++  if (Name == "avr")
++    return avr;
+   if (Name == "bfin")
+     return bfin;
+   if (Name == "cellspu")
+@@ -134,6 +137,8 @@
+     Arch = bfin;
+   else if (ArchName == "pic16")
+     Arch = pic16;
++  else if (ArchName == "avr")
++    Arch = avr;
+   else if (ArchName == "powerpc")
+     Arch = ppc;
+   else if (ArchName == "powerpc64")
