@@ -414,13 +414,13 @@ def : Device<"avrxmega7",    [FeatureAVRXMEGA7] >;
 def : Device<"atxmega128a1", [FeatureAVRXMEGA7] >; // "__AVR_ATxmega128A1__"
 
 // Tiny
-def : Device<"avrtiny1",     [FeatureAVRTINY1] >;
-def : Device<"avrtiny4",     [FeatureAVRTINY1] >; // "__AVR_ATtiny4__"
-def : Device<"avrtiny5",     [FeatureAVRTINY1] >; // "__AVR_ATtiny5__"
-def : Device<"avrtiny9",     [FeatureAVRTINY1] >; // "__AVR_ATtiny9__"
-def : Device<"avrtiny10",    [FeatureAVRTINY1] >; // "__AVR_ATtiny10__"
-def : Device<"avrtiny20",    [FeatureAVRTINY1] >; // "__AVR_ATtiny20__"
-def : Device<"avrtiny40",    [FeatureAVRTINY1] >; // "__AVR_ATtiny40__"
+def : Device<"avrtiny1",    [FeatureAVRTINY1] >;
+def : Device<"attiny4",     [FeatureAVRTINY1] >; // "__AVR_ATtiny4__"
+def : Device<"attiny5",     [FeatureAVRTINY1] >; // "__AVR_ATtiny5__"
+def : Device<"attiny9",     [FeatureAVRTINY1] >; // "__AVR_ATtiny9__"
+def : Device<"attiny10",    [FeatureAVRTINY1] >; // "__AVR_ATtiny10__"
+def : Device<"attiny20",    [FeatureAVRTINY1] >; // "__AVR_ATtiny20__"
+def : Device<"attiny40",    [FeatureAVRTINY1] >; // "__AVR_ATtiny40__"
 
 
 
