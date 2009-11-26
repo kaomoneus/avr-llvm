@@ -179,6 +179,8 @@ AVRTargetLowering::LowerFormalArguments(SDValue Chain,
   case CallingConv::Fast:
     return LowerCCCArguments(Chain, CallConv, isVarArg, Ins, dl, DAG, InVals);
   }*/
+  assert(0 && "Not implemented");
+  return NULL;
 }
 
 SDValue
@@ -198,6 +200,8 @@ AVRTargetLowering::LowerCall(SDValue Chain, SDValue Callee,
     return LowerCCCCallTo(Chain, Callee, CallConv, isVarArg, isTailCall,
                           Outs, Ins, dl, DAG, InVals);
   }*/
+  assert(0 && "Not implemented");
+  return NULL;
 }
 
 /// LowerCCCArguments - transform physical registers into virtual registers and
@@ -282,6 +286,8 @@ AVRTargetLowering::LowerCCCArguments(SDValue Chain,
   }
 
   return Chain;*/
+  assert(0 && "Not implemented");
+  return NULL;
 }
 
 SDValue
@@ -328,6 +334,8 @@ AVRTargetLowering::LowerReturn(SDValue Chain,
 
   // Return Void
   return DAG.getNode(AVRISD::RET_FLAG, dl, MVT::Other, Chain);*/
+  assert(0 && "Not implemented");
+  return NULL;
 }
 
 /// LowerCCCCallTo - functions arguments are copied from virtual regs to
@@ -454,6 +462,8 @@ AVRTargetLowering::LowerCCCCallTo(SDValue Chain, SDValue Callee,
   // return.
   return LowerCallResult(Chain, InFlag, CallConv, isVarArg, Ins, dl,
                          DAG, InVals);*/
+  assert(0 && "Not implemented");
+  return NULL;
 }
 
 /// LowerCallResult - Lower the result values of a call into the
@@ -482,6 +492,8 @@ AVRTargetLowering::LowerCallResult(SDValue Chain, SDValue InFlag,
   }
 
   return Chain;*/
+  assert(0 && "Not implemented");
+  return NULL;
 }
 
 SDValue AVRTargetLowering::LowerShifts(SDValue Op,
@@ -514,6 +526,8 @@ SDValue AVRTargetLowering::LowerShifts(SDValue Op,
                          dl, VT, Victim);
 
   return Victim;*/
+  assert(0 && "Not implemented");
+  return NULL;
 }
 
 SDValue AVRTargetLowering::LowerGlobalAddress(SDValue Op, SelectionDAG &DAG) {/*
@@ -524,6 +538,8 @@ SDValue AVRTargetLowering::LowerGlobalAddress(SDValue Op, SelectionDAG &DAG) {/*
   SDValue Result = DAG.getTargetGlobalAddress(GV, getPointerTy(), Offset);
   return DAG.getNode(AVRISD::Wrapper, Op.getDebugLoc(),
                      getPointerTy(), Result);*/
+  assert(0 && "Not implemented");
+  return NULL;
 }
 
 SDValue AVRTargetLowering::LowerExternalSymbol(SDValue Op,
@@ -533,6 +549,8 @@ SDValue AVRTargetLowering::LowerExternalSymbol(SDValue Op,
   SDValue Result = DAG.getTargetExternalSymbol(Sym, getPointerTy());
 
   return DAG.getNode(AVRISD::Wrapper, dl, getPointerTy(), Result);;*/
+  assert(0 && "Not implemented");
+  return NULL;
 }
 
 static SDValue EmitCMP(SDValue &LHS, SDValue &RHS, unsigned &TargetCC,
@@ -574,6 +592,8 @@ static SDValue EmitCMP(SDValue &LHS, SDValue &RHS, unsigned &TargetCC,
   }
 
   return DAG.getNode(AVRISD::CMP, dl, MVT::Flag, LHS, RHS);*/
+  assert(0 && "Not implemented");
+  return NULL;
 }
 
 
@@ -592,6 +612,8 @@ SDValue AVRTargetLowering::LowerBR_CC(SDValue Op, SelectionDAG &DAG) {/*
                      Chain,
                      Dest, DAG.getConstant(TargetCC, MVT::i8),
                      Flag);*/
+  assert(0 && "Not implemented");
+  return NULL;
 }
 
 SDValue AVRTargetLowering::LowerSELECT_CC(SDValue Op, SelectionDAG &DAG) {/*
@@ -613,6 +635,8 @@ SDValue AVRTargetLowering::LowerSELECT_CC(SDValue Op, SelectionDAG &DAG) {/*
   Ops.push_back(Flag);
 
   return DAG.getNode(AVRISD::SELECT_CC, dl, VTs, &Ops[0], Ops.size());*/
+  assert(0 && "Not implemented");
+  return NULL;
 }
 
 SDValue AVRTargetLowering::LowerSIGN_EXTEND(SDValue Op,
@@ -707,4 +731,6 @@ AVRTargetLowering::EmitInstrWithCustomInserter(MachineInstr *MI,
   F->DeleteMachineInstr(MI);   // The pseudo instruction is gone now.
   return BB;
 #endif
+  assert(0 && "Not implemented");
+  return NULL;
 }

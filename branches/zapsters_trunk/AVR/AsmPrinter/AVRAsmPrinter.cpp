@@ -70,7 +70,7 @@
 
 using namespace llvm;
 
-STATISTIC(EmittedInsts, "Number of machine instrs printed");
+// STATISTIC(EmittedInsts, "Number of machine instrs printed");
 
 namespace {
   struct VISIBILITY_HIDDEN AVRAsmPrinter : public AsmPrinter {
@@ -247,8 +247,8 @@ void  AVRAsmPrinter::PrintGlobalVariable(const GlobalVariable *GVar) {
 
 
 void AVRAsmPrinter::printOperand(const MachineInstr *MI, int opNum) {
-  const MachineOperand &MO = MI->getOperand(opNum);
 #if 0
+  const MachineOperand &MO = MI->getOperand(opNum);
   switch (MO.getType()) {
     case MachineOperand::MO_Register:
       if (TargetRegisterInfo::isPhysicalRegister(MO.getReg()))
