@@ -30,11 +30,30 @@ class AVRSubtarget : public TargetSubtarget {
   bool HasEIJMP;
   bool HasSPM;
   bool HasDES;
+  bool HasEIJMP_EICALL;
+  bool HasELPM;
+  bool HasELPMX;
+  bool HasJMP_CALL;
+  bool HasMOVW_LPMX;
+  bool HasRAMPX_Y_D;
+  bool HasTiny_Regs_Insns;  
+  
+  bool IsAsmOnly;
+  bool IsAVRTINY1;
+  bool IsAVRXMEGA1;
+  bool IsAVRXMEGA2;
+  bool IsAVRXMEGA3;
+  bool IsAVRXMEGA4;
+  bool IsAVRXMEGA5;
+  bool IsAVRXMEGA6;
+  bool IsAVRXMEGA7;
 
+  bool IsAVR1;
   bool IsAVR2;
   bool IsAVR25;
   bool IsAVR3;
   bool IsAVR31;
+  bool IsAVR35;
   bool IsAVR4;
   bool IsAVR5;
   bool IsAVR51;

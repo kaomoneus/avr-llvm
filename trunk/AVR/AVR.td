@@ -77,8 +77,8 @@ def FeatureRAMPX_Y_D
   : SubtargetFeature<"rampx_y_d", "HasRAMPX_Y_D", "true",
                      "Device has RAMPX, RAMPY, and RAMPD registers">;
 
-def FeatrueTiny_Regs_Insns
-  : SubtargetFeature<"tiny_regs_insns", "HasTiny_Regs_Insns", "true"
+def FeatureTiny_Regs_Insns
+  : SubtargetFeature<"tiny_regs_insns", "HasTiny_Regs_Insns", "true",
                      "Device has Tiny registers and instructions">;
 
 
@@ -181,8 +181,8 @@ def FeatureAVRXMEGA7
 
 def FeatureAVRTINY1
   : SubtargetFeature<"avrtiny1", "IsAVRTINY1", "true",
-                     "AVRTINY1 architecture"
-                     [FeatrueTiny_Regs_Insns]>;
+                     "AVRTINY1 architecture",
+                     [FeatureTiny_Regs_Insns]>;
 
 
 //===----------------------------------------------------------------------===//
