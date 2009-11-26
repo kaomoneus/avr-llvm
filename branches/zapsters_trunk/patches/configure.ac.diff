@@ -1,6 +1,6 @@
 Index: autoconf/configure.ac
 ===================================================================
---- autoconf/configure.ac	(revision 86536)
+--- autoconf/configure.ac	(revision 82141)
 +++ autoconf/configure.ac	(working copy)
 @@ -274,6 +274,7 @@
    mips-*)                 llvm_cv_target_arch="Mips" ;;
@@ -10,7 +10,7 @@ Index: autoconf/configure.ac
    msp430-*)               llvm_cv_target_arch="MSP430" ;;
    s390x-*)                llvm_cv_target_arch="SystemZ" ;;
    bfin-*)                 llvm_cv_target_arch="Blackfin" ;;
-@@ -414,6 +415,7 @@
+@@ -403,6 +404,7 @@
      MSP430)      AC_SUBST(TARGET_HAS_JIT,0) ;;
      SystemZ)     AC_SUBST(TARGET_HAS_JIT,0) ;;
      Blackfin)    AC_SUBST(TARGET_HAS_JIT,0) ;;
@@ -18,7 +18,7 @@ Index: autoconf/configure.ac
      *)           AC_SUBST(TARGET_HAS_JIT,0) ;;
    esac
  fi
-@@ -479,6 +481,7 @@
+@@ -468,6 +470,7 @@
        MSP430)      TARGETS_TO_BUILD="MSP430" ;;
        SystemZ)     TARGETS_TO_BUILD="SystemZ" ;;
        Blackfin)    TARGETS_TO_BUILD="Blackfin" ;;
@@ -26,7 +26,7 @@ Index: autoconf/configure.ac
        *)       AC_MSG_ERROR([Can not set target to build]) ;;
      esac
      ;;
-@@ -500,6 +503,7 @@
+@@ -489,6 +492,7 @@
          cbe)      TARGETS_TO_BUILD="CBackend $TARGETS_TO_BUILD" ;;
          msil)     TARGETS_TO_BUILD="MSIL $TARGETS_TO_BUILD" ;;
          cpp)      TARGETS_TO_BUILD="CppBackend $TARGETS_TO_BUILD" ;;
