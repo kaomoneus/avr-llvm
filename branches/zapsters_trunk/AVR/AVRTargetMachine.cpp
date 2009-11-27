@@ -12,15 +12,16 @@
 //===----------------------------------------------------------------------===//
 
 #include "AVR.h"
-#include "AVRTargetAsmInfo.h"
 #include "AVRTargetMachine.h"
+#include "AVRMCAsmInfo.h"
 #include "llvm/PassManager.h"
 #include "llvm/CodeGen/Passes.h"
-#include "llvm/Target/TargetAsmInfo.h"
+//#include "llvm/Target/TargetAsmInfo.h"
 #include "llvm/Target/TargetRegistry.h"
 
 using namespace llvm;
 
+#if 0
 static const TargetAsmInfo *createTargetAsmInfo(const Target &T,
                                                 const StringRef &TT) {
   Triple TheTriple(TT);
@@ -28,12 +29,12 @@ static const TargetAsmInfo *createTargetAsmInfo(const Target &T,
   return new AVRTargetAsmInfo(T, TT);
 
 }
-
+#endif
 extern "C" void LLVMInitializeAVRTarget() {
   // Register the target.
   RegisterTargetMachine<AVRTargetMachine> X(TheAVRTarget);
-  //RegisterAsmInfo<AVRTargetAsmInfo> A(TheAVRTarget);
-  RegisterAsmInfoFn A(TheAVRTarget, createTargetAsmInfo);
+  RegisterAsmInfo<AVRMCAsmInfo> A(TheAVRTarget);
+
 }
 
 

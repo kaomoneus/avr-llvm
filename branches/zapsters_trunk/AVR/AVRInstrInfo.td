@@ -493,7 +493,7 @@ def IOAddr :ComplexPattern<iPTR, 1, "SelectIOAddr", [], []>;
 
 // Memory operands
 def MEMri : Operand<i8> {
-  let PrintMethod = "printMemOperand";
+  let PrintMethod = "printOperand";
   let MIOperandInfo = (ops GPRegs, i16imm);
 }
 

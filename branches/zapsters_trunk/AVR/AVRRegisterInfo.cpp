@@ -76,9 +76,9 @@ eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBasicBlock &MBB,
 // FrameIndex represent objects inside a abstract stack.
 // We must replace FrameIndex with an stack/frame pointer
 // direct reference.
-void AVRRegisterInfo::
+unsigned int AVRRegisterInfo::
 eliminateFrameIndex(MachineBasicBlock::iterator II, int SPAdj, 
-                    RegScavenger *RS) const 
+                    int *Value, RegScavenger *RS) const 
 {
   /*MachineInstr &MI    = *II;
   MachineFunction &MF = *MI.getParent()->getParent();
@@ -112,6 +112,8 @@ eliminateFrameIndex(MachineBasicBlock::iterator II, int SPAdj,
 
   // MI.getOperand(i+1).ChangeToImmediate(Offset);
   MI.getOperand(i).ChangeToRegister(getFrameRegister(MF), false);*/
+  assert(0 && "Not implemented");
+  return 0;
 }
 
 void AVRRegisterInfo::
@@ -163,7 +165,7 @@ unsigned AVRRegisterInfo::getRARegister() const {
   return 0;
 }
 
-unsigned AVRRegisterInfo::getFrameRegister(MachineFunction &MF) const {
+unsigned AVRRegisterInfo::getFrameRegister(const MachineFunction &MF) const {
   assert(0 && "What is the frame register");
   return AVR::Y_PTR;
 }

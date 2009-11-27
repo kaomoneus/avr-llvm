@@ -39,7 +39,7 @@ using namespace llvm;
 
 AVRTargetLowering::AVRTargetLowering(AVRTargetMachine &tm) :
   TargetLowering(tm, new TargetLoweringObjectFileELF()),
-  Subtarget(*tm.getSubtargetImpl()), TM(tm) {
+  ST(*tm.getSubtargetImpl()), TM(tm) {
 
   // Set up the register classes.
   addRegisterClass(MVT::i8,  AVR::GPRegsRegisterClass);
@@ -164,13 +164,11 @@ unsigned AVRTargetLowering::getFunctionAlignment(const Function *F) const {
 
 SDValue
 AVRTargetLowering::LowerFormalArguments(SDValue Chain,
-                                           unsigned CallConv,
-                                           bool isVarArg,
-                                           const SmallVectorImpl<ISD::InputArg>
-                                             &Ins,
-                                           DebugLoc dl,
-                                           SelectionDAG &DAG,
-                                           SmallVectorImpl<SDValue> &InVals) {/*
+                         CallingConv::ID CallConv, bool isVarArg,
+                         const SmallVectorImpl<ISD::InputArg> &Ins,
+                         DebugLoc dl, SelectionDAG &DAG,
+                         SmallVectorImpl<SDValue> &InVals) {
+/*
 
   switch (CallConv) {
   default:
@@ -180,12 +178,12 @@ AVRTargetLowering::LowerFormalArguments(SDValue Chain,
     return LowerCCCArguments(Chain, CallConv, isVarArg, Ins, dl, DAG, InVals);
   }*/
   assert(0 && "Not implemented");
-  return NULL;
+  return SDValue();
 }
 
 SDValue
 AVRTargetLowering::LowerCall(SDValue Chain, SDValue Callee,
-                                unsigned CallConv, bool isVarArg,
+                                CallingConv::ID CallConv, bool isVarArg,
                                 bool isTailCall,
                                 const SmallVectorImpl<ISD::OutputArg> &Outs,
                                 const SmallVectorImpl<ISD::InputArg> &Ins,
@@ -201,7 +199,7 @@ AVRTargetLowering::LowerCall(SDValue Chain, SDValue Callee,
                           Outs, Ins, dl, DAG, InVals);
   }*/
   assert(0 && "Not implemented");
-  return NULL;
+  return SDValue();
 }
 
 /// LowerCCCArguments - transform physical registers into virtual registers and
@@ -287,12 +285,12 @@ AVRTargetLowering::LowerCCCArguments(SDValue Chain,
 
   return Chain;*/
   assert(0 && "Not implemented");
-  return NULL;
+  return SDValue();
 }
 
 SDValue
 AVRTargetLowering::LowerReturn(SDValue Chain,
-                                  unsigned CallConv, bool isVarArg,
+                                  CallingConv::ID CallConv, bool isVarArg,
                                   const SmallVectorImpl<ISD::OutputArg> &Outs,
                                   DebugLoc dl, SelectionDAG &DAG) {/*
 
@@ -335,7 +333,7 @@ AVRTargetLowering::LowerReturn(SDValue Chain,
   // Return Void
   return DAG.getNode(AVRISD::RET_FLAG, dl, MVT::Other, Chain);*/
   assert(0 && "Not implemented");
-  return NULL;
+  return SDValue();
 }
 
 /// LowerCCCCallTo - functions arguments are copied from virtual regs to
@@ -463,7 +461,7 @@ AVRTargetLowering::LowerCCCCallTo(SDValue Chain, SDValue Callee,
   return LowerCallResult(Chain, InFlag, CallConv, isVarArg, Ins, dl,
                          DAG, InVals);*/
   assert(0 && "Not implemented");
-  return NULL;
+  return SDValue();
 }
 
 /// LowerCallResult - Lower the result values of a call into the
@@ -493,7 +491,7 @@ AVRTargetLowering::LowerCallResult(SDValue Chain, SDValue InFlag,
 
   return Chain;*/
   assert(0 && "Not implemented");
-  return NULL;
+  return SDValue();
 }
 
 SDValue AVRTargetLowering::LowerShifts(SDValue Op,
@@ -527,7 +525,7 @@ SDValue AVRTargetLowering::LowerShifts(SDValue Op,
 
   return Victim;*/
   assert(0 && "Not implemented");
-  return NULL;
+  return SDValue();
 }
 
 SDValue AVRTargetLowering::LowerGlobalAddress(SDValue Op, SelectionDAG &DAG) {/*
@@ -539,7 +537,7 @@ SDValue AVRTargetLowering::LowerGlobalAddress(SDValue Op, SelectionDAG &DAG) {/*
   return DAG.getNode(AVRISD::Wrapper, Op.getDebugLoc(),
                      getPointerTy(), Result);*/
   assert(0 && "Not implemented");
-  return NULL;
+  return SDValue();
 }
 
 SDValue AVRTargetLowering::LowerExternalSymbol(SDValue Op,
@@ -550,12 +548,12 @@ SDValue AVRTargetLowering::LowerExternalSymbol(SDValue Op,
 
   return DAG.getNode(AVRISD::Wrapper, dl, getPointerTy(), Result);;*/
   assert(0 && "Not implemented");
-  return NULL;
+  return SDValue();
 }
 
-static SDValue EmitCMP(SDValue &LHS, SDValue &RHS, unsigned &TargetCC,
+/*static SDValue EmitCMP(SDValue &LHS, SDValue &RHS, unsigned &TargetCC,
                        ISD::CondCode CC,
-                       DebugLoc dl, SelectionDAG &DAG) {/*
+                       DebugLoc dl, SelectionDAG &DAG) {
   // FIXME: Handle bittests someday
   assert(!LHS.getValueType().isFloatingPoint() && "We don't handle FP yet");
 
@@ -591,11 +589,11 @@ static SDValue EmitCMP(SDValue &LHS, SDValue &RHS, unsigned &TargetCC,
     break;
   }
 
-  return DAG.getNode(AVRISD::CMP, dl, MVT::Flag, LHS, RHS);*/
+  return DAG.getNode(AVRISD::CMP, dl, MVT::Flag, LHS, RHS);
   assert(0 && "Not implemented");
-  return NULL;
+  return SDValue();
 }
-
+*/
 
 SDValue AVRTargetLowering::LowerBR_CC(SDValue Op, SelectionDAG &DAG) {/*
   SDValue Chain = Op.getOperand(0);
@@ -613,7 +611,7 @@ SDValue AVRTargetLowering::LowerBR_CC(SDValue Op, SelectionDAG &DAG) {/*
                      Dest, DAG.getConstant(TargetCC, MVT::i8),
                      Flag);*/
   assert(0 && "Not implemented");
-  return NULL;
+  return SDValue();
 }
 
 SDValue AVRTargetLowering::LowerSELECT_CC(SDValue Op, SelectionDAG &DAG) {/*
@@ -636,7 +634,7 @@ SDValue AVRTargetLowering::LowerSELECT_CC(SDValue Op, SelectionDAG &DAG) {/*
 
   return DAG.getNode(AVRISD::SELECT_CC, dl, VTs, &Ops[0], Ops.size());*/
   assert(0 && "Not implemented");
-  return NULL;
+  return SDValue();
 }
 
 SDValue AVRTargetLowering::LowerSIGN_EXTEND(SDValue Op,
@@ -670,10 +668,10 @@ const char *AVRTargetLowering::getTargetNodeName(unsigned Opcode) const {
 //===----------------------------------------------------------------------===//
 //  Other Lowering Code
 //===----------------------------------------------------------------------===//
-
-MachineBasicBlock*
+MachineBasicBlock *
 AVRTargetLowering::EmitInstrWithCustomInserter(MachineInstr *MI,
-                                                  MachineBasicBlock *BB) const {
+                                                 MachineBasicBlock *BB,
+                   DenseMap<MachineBasicBlock*, MachineBasicBlock*> *EM) const {
 #if 0
   const TargetInstrInfo &TII = *getTargetMachine().getInstrInfo();
   DebugLoc dl = MI->getDebugLoc();

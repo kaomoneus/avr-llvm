@@ -1,4 +1,4 @@
-//===-- AVRTargetAsmInfo.cpp - AVR asm properties ---------------------===//
+//===-- AVRMCAsmInfo.cpp - AVR asm properties ---------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,14 +7,14 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file contains the declarations of the AVRTargetAsmInfo properties.
+// This file contains the declarations of the AVRMCAsmInfo properties.
 //
 //===----------------------------------------------------------------------===//
 
-#include "AVRTargetAsmInfo.h"
+#include "AVRMCAsmInfo.h"
 
 using namespace llvm;
 
-AVRTargetAsmInfo::AVRTargetAsmInfo(const Target &T, const StringRef &TT) {
+AVRMCAsmInfo::AVRMCAsmInfo(const Target &T, const StringRef &TT) {
 
 }

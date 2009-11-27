@@ -29,7 +29,7 @@ class AVRInstrInfo : public TargetInstrInfoImpl
   const AVRRegisterInfo RegInfo;
   AVRSubtarget &Subtarget;
 public:
-  AVRInstrInfo(AVRSubtarget &ST);
+  explicit AVRInstrInfo(AVRSubtarget &ST);
 
  /// getRegisterInfo - TargetInstrInfo is a superset of MRegister info.  As
  /// such, whenever a client has an instance of instruction info, it should

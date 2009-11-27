@@ -1,4 +1,4 @@
-//=====-- AVRTargetAsmInfo.h - AVR asm properties ---------*- C++ -*--====//
+//=====-- AVRMCAsmInfo.h - AVR asm properties ---------*- C++ -*--====//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,21 +7,21 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file contains the declaration of the AVRTargetAsmInfo class.
+// This file contains the declaration of the AVRMCAsmInfo class.
 //
 //===----------------------------------------------------------------------===//
 
 #ifndef AVRTARGETASMINFO_H
 #define AVRTARGETASMINFO_H
 
-#include "llvm/Target/TargetAsmInfo.h"
+#include "llvm/MC/MCAsmInfo.h"
 
 namespace llvm {
   class Target;
   class StringRef;
 
-  struct AVRTargetAsmInfo : public TargetAsmInfo {
-    explicit AVRTargetAsmInfo(const Target &T, const StringRef &TT);
+  struct AVRMCAsmInfo : public MCAsmInfo {
+    explicit AVRMCAsmInfo(const Target &T, const StringRef &TT);
   };
 
 } // namespace llvm

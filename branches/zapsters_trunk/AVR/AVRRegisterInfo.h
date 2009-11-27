@@ -43,8 +43,8 @@ struct AVRRegisterInfo : public AVRGenRegisterInfo {
                                      MachineBasicBlock &MBB,
                                      MachineBasicBlock::iterator I) const;
 /**/
-  void eliminateFrameIndex(MachineBasicBlock::iterator II,
-                           int SPAdj, RegScavenger *RS = NULL) const;
+  unsigned int eliminateFrameIndex(MachineBasicBlock::iterator II,
+                           int SPAdj, int *Value = NULL,RegScavenger *RS = NULL) const;
 /**/
   void processFunctionBeforeFrameFinalized(MachineFunction &MF) const;
 
@@ -53,7 +53,7 @@ struct AVRRegisterInfo : public AVRGenRegisterInfo {
 
   // Debug information queries.
   unsigned getRARegister() const;
-  unsigned getFrameRegister(MachineFunction &MF) const;
+  unsigned getFrameRegister(const MachineFunction &MF) const;
 
   // Exception handling queries.
   unsigned getEHExceptionRegister() const;
