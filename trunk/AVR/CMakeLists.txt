@@ -6,13 +6,18 @@ tablegen(AVRGenRegisterInfo.inc -gen-register-desc)
 tablegen(AVRGenInstrNames.inc -gen-instr-enums)
 tablegen(AVRGenInstrInfo.inc -gen-instr-desc)
 tablegen(AVRGenAsmWriter.inc -gen-asm-writer)
+tablegen(AVRGenDAGISel.inc -gen-dag-isel)
+tablegen(AVRGenCallingConv.inc -gen-callingconv)
 tablegen(AVRGenSubtarget.inc -gen-subtarget)
 
 add_llvm_target(AVRCodeGen
-  AVRInstrInfo.cpp
-  AVRRegisterInfo.cpp
-  AVRSubtarget.cpp
-  AVRTargetAsmInfo.cpp
-  AVRTargetMachine.cpp
   AVRISelDAGToDAG.cpp
+  AVRRegisterInfo.cpp
+  AVRTargetAsmInfo.cpp
+  AVRInstrInfo.cpp
+  AVRISelLowering.cpp
+  AVRSubtarget.cpp
+  AVRTargetMachine.cpp
   )
+
+target_link_libraries (LLVMAVRCodeGen LLVMSelectionDAG)

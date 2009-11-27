@@ -18,6 +18,7 @@
 
 #include "AVR.h"
 #include "AVRRegisterInfo.h"
+#include "AVRSubtarget.h"
 #include "llvm/Target/TargetInstrInfo.h"
 
 namespace llvm {

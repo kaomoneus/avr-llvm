@@ -1,0 +1,12 @@
+Index: include/llvm/ADT/Triple.h
+===================================================================
+--- include/llvm/ADT/Triple.h	(revision 89957)
++++ include/llvm/ADT/Triple.h	(working copy)
+@@ -57,6 +57,7 @@
+     
+     alpha,   // Alpha: alpha
+     arm,     // ARM; arm, armv.*, xscale
++    avr,     // AVR: avr
+     bfin,    // Blackfin: bfin
+     cellspu, // CellSPU: spu, cellspu
+     mips,    // MIPS: mips, mipsallegrex

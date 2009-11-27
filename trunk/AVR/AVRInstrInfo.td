@@ -152,8 +152,8 @@ def i16immSExt8  : PatLeaf<(i16 imm), [{
 // 16-bits but only 8 bits are significant.
 def i16i8imm  : Operand<i16>;
 
-// most of the avr instructions are 2-addr. There is allse
-// a the isTwoAddress flag in the Instruction class but
+// most of the avr instructions are 2-addr. There is also
+// a isTwoAddress flag in the Instruction class but
 // Constraints are more flexible and should be used for
 // new implementations. 
 let Constraints = "$src1 = $dst" in {
@@ -493,7 +493,7 @@ def IOAddr :ComplexPattern<iPTR, 1, "SelectIOAddr", [], []>;
 
 // Memory operands
 def MEMri : Operand<i8> {
-  let PrintMethod = "printMemOperand";
+  let PrintMethod = "printOperand";
   let MIOperandInfo = (ops GPRegs, i16imm);
 }
 

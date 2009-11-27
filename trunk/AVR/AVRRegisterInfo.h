@@ -26,10 +26,10 @@ class Type;
 struct AVRRegisterInfo : public AVRGenRegisterInfo {
   AVRSubtarget &Subtarget;
   const TargetInstrInfo &TII;
-  
+
   AVRRegisterInfo(AVRSubtarget &st, const TargetInstrInfo &tii);
 
-  /// Code Generation virtual methods...  
+  /// Code Generation virtual methods...
   const unsigned *getCalleeSavedRegs(const MachineFunction *MF = 0) const;
 
   const TargetRegisterClass* const* getCalleeSavedRegClasses(
@@ -39,21 +39,21 @@ struct AVRRegisterInfo : public AVRGenRegisterInfo {
 
   bool hasFP(const MachineFunction &MF) const;
 
-/*  void eliminateCallFramePseudoInstr(MachineFunction &MF,
+  void eliminateCallFramePseudoInstr(MachineFunction &MF,
                                      MachineBasicBlock &MBB,
                                      MachineBasicBlock::iterator I) const;
-*/
-  void eliminateFrameIndex(MachineBasicBlock::iterator II,
-                           int SPAdj, RegScavenger *RS = NULL) const;
-/*
+/**/
+  unsigned int eliminateFrameIndex(MachineBasicBlock::iterator II,
+                           int SPAdj, int *Value = NULL,RegScavenger *RS = NULL) const;
+/**/
   void processFunctionBeforeFrameFinalized(MachineFunction &MF) const;
-*/
+
   void emitPrologue(MachineFunction &MF) const;
   void emitEpilogue(MachineFunction &MF, MachineBasicBlock &MBB) const;
-  
+
   // Debug information queries.
   unsigned getRARegister() const;
-  unsigned getFrameRegister(MachineFunction &MF) const;
+  unsigned getFrameRegister(const MachineFunction &MF) const;
 
   // Exception handling queries.
   unsigned getEHExceptionRegister() const;
