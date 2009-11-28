@@ -11,11 +11,11 @@ tablegen(AVRGenCallingConv.inc -gen-callingconv)
 tablegen(AVRGenSubtarget.inc -gen-subtarget)
 
 add_llvm_target(AVRCodeGen
-  AVRISelDAGToDAG.cpp
-  AVRRegisterInfo.cpp
-  AVRTargetAsmInfo.cpp
   AVRInstrInfo.cpp
+  AVRISelDAGToDAG.cpp
   AVRISelLowering.cpp
+  AVRMCAsmInfo.cpp
+  AVRRegisterInfo.cpp
   AVRSubtarget.cpp
   AVRTargetMachine.cpp
   )
