@@ -20,7 +20,7 @@ include "llvm/Target/Target.td"
 //===----------------------------------------------------------------------===//
 
 include "AVRRegisterInfo.td"
-//include "AVRCallingConv.td"
+include "AVRCallingConv.td"
 include "AVRInstrInfo.td"
 
 
