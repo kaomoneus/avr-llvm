@@ -26,7 +26,7 @@ def RetCC_AVR : CallingConv<[
   CCIfType<[i16], CCAssignToReg<[R25R24]>>,
   CCIfType<[i32], CCAssignToReg<[R25R24, R23R22]>>,
   CCIfType<[i64], CCAssignToReg<[R25R24, R23R22, R21R20, R19R18]>>
->;
+]>;
 
 
 //===----------------------------------------------------------------------===//
@@ -35,16 +35,21 @@ def RetCC_AVR : CallingConv<[
 
 def CC_AVR : CallingConv<[
   
-  // If the current function dosen't take variable arguments, 
-  CCIfNotVarArg<
+  // If the current function dosen't take variable arguments
+  //TODO: add CCIfNotVarArg, if required
+  //CCIfNotVarArg<
+  
   // the first arguments are passed in GPRs and
   CCIfType<[i8], CCAssignToReg<[R24, R22, R20, R18, R16, R14, R12, R10, R8]>>,
-  CCIfType<[i16], CCAssignToReg<[R25R24, R23R22, R21R20, R19R18, R17R16, 
+  CCIfType<[i16], CCAssignToReg<[R25R24, R23R22, R21R20, R19R18, R17R16,
                                  R15R14, R13R12, R11R10, R9R8]>>,
   CCIfType<[i32], CCAssignToReg<[R25R22, R21R18, R17R14, R13R10]>>,
   CCIfType<[i64], CCAssignToReg<[R25R18, R17R10]>>,
+  
   // all other arguments on the stack
-  CCIfType<[i8,i16,i32,i64], CCAssignToStack<1, 1>>>,
+  //TODO: fix AssignToStack arguments
+  //CCIfType<[i8,i16,i32,i64], CCAssignToStack<[1, 1]>>,
+  
   // arguments to functions with variable argument count are passed on the 
   // stack. i8 is extended to i16.
   CCIfType<[i16,i32,i64], CCAssignToStack<1, 1>>

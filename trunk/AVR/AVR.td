@@ -20,7 +20,7 @@ include "llvm/Target/Target.td"
 //===----------------------------------------------------------------------===//
 
 include "AVRRegisterInfo.td"
-//include "AVRCallingConv.td"
+include "AVRCallingConv.td"
 include "AVRInstrInfo.td"
 
 
@@ -30,6 +30,10 @@ def AVRInstrInfo : InstrInfo
     let TSFlagsShifts = [];
 }
 
+def AVRInstPrinter : AsmWriter 
+{
+  string AsmWriterClassName  = "InstPrinter";
+}
 
 //===----------------------------------------------------------------------===//
 // AVR subtarget features.
@@ -432,4 +436,5 @@ def AVR : Target
 {
     // Pull in Instruction Info:
     let InstructionSet = AVRInstrInfo;
+    let AssemblyWriters = [AVRInstPrinter];
 }
