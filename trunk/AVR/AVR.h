@@ -20,9 +20,9 @@
 
 namespace llvm {
   class AVRTargetMachine;
-  class FunctionPassManager;
+  //class FunctionPassManager;
   class FunctionPass;
-  class MachineCodeEmitter;
+  //class MachineCodeEmitter;
   //class ObjectCodeEmitter;
   class formatted_raw_ostream;
 

@@ -12,11 +12,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "AVR.h"
-#include "AVRTargetMachine.h"
 #include "AVRMCAsmInfo.h"
+#include "AVRTargetMachine.h"
 #include "llvm/PassManager.h"
 #include "llvm/CodeGen/Passes.h"
-//#include "llvm/Target/TargetAsmInfo.h"
+#include "llvm/MC/MCAsmInfo.h"
 #include "llvm/Target/TargetRegistry.h"
 
 using namespace llvm;

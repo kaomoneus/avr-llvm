@@ -1,4 +1,4 @@
-//===-- AVRAsmPrinter.cpp - AVR LLVM assembly writer ----------------------===//
+//===-- AVRAsmPrinter.cpp - AVR LLVM assembly writer ----------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -8,465 +8,404 @@
 //===----------------------------------------------------------------------===//
 //
 // This file contains a printer that converts from our internal representation
-// of machine-dependent LLVM code to AVR assembly language.
+// of machine-dependent LLVM code to the AVR assembly language.
 //
 //===----------------------------------------------------------------------===//
 
 #define DEBUG_TYPE "asm-printer"
-#include "AVRAsmPrinter.h"
-//#include "AVRSection.h"
+#include "AVR.h"
+#include "AVRInstrInfo.h"
+#include "AVRInstPrinter.h"
 #include "AVRMCAsmInfo.h"
-#include "llvm/DerivedTypes.h"
-#include "llvm/Function.h"
-#include "llvm/Module.h"
-#include "llvm/CodeGen/DwarfWriter.h"
-#include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/DwarfWriter.h"
-#include "llvm/CodeGen/MachineModuleInfo.h"
-#include "llvm/MC/MCStreamer.h"
-#include "llvm/MC/MCSymbol.h"
-#include "llvm/Target/TargetRegistry.h"
-#include "llvm/Target/TargetLoweringObjectFile.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/FormattedStream.h"
-#include "llvm/Support/Mangler.h"
-#include <cstring>
-
-/*
+#include "AVRMCInstLower.h"
+#include "AVRTargetMachine.h"
 #include "llvm/Constants.h"
 #include "llvm/DerivedTypes.h"
 #include "llvm/Module.h"
+#include "llvm/Assembly/Writer.h"
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/DwarfWriter.h"
+#include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineConstantPool.h"
 #include "llvm/CodeGen/MachineInstr.h"
+#include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCStreamer.h"
-#include "llvm/Target/MCAsmInfo.h"
+#include "llvm/MC/MCSymbol.h"
 #include "llvm/Target/TargetData.h"
-#include "llvm/Target/TargetMachine.h"
-#include "llvm/Support/Mangler.h"
-//#include "llvm/Support/raw_ostream.h"
+#include "llvm/Target/TargetLoweringObjectFile.h"
+#include "llvm/Target/TargetRegistry.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/MathExtras.h"
-//#include <cctype>
-//#include <cstring>
-//#include <map>
-*/
+#include "llvm/Support/FormattedStream.h"
+#include "llvm/Support/Mangler.h"
+#include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
 
-// STATISTIC(EmittedInsts, "Number of machine instrs printed");
+STATISTIC(EmittedInsts, "Number of machine instrs printed");
 
+static cl::opt<bool>
+EnableMCInst("enable-avr-mcinst-printer", cl::Hidden,
+             cl::desc("enable experimental mcinst gunk in the avr backend"));
 
-using namespace llvm;
+namespace {
+  class AVRAsmPrinter : public AsmPrinter {
+  public:
+    AVRAsmPrinter(formatted_raw_ostream &O, TargetMachine &TM,
+                     const MCAsmInfo *MAI, bool V)
+      : AsmPrinter(O, TM, MAI, V) {}
 
-AVRAsmPrinter::AVRAsmPrinter(formatted_raw_ostream &O, TargetMachine &TM, 
-                             const MCAsmInfo *T, bool V)
-                             : AsmPrinter(O, TM, T, V) { }
-
-#if 0
-/// createAVRCodePrinterPass - Returns a pass that prints the AVR
-/// assembly code for a MachineFunction to the given output stream,
-/// using the given target machine description.  This should work
-/// regardless of whether the function is in SSA form.
-///
-FunctionPass *llvm::createAVRCodePrinterPass(raw_ostream &o,
-                                             AVRTargetMachine &tm,
-                                             CodeGenOpt::Level OptLevel,
-                                             bool verbose) {
-  return new AVRAsmPrinter(o, tm, tm.getMCAsmInfo(), OptLevel, verbose);
-}
-
-//TODO delete me (PIC stuff?)
-/*
-bool AVRAsmPrinter::inSameBank (char *s1, char *s2){
-
-  assert (s1 && s2 && "Null pointer assignment");
-
-  if ((*s1 == '.') && (*s2 == '.')) { //skip if they both start with '.'
-    s1++;
-    s2++;
-  }
-  while (*s1 && *s2) {
-    if (*s1 != *s2)
-      goto _NotInSameBank;
-
-    if ((*s1 == '.') && (*s2 == '.')) //both symbols in same function
-      goto _InSameBank;               //in the same bank
-
-    s1++;
-    s2++;
-  }
-
-  if (*s1 && *s1) {
-  _InSameBank:
-    return true;
-  }
-
- _NotInSameBank:
-  return false;
-}*/
-
-bool AVRAsmPrinter::printMachineInstruction(const MachineInstr *MI) {
-  std::string NewBankselLabel;
-  unsigned Operands = MI->getNumOperands();
-  if (Operands > 1) {
-    // Global address or external symbol should be second operand from last
-    // if we want to print banksel for it.
-    const MachineOperand &Op = MI->getOperand(Operands-2);
-    unsigned OpType = Op.getType();
-    if (OpType == MachineOperand::MO_GlobalAddress ||
-        OpType == MachineOperand::MO_ExternalSymbol) {
-      if (OpType == MachineOperand::MO_GlobalAddress )
-        NewBankselLabel =  Mang->getValueName(Op.getGlobal());
-      else
-        NewBankselLabel =  Op.getSymbolName();
-
-      // Operand after global address or external symbol should be  banksel.
-      // Value 1 for this operand means we need to generate banksel else do not
-      // generate banksel.
-      const MachineOperand &BS = MI->getOperand(Operands-1);
-      if (((int)BS.getImm() == 1) &&
-          (!inSameBank ((char *)CurrentBankselLabelInBasicBlock.c_str(),
-			(char *)NewBankselLabel.c_str()))) {
-        CurrentBankselLabelInBasicBlock = NewBankselLabel;
-        O << "\tbanksel ";
-        printOperand(MI, Operands-2);
-        O << "\n";
-      }
+    virtual const char *getPassName() const {
+      return "AVR Assembly Printer";
     }
+
+    void printMCInst(const MCInst *MI) {
+      AVRInstPrinter(O, *MAI).printInstruction(MI);
+    }
+    void printOperand(const MachineInstr *MI, int OpNum,
+                      const char* Modifier = 0);
+    void printPCRelImmOperand(const MachineInstr *MI, int OpNum) {
+      printOperand(MI, OpNum);
+    }
+    void printSrcMemOperand(const MachineInstr *MI, int OpNum,
+                            const char* Modifier = 0);
+    void printCCOperand(const MachineInstr *MI, int OpNum);
+    void printMachineInstruction(const MachineInstr * MI);
+    bool PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
+                         unsigned AsmVariant,
+                         const char *ExtraCode);
+    bool PrintAsmMemoryOperand(const MachineInstr *MI,
+                               unsigned OpNo, unsigned AsmVariant,
+                               const char *ExtraCode);
+    void printInstructionThroughMCStreamer(const MachineInstr *MI);
+
+    void PrintGlobalVariable(const GlobalVariable* GVar);
+    void emitFunctionHeader(const MachineFunction &MF);
+    bool runOnMachineFunction(MachineFunction &F);
+
+    void getAnalysisUsage(AnalysisUsage &AU) const {
+      AsmPrinter::getAnalysisUsage(AU);
+      AU.setPreservesAll();
+    }
+  };
+} // end of anonymous namespace
+
+void AVRAsmPrinter::PrintGlobalVariable(const GlobalVariable* GVar) {
+  if (!GVar->hasInitializer())
+    return;   // External global require no code
+
+  // Check to see if this is a special global used by LLVM, if so, emit it.
+  if (EmitSpecialLLVMGlobal(GVar))
+    return;
+
+  const TargetData *TD = TM.getTargetData();
+
+  std::string name = Mang->getMangledName(GVar);
+  Constant *C = GVar->getInitializer();
+  unsigned Size = TD->getTypeAllocSize(C->getType());
+  unsigned Align = TD->getPreferredAlignmentLog(GVar);
+
+  printVisibility(name, GVar->getVisibility());
+
+  O << "\t.type\t" << name << ",@object\n";
+
+  OutStreamer.SwitchSection(getObjFileLowering().SectionForGlobal(GVar, Mang,
+                                                                  TM));
+
+  if (C->isNullValue() && !GVar->hasSection() &&
+      !GVar->isThreadLocal() &&
+      (GVar->hasLocalLinkage() || GVar->isWeakForLinker())) {
+
+    if (Size == 0) Size = 1;   // .comm Foo, 0 is undefined, avoid it.
+
+    if (GVar->hasLocalLinkage())
+      O << "\t.local\t" << name << '\n';
+
+    O << MAI->getCOMMDirective()  << name << ',' << Size;
+    if (MAI->getCOMMDirectiveTakesAlignment())
+      O << ',' << (MAI->getAlignmentIsInBytes() ? (1 << Align) : Align);
+
+    if (VerboseAsm) {
+      O.PadToColumn(MAI->getCommentColumn());
+      O << MAI->getCommentString() << ' ';
+      WriteAsOperand(O, GVar, /*PrintType=*/false, GVar->getParent());
+    }
+    O << '\n';
+    return;
   }
-  printInstruction(MI);
-  return true;
+
+  switch (GVar->getLinkage()) {
+  case GlobalValue::CommonLinkage:
+  case GlobalValue::LinkOnceAnyLinkage:
+  case GlobalValue::LinkOnceODRLinkage:
+  case GlobalValue::WeakAnyLinkage:
+  case GlobalValue::WeakODRLinkage:
+    O << "\t.weak\t" << name << '\n';
+    break;
+  case GlobalValue::DLLExportLinkage:
+  case GlobalValue::AppendingLinkage:
+    // FIXME: appending linkage variables should go into a section of
+    // their name or something.  For now, just emit them as external.
+  case GlobalValue::ExternalLinkage:
+    // If external or appending, declare as a global symbol
+    O << "\t.globl " << name << '\n';
+    // FALL THROUGH
+  case GlobalValue::PrivateLinkage:
+  case GlobalValue::LinkerPrivateLinkage:
+  case GlobalValue::InternalLinkage:
+     break;
+  default:
+    assert(0 && "Unknown linkage type!");
+  }
+
+  // Use 16-bit alignment by default to simplify bunch of stuff
+  EmitAlignment(Align, GVar);
+  O << name << ":";
+  if (VerboseAsm) {
+    O.PadToColumn(MAI->getCommentColumn());
+    O << MAI->getCommentString() << ' ';
+    WriteAsOperand(O, GVar, /*PrintType=*/false, GVar->getParent());
+  }
+  O << '\n';
+
+  EmitGlobalConstant(C);
+
+  if (MAI->hasDotTypeDotSizeDirective())
+    O << "\t.size\t" << name << ", " << Size << '\n';
 }
-#endif
-/// runOnMachineFunction - This uses the printInstruction()
-/// method to print assembly for each instruction.
-///
-bool AVRAsmPrinter::runOnMachineFunction(MachineFunction &MF) {
-  // This calls the base class function required to be called at beginning
-  // of runOnMachineFunction.
-  SetupMachineFunction(MF);
-#if 0
-  // Get the mangled name.
+
+void AVRAsmPrinter::emitFunctionHeader(const MachineFunction &MF) {
   const Function *F = MF.getFunction();
-  CurrentFnName = Mang->getValueName(F);
-  // TODO change to getMangledName
 
+  OutStreamer.SwitchSection(getObjFileLowering().SectionForGlobal(F, Mang, TM));
 
-  // Emit the function variables.
-  emitFunctionData(MF);
-  std::string codeSection;
-  codeSection = "code." + CurrentFnName + ".# " + "CODE";
-  const Section *fCodeSection = TAI->getNamedSection(codeSection.c_str(),
-                                               SectionFlags::Code);
-  O <<  "\n";
-  SwitchToSection (fCodeSection);
+  unsigned FnAlign = MF.getAlignment();
+  EmitAlignment(FnAlign, F);
+
+  switch (F->getLinkage()) {
+  default: llvm_unreachable("Unknown linkage type!");
+  case Function::InternalLinkage:  // Symbols default to internal.
+  case Function::PrivateLinkage:
+  case Function::LinkerPrivateLinkage:
+    break;
+  case Function::ExternalLinkage:
+    O << "\t.globl\t" << CurrentFnName << '\n';
+    break;
+  case Function::LinkOnceAnyLinkage:
+  case Function::LinkOnceODRLinkage:
+  case Function::WeakAnyLinkage:
+  case Function::WeakODRLinkage:
+    O << "\t.weak\t" << CurrentFnName << '\n';
+    break;
+  }
+
+  printVisibility(CurrentFnName, F->getVisibility());
+
+  O << "\t.type\t" << CurrentFnName << ",@function\n"
+    << CurrentFnName << ":\n";
+}
+
+bool AVRAsmPrinter::runOnMachineFunction(MachineFunction &MF) {
+  SetupMachineFunction(MF);
+  O << "\n\n";
+
+  // Print the 'header' of function
+  emitFunctionHeader(MF);
 
   // Print out code for the function.
   for (MachineFunction::const_iterator I = MF.begin(), E = MF.end();
        I != E; ++I) {
     // Print a label for the basic block.
-    if (I != MF.begin()) {
-      printBasicBlockLabel(I, true);
-      O << '\n';
-    }
-    else
-      O << CurrentFnName << ":\n";
-    CurrentBankselLabelInBasicBlock = "";
+    EmitBasicBlockStart(I);
+
     for (MachineBasicBlock::const_iterator II = I->begin(), E = I->end();
-         II != E; ++II) {
+         II != E; ++II)
       // Print the assembly for the instruction.
-        printMachineInstruction(II);
-    }
+      printMachineInstruction(II);
   }
-#endif
-  return false;  // we didn't modify anything.
+
+  if (MAI->hasDotTypeDotSizeDirective())
+    O << "\t.size\t" << CurrentFnName << ", .-" << CurrentFnName << '\n';
+
+  // We didn't modify anything
+  return false;
 }
 
-#if 0
+void AVRAsmPrinter::printMachineInstruction(const MachineInstr *MI) {
+  ++EmittedInsts;
 
-void AVRAsmPrinter::printMemOperand(const MachineInstr *MI, int opNum) {
-  printOperand(MI, opNum);
+  processDebugLoc(MI, true);
+
+  printInstructionThroughMCStreamer(MI);
+
+  if (VerboseAsm)
+    EmitComments(*MI);
+  O << '\n';
+
+  processDebugLoc(MI, false);
 }
 
-void  AVRAsmPrinter::PrintGlobalVariable(const GlobalVariable *GVar) {
-}
-
-#endif
-void AVRAsmPrinter::printOperand(const MachineInstr *MI, int opNum) {
-#if 0
-  const MachineOperand &MO = MI->getOperand(opNum);
+void AVRAsmPrinter::printOperand(const MachineInstr *MI, int OpNum,
+                                    const char* Modifier) {
+  const MachineOperand &MO = MI->getOperand(OpNum);
   switch (MO.getType()) {
-    case MachineOperand::MO_Register:
-      if (TargetRegisterInfo::isPhysicalRegister(MO.getReg()))
-        O << TM.getRegisterInfo()->get(MO.getReg()).AsmName;
-      else
-        assert(0 && "not implemented");
-        return;
+  case MachineOperand::MO_Register:
+    O << AVRInstPrinter::getRegisterName(MO.getReg());
+    return;
+  case MachineOperand::MO_Immediate:
+    if (!Modifier || strcmp(Modifier, "nohash"))
+      O << '#';
+    O << MO.getImm();
+    return;
+  case MachineOperand::MO_MachineBasicBlock:
+    GetMBBSymbol(MO.getMBB()->getNumber())->print(O, MAI);
+    return;
+  case MachineOperand::MO_GlobalAddress: {
+    bool isMemOp  = Modifier && !strcmp(Modifier, "mem");
+    std::string Name = Mang->getMangledName(MO.getGlobal());
+    uint64_t Offset = MO.getOffset();
 
-    case MachineOperand::MO_Immediate:
-      O << (int)MO.getImm();
-      return;
+    O << (isMemOp ? '&' : '#');
+    if (Offset)
+      O << '(' << Offset << '+';
 
-    case MachineOperand::MO_GlobalAddress:
-      O << Mang->getValueName(MO.getGlobal());
-      break;
+    O << Name;
+    if (Offset)
+      O << ')';
 
-    case MachineOperand::MO_ExternalSymbol:
-      O << MO.getSymbolName();
-      break;
-
-    case MachineOperand::MO_MachineBasicBlock:
-      printBasicBlockLabel(MO.getMBB());
-      return;
-
-    default:
-      assert(0 && " Operand type not supported.");
+    return;
   }
-#endif
-}
-#if 0
-void AVRAsmPrinter::printCCOperand(const MachineInstr *MI, int opNum) {
-  //int CC = (int)MI->getOperand(opNum).getImm();
-  //O << AVRCondCodeToString((AVRCC::CondCodes)CC);
-}
+  case MachineOperand::MO_ExternalSymbol: {
+    bool isMemOp  = Modifier && !strcmp(Modifier, "mem");
+    std::string Name(MAI->getGlobalPrefix());
+    Name += MO.getSymbolName();
 
+    O << (isMemOp ? '&' : '#') << Name;
 
-bool AVRAsmPrinter::doInitialization (Module &M) {
-  bool Result = AsmPrinter::doInitialization(M);
-/* ---PIC STUFF----
-  // FIXME:: This is temporary solution to generate the include file.
-  // The processor should be passed to llc as in input and the header file
-  // should be generated accordingly.
-  O << "\t#include P16F1937.INC\n";
-  EmitExternsAndGlobals (M);
-  EmitInitData (M);
-  EmitUnInitData(M);
-  //EmitRomData(M);
-*/
-  return Result;
+    return;
+  }
+  default:
+    llvm_unreachable("Not implemented yet!");
+  }
 }
 
-void AVRAsmPrinter::EmitExternsAndGlobals (Module &M) {
-#if 0
- // Emit declarations for external functions.
-  O << "section.0" <<"\n";
-  for (Module::iterator I = M.begin(), E = M.end(); I != E; I++) {
-    std::string Name = Mang->getValueName(I);
-    if (Name.compare("abort") == 0)
-      continue;
-    if (I->isDeclaration()) {
-      O << "\textern " <<Name << "\n";
-      O << "\textern " << Name << ".retval\n";
-      O << "\textern " << Name << ".args\n";
-    }
-    else if (I->hasExternalLinkage()) {
-      O << "\tglobal " << Name << "\n";
-      O << "\tglobal " << Name << ".retval\n";
-      O << "\tglobal " << Name << ".args\n";
-    }
+void AVRAsmPrinter::printSrcMemOperand(const MachineInstr *MI, int OpNum,
+                                          const char* Modifier) {
+  const MachineOperand &Base = MI->getOperand(OpNum);
+  const MachineOperand &Disp = MI->getOperand(OpNum+1);
+
+  // Print displacement first
+  if (!Disp.isImm()) {
+    printOperand(MI, OpNum+1, "mem");
+  } else {
+    if (!Base.getReg())
+      O << '&';
+
+    printOperand(MI, OpNum+1, "nohash");
   }
 
-  // Emit header file to include declaration of library functions
-  O << "\t#include C16IntrinsicCalls.INC\n";
 
-  // Emit declarations for external globals.
-  for (Module::const_global_iterator I = M.global_begin(), E = M.global_end();
-       I != E; I++) {
-    std::string Name = Mang->getValueName(I);
-    if (I->isDeclaration())
-      O << "\textern "<< Name << "\n";
-    else if (I->getLinkage() == GlobalValue::CommonLinkage)
-      O << "\tglobal "<< Name << "\n";
+  // Print register base field
+  if (Base.getReg()) {
+    O << '(';
+    printOperand(MI, OpNum);
+    O << ')';
   }
-#endif
 }
-void AVRAsmPrinter::EmitInitData (Module &M) {
-/*  SwitchToSection(TAI->getDataSection());
-  for (Module::const_global_iterator I = M.global_begin(), E = M.global_end();
-       I != E; ++I) {
-    if (!I->hasInitializer())   // External global require no code.
-      continue;
 
-    Constant *C = I->getInitializer();
-    const PointerType *PtrTy = I->getType();
-    int AddrSpace = PtrTy->getAddressSpace();
-
-    if ((!C->isNullValue()) && (AddrSpace == AVRISD::RAM_SPACE)) {
-
-      if (EmitSpecialLLVMGlobal(I))
-        continue;
-
-      // Any variables reaching here with "." in its name is a local scope
-      // variable and should not be printed in global data section.
-      std::string name = Mang->getValueName(I);
-      if (name.find(".") != std::string::npos)
-        continue;
-
-      O << name;
-      EmitGlobalConstant(C, AddrSpace);
-    }
-  }*/
-}
-/*
-void AVRAsmPrinter::EmitRomData (Module &M)
-{
-  SwitchToSection(TAI->getReadOnlySection());
-  IsRomData = true;
-  for (Module::const_global_iterator I = M.global_begin(), E = M.global_end();
-       I != E; ++I) {
-    if (!I->hasInitializer())   // External global require no code.
-      continue;
-
-    Constant *C = I->getInitializer();
-    const PointerType *PtrTy = I->getType();
-    int AddrSpace = PtrTy->getAddressSpace();
-    if ((!C->isNullValue()) && (AddrSpace == AVRISD::ROM_SPACE)) {
-
-      if (EmitSpecialLLVMGlobal(I))
-        continue;
-
-      // Any variables reaching here with "." in its name is a local scope
-      // variable and should not be printed in global data section.
-      std::string name = Mang->getValueName(I);
-      if (name.find(".") != std::string::npos)
-        continue;
-
-      O << name;
-      EmitGlobalConstant(C, AddrSpace);
-      O << "\n";
-    }
-  }
-  IsRomData = false;
-}
-*/
-void AVRAsmPrinter::EmitUnInitData (Module &M)
-{
-
-  assert(0 && "Not yet implemented!");
- /* SwitchToSection(TAI->getBSSSection_());
-  const TargetData *TD = TM.getTargetData();
-
-  for (Module::const_global_iterator I = M.global_begin(), E = M.global_end();
-       I != E; ++I) {
-    if (!I->hasInitializer())   // External global require no code.
-      continue;
-
-    Constant *C = I->getInitializer();
-    if (C->isNullValue()) {
-
-      if (EmitSpecialLLVMGlobal(I))
-        continue;
-
-      // Any variables reaching here with "." in its name is a local scope
-      // variable and should not be printed in global data section.
-      std::string name = Mang->getValueName(I);
-      if (name.find(".") != std::string::npos)
-        continue;
-
-      const Type *Ty = C->getType();
-      unsigned Size = TD->getTypePaddedSize(Ty);
-
-      O << name << " " <<"RES"<< " " << Size ;
-      O << "\n";
-    }
+void AVRAsmPrinter::printCCOperand(const MachineInstr *MI, int OpNum) {
+  unsigned CC = MI->getOperand(OpNum).getImm();
+/* MSP430CC defined in MSP430.h
+  switch (CC) {
+  default:
+   llvm_unreachable("Unsupported CC code");
+   break;
+  case MSP430CC::COND_E:
+   O << "eq";
+   break;
+  case MSP430CC::COND_NE:
+   O << "ne";
+   break;
+  case MSP430CC::COND_HS:
+   O << "hs";
+   break;
+  case MSP430CC::COND_LO:
+   O << "lo";
+   break;
+  case MSP430CC::COND_GE:
+   O << "ge";
+   break;
+  case MSP430CC::COND_L:
+   O << 'l';
+   break;
   }*/
 }
 
-bool AVRAsmPrinter::doFinalization(Module &M) {
-  O << "\t" << "END\n";
-  bool Result = AsmPrinter::doFinalization(M);
-  return Result;
+/// PrintAsmOperand - Print out an operand for an inline asm expression.
+///
+bool AVRAsmPrinter::PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
+                                       unsigned AsmVariant,
+                                       const char *ExtraCode) {
+  // Does this asm operand have a single letter operand modifier?
+  if (ExtraCode && ExtraCode[0])
+    return true; // Unknown modifier.
+
+  printOperand(MI, OpNo);
+  return false;
 }
 
-void AVRAsmPrinter::emitFunctionData(MachineFunction &MF) {
-
-  assert(0 && "Not Yet Implemented");
-/*
-
-  const Function *F = MF.getFunction();
-  std::string FuncName = Mang->getValueName(F);
-  const Module *M = F->getParent();
-  const TargetData *TD = TM.getTargetData();
-  unsigned FrameSize = 0;
-  // Emit the data section name.
-  O << "\n";
-  std::string SectionName = "fdata." + CurrentFnName + ".# " + "UDATA";
-
-  const Section *fDataSection = TAI->getNamedSection(SectionName.c_str(),
-                                               SectionFlags::Writeable);
-  SwitchToSection(fDataSection);
-
-  //Emit function return value.
-  O << CurrentFnName << ".retval:\n";
-  const Type *RetType = F->getReturnType();
-  unsigned RetSize = 0;
-  if (RetType->getTypeID() != Type::VoidTyID)
-    RetSize = TD->getTypePaddedSize(RetType);
-
-  // Emit function arguments.
-  O << CurrentFnName << ".args:\n";
-  // Emit the function variables.
-
-  // In AVR all the function arguments and local variables are global.
-  // Therefore to get the variable belonging to this function entire
-  // global list will be traversed and variables belonging to this function
-  // will be emitted in the current data section.
-  for (Module::const_global_iterator I = M->global_begin(), E = M->global_end();
-       I != E; ++I) {
-    std::string VarName = Mang->getValueName(I);
-
-    // The variables of a function are of form FuncName.* . If this variable
-    // does not belong to this function then continue.
-    if (!(VarName.find(FuncName + ".") == 0 ? true : false))
-      continue;
-
-    Constant *C = I->getInitializer();
-    const Type *Ty = C->getType();
-    unsigned Size = TD->getTypePaddedSize(Ty);
-    FrameSize += Size;
-    // Emit memory reserve directive.
-    O << VarName << "  RES  " << Size << "\n";
+bool AVRAsmPrinter::PrintAsmMemoryOperand(const MachineInstr *MI,
+                                             unsigned OpNo, unsigned AsmVariant,
+                                             const char *ExtraCode) {
+  if (ExtraCode && ExtraCode[0]) {
+    return true; // Unknown modifier.
   }
-  emitFunctionTempData(MF, FrameSize);
-  if (RetSize > FrameSize)
-    O << CurrentFnName << ".dummy" << "RES" << (RetSize - FrameSize);
-*/
+  printSrcMemOperand(MI, OpNo);
+  return false;
 }
 
-void AVRAsmPrinter::emitFunctionTempData(MachineFunction &MF,
-                                           unsigned &FrameSize) {
+//===----------------------------------------------------------------------===//
+void AVRAsmPrinter::printInstructionThroughMCStreamer(const MachineInstr *MI){
 
-  assert(0 && "Not Yet Implemented");
-/*
-  // Emit temporary variables.
-  MachineFrameInfo *FrameInfo = MF.getFrameInfo();
-  if (FrameInfo->hasStackObjects()) {
-    int indexBegin = FrameInfo->getObjectIndexBegin();
-    int indexEnd = FrameInfo->getObjectIndexEnd();
+  AVRMCInstLower MCInstLowering(OutContext, *Mang, *this);
 
-    if (indexBegin < indexEnd) {
-      FrameSize += indexEnd - indexBegin;
-      O << CurrentFnName << ".tmp RES"<< " "
-        <<indexEnd - indexBegin <<"\n";
-    }
-    while (indexBegin < indexEnd) {
-        O << CurrentFnName << "_tmp_" << indexBegin << " " << "RES"<< " "
-          << 1 << "\n" ;
-        indexBegin++;
-    }
-   /
-  }*/
+  switch (MI->getOpcode()) {
+  case TargetInstrInfo::DBG_LABEL:
+  case TargetInstrInfo::EH_LABEL:
+  case TargetInstrInfo::GC_LABEL:
+    printLabel(MI);
+    return;
+  case TargetInstrInfo::KILL:
+    printKill(MI);
+    return;
+  case TargetInstrInfo::INLINEASM:
+    printInlineAsm(MI);
+    return;
+  case TargetInstrInfo::IMPLICIT_DEF:
+    printImplicitDef(MI);
+    return;
+  default: break;
+  }
+
+  MCInst TmpInst;
+  MCInstLowering.Lower(MI, TmpInst);
+
+  printMCInst(&TmpInst);
 }
-#endif
 
-#include "AVRGenAsmWriter.inc"
+static MCInstPrinter *createAVRMCInstPrinter(const Target &T,
+                                                unsigned SyntaxVariant,
+                                                const MCAsmInfo &MAI,
+                                                raw_ostream &O) {
+  if (SyntaxVariant == 0)
+    return new AVRInstPrinter(O, MAI);
+  return 0;
+}
 
 // Force static initialization.
-extern "C" void LLVMInitializeAVRAsmPrinter() { 
+extern "C" void LLVMInitializeAVRAsmPrinter() {
   RegisterAsmPrinter<AVRAsmPrinter> X(TheAVRTarget);
+  TargetRegistry::RegisterMCInstPrinter(TheAVRTarget,
+                                        createAVRMCInstPrinter);
 }
