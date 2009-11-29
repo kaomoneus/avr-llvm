@@ -1,0 +1,39 @@
+Index: cmake/config-ix.cmake
+===================================================================
+--- cmake/config-ix.cmake	(revision 90055)
++++ cmake/config-ix.cmake	(working copy)
+@@ -191,6 +191,8 @@
+   set(LLVM_NATIVE_ARCH Alpha)
+ elseif (LLVM_NATIVE_ARCH MATCHES "arm")
+   set(LLVM_NATIVE_ARCH ARM)
++elseif (LLVM_NATIVE_ARCH MATCHES "avr")
++  set(LLVM_NATIVE_ARCH AVR)
+ elseif (LLVM_NATIVE_ARCH MATCHES "mips")
+   set(LLVM_NATIVE_ARCH Mips)
+ elseif (LLVM_NATIVE_ARCH MATCHES "pic16")
+Index: cmake/modules/LLVMLibDeps.cmake
+===================================================================
+--- cmake/modules/LLVMLibDeps.cmake	(revision 90055)
++++ cmake/modules/LLVMLibDeps.cmake	(working copy)
+@@ -2,6 +2,9 @@
+ set(MSVC_LIB_DEPS_LLVMARMAsmPrinter LLVMARMCodeGen LLVMARMInfo LLVMAsmPrinter LLVMCodeGen LLVMCore LLVMMC LLVMSupport LLVMSystem LLVMTarget)
+ set(MSVC_LIB_DEPS_LLVMARMCodeGen LLVMARMInfo LLVMCodeGen LLVMCore LLVMMC LLVMSelectionDAG LLVMSupport LLVMSystem LLVMTarget)
+ set(MSVC_LIB_DEPS_LLVMARMInfo LLVMSupport)
++set(MSVC_LIB_DEPS_LLVMAVRAsmPrinter LLVMAsmPrinter LLVMCodeGen LLVMCore LLVMMC LLVMAVRCodeGen LLVMAVRInfo LLVMSupport LLVMSystem LLVMTarget)
++set(MSVC_LIB_DEPS_LLVMAVRCodeGen LLVMCodeGen LLVMCore LLVMMC LLVMAVRInfo LLVMSelectionDAG LLVMSupport LLVMSystem LLVMTarget)
++set(MSVC_LIB_DEPS_LLVMAVRInfo LLVMSupport)
+ set(MSVC_LIB_DEPS_LLVMAlphaAsmPrinter LLVMAlphaCodeGen LLVMAlphaInfo LLVMAsmPrinter LLVMCodeGen LLVMCore LLVMMC LLVMSupport LLVMSystem LLVMTarget)
+ set(MSVC_LIB_DEPS_LLVMAlphaCodeGen LLVMAlphaInfo LLVMCodeGen LLVMCore LLVMMC LLVMSelectionDAG LLVMSupport LLVMSystem LLVMTarget)
+ set(MSVC_LIB_DEPS_LLVMAlphaInfo LLVMSupport)
+Index: CMakeLists.txt
+===================================================================
+--- CMakeLists.txt	(revision 90055)
++++ CMakeLists.txt	(working copy)
+@@ -47,6 +47,7 @@
+ set(LLVM_ALL_TARGETS
+   Alpha
+   ARM
++  AVR
+   Blackfin
+   CBackend
+   CellSPU
