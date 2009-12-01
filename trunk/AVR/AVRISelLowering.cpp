@@ -11,7 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#define DEBUG_TYPE "avr-lower"
+#define DEBUG_TYPE "avr"
 
 #include "AVRISelLowering.h"
 #include "AVR.h"
@@ -34,6 +34,7 @@
 #include "llvm/Target/TargetLoweringObjectFile.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/VectorExtras.h"
 using namespace llvm;
 
@@ -168,6 +169,12 @@ AVRTargetLowering::LowerFormalArguments(SDValue Chain,
                          const SmallVectorImpl<ISD::InputArg> &Ins,
                          DebugLoc dl, SelectionDAG &DAG,
                          SmallVectorImpl<SDValue> &InVals) {
+  DEBUG(errs() << "CallingConvention:" << CallConv <<"\n");
+  
+  // TODO: we currently don't support arguments
+  assert((Ins.size() == 0) && "Arguments not supported yet");
+
+  assert(!isVarArg && "Varargs not supported yet");
 /*
 
   switch (CallConv) {
@@ -177,8 +184,7 @@ AVRTargetLowering::LowerFormalArguments(SDValue Chain,
   case CallingConv::Fast:
     return LowerCCCArguments(Chain, CallConv, isVarArg, Ins, dl, DAG, InVals);
   }*/
-  assert(0 && "Not implemented");
-  return SDValue();
+  return Chain;
 }
 
 SDValue
@@ -292,8 +298,11 @@ SDValue
 AVRTargetLowering::LowerReturn(SDValue Chain,
                                   CallingConv::ID CallConv, bool isVarArg,
                                   const SmallVectorImpl<ISD::OutputArg> &Outs,
-                                  DebugLoc dl, SelectionDAG &DAG) {/*
-
+                                  DebugLoc dl, SelectionDAG &DAG) {
+  DEBUG(errs() << "return outs: " << Outs.size() << "\n");
+  assert((Outs.size() == 0) && "Only void returns are supported yet!");
+				 
+  /*
   // CCValAssign - represent the assignment of the return value to a location
   SmallVector<CCValAssign, 16> RVLocs;
 
@@ -329,11 +338,9 @@ AVRTargetLowering::LowerReturn(SDValue Chain,
 
   if (Flag.getNode())
     return DAG.getNode(AVRISD::RET_FLAG, dl, MVT::Other, Chain, Flag);
-
+*/
   // Return Void
-  return DAG.getNode(AVRISD::RET_FLAG, dl, MVT::Other, Chain);*/
-  assert(0 && "Not implemented");
-  return SDValue();
+  return DAG.getNode(AVRISD::RET_FLAG, dl, MVT::Other, Chain);
 }
 
 /// LowerCCCCallTo - functions arguments are copied from virtual regs to
@@ -642,6 +649,8 @@ SDValue AVRTargetLowering::LowerSIGN_EXTEND(SDValue Op,
   SDValue Val = Op.getOperand(0);
   EVT VT      = Op.getValueType();
   DebugLoc dl = Op.getDebugLoc();
+  
+  assert(0 && "Not implemented");
 
   assert(VT == MVT::i16 && "Only support i16 for now!");
 
@@ -651,6 +660,8 @@ SDValue AVRTargetLowering::LowerSIGN_EXTEND(SDValue Op,
 }
 
 const char *AVRTargetLowering::getTargetNodeName(unsigned Opcode) const {
+  //assert(0 && "Not implemented");
+
   switch (Opcode) {
   default: return NULL;
   case AVRISD::RET_FLAG:           return "AVRISD::RET_FLAG";

@@ -1,33 +1,33 @@
 Index: cmake/config-ix.cmake
 ===================================================================
---- cmake/config-ix.cmake	(revision 90055)
+--- cmake/config-ix.cmake	(revision 90237)
 +++ cmake/config-ix.cmake	(working copy)
-@@ -191,6 +191,8 @@
-   set(LLVM_NATIVE_ARCH Alpha)
- elseif (LLVM_NATIVE_ARCH MATCHES "arm")
-   set(LLVM_NATIVE_ARCH ARM)
-+elseif (LLVM_NATIVE_ARCH MATCHES "avr")
-+  set(LLVM_NATIVE_ARCH AVR)
- elseif (LLVM_NATIVE_ARCH MATCHES "mips")
+@@ -195,6 +195,8 @@
    set(LLVM_NATIVE_ARCH Mips)
  elseif (LLVM_NATIVE_ARCH MATCHES "pic16")
+   set(LLVM_NATIVE_ARCH "PIC16")
++elseif (LLVM_NATIVE_ARCH MATCHES "avr")
++  set(LLVM_NATIVE_ARCH AVR)
+ elseif (LLVM_NATIVE_ARCH MATCHES "xcore")
+   set(LLVM_NATIVE_ARCH XCore)
+ elseif (LLVM_NATIVE_ARCH MATCHES "msp430")
 Index: cmake/modules/LLVMLibDeps.cmake
 ===================================================================
---- cmake/modules/LLVMLibDeps.cmake	(revision 90055)
+--- cmake/modules/LLVMLibDeps.cmake	(revision 90237)
 +++ cmake/modules/LLVMLibDeps.cmake	(working copy)
 @@ -2,6 +2,9 @@
  set(MSVC_LIB_DEPS_LLVMARMAsmPrinter LLVMARMCodeGen LLVMARMInfo LLVMAsmPrinter LLVMCodeGen LLVMCore LLVMMC LLVMSupport LLVMSystem LLVMTarget)
  set(MSVC_LIB_DEPS_LLVMARMCodeGen LLVMARMInfo LLVMCodeGen LLVMCore LLVMMC LLVMSelectionDAG LLVMSupport LLVMSystem LLVMTarget)
  set(MSVC_LIB_DEPS_LLVMARMInfo LLVMSupport)
-+set(MSVC_LIB_DEPS_LLVMAVRAsmPrinter LLVMAsmPrinter LLVMCodeGen LLVMCore LLVMMC LLVMAVRCodeGen LLVMAVRInfo LLVMSupport LLVMSystem LLVMTarget)
-+set(MSVC_LIB_DEPS_LLVMAVRCodeGen LLVMCodeGen LLVMCore LLVMMC LLVMAVRInfo LLVMSelectionDAG LLVMSupport LLVMSystem LLVMTarget)
++set(MSVC_LIB_DEPS_LLVMAVRAsmPrinter LLVMARMCodeGen LLVMARMInfo LLVMAsmPrinter LLVMCodeGen LLVMCore LLVMMC LLVMSupport LLVMSystem LLVMTarget)
++set(MSVC_LIB_DEPS_LLVMAVRCodeGen LLVMARMInfo LLVMCodeGen LLVMCore LLVMMC LLVMSelectionDAG LLVMSupport LLVMSystem LLVMTarget)
 +set(MSVC_LIB_DEPS_LLVMAVRInfo LLVMSupport)
- set(MSVC_LIB_DEPS_LLVMAlphaAsmPrinter LLVMAlphaCodeGen LLVMAlphaInfo LLVMAsmPrinter LLVMCodeGen LLVMCore LLVMMC LLVMSupport LLVMSystem LLVMTarget)
+ set(MSVC_LIB_DEPS_LLVMAlphaAsmPrinter LLVMAlphaInfo LLVMAsmPrinter LLVMCodeGen LLVMCore LLVMMC LLVMSupport LLVMSystem LLVMTarget)
  set(MSVC_LIB_DEPS_LLVMAlphaCodeGen LLVMAlphaInfo LLVMCodeGen LLVMCore LLVMMC LLVMSelectionDAG LLVMSupport LLVMSystem LLVMTarget)
  set(MSVC_LIB_DEPS_LLVMAlphaInfo LLVMSupport)
 Index: CMakeLists.txt
 ===================================================================
---- CMakeLists.txt	(revision 90055)
+--- CMakeLists.txt	(revision 90237)
 +++ CMakeLists.txt	(working copy)
 @@ -47,6 +47,7 @@
  set(LLVM_ALL_TARGETS

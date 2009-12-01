@@ -41,6 +41,12 @@ def IsXMEGA  : Predicate<"Subtarget.isXMEGA()">;
 // FIXME: Need to understand the following defs. Now just copy paste from
 //        the X86 and PIC16 Targets...
 
+def AVRretflag : SDNode<"AVRISD::RET_FLAG", SDTNone,
+                     [SDNPHasChain, SDNPOptInFlag]>;
+def AVRrra     : SDNode<"AVRISD::RRA", SDTIntUnaryOp, []>;
+
+//def AVRcall    : SDNode<"AVRISD::CALL", SDT_AVRCall,
+//                     [SDNPHasChain, SDNPOutFlag, SDNPOptInFlag]>;
 // These are target-independent nodes, but have target-specific formats.
 def SDT_AVRCallSeqStart : SDTypeProfile<0, 1, [ SDTCisVT<0, i8> ]>;
 def SDT_AVRCallSeqEnd : SDTypeProfile<0, 1, [ SDTCisVT<0, i8> ]>;
@@ -110,14 +116,34 @@ def AVR_COND_SH : PatLeaf<(i8 0)>; // Same or higher (unsigned)
 def diraddrmode : ComplexPattern<i16, 2, "SelectDirectAM", [frameindex], []>;
 def dirloadmode : ComplexPattern<i16, 2, "LoadNothing", [frameindex], []>;
 def indirloadmode : ComplexPattern<i16, 2, "LoadFSR", [frameindex], []>;
-
+*/
 
 // Address operand.
 def mem : Operand<i16> {
   let PrintMethod = "printAddrModeOperand";
   let MIOperandInfo = (ops i16imm, PTRRegs);
 }
+def memsrc : Operand<i16> {
+  let PrintMethod = "printSrcMemOperand";
+  let MIOperandInfo = (ops i16imm, PTRRegs);
+}
+def memdst : Operand<i16> {
+  let PrintMethod = "printSrcMemOperand";
+  let MIOperandInfo = (ops i16imm, PTRRegs);
+}
 
+//===----------------------------------------------------------------------===//
+// AVR Complex Pattern Definitions.
+//===----------------------------------------------------------------------===//
+
+//def addr : ComplexPattern<iPTR, 2, "SelectAddr", [], []>;
+
+//===----------------------------------------------------------------------===//
+// Pattern Fragments
+def zextloadi16i8 : PatFrag<(ops node:$ptr), (i16 (zextloadi8 node:$ptr))>;
+def  extloadi16i8 : PatFrag<(ops node:$ptr), (i16 ( extloadi8 node:$ptr))>;
+
+/*
 // Instruction operand types
 def simm8      : Operand<i8>;
 
@@ -373,6 +399,13 @@ let isCall = 1 in {
 // Data Transfer instructions
 //===----------------------------------------------------------------------===//
 
+// Load Immediate
+let  Constraints = "$src = $dst" in {
+  def LDI  :  OpImm<0b1110, (outs GPRegs:$dst), (ins i8imm:$src),
+              "ldi $dst, $src",
+              [(set GPRegs:$dst, imm:$src)]>;
+}
+
 // Copy Register
 def MOV  :  DirAddrTwoReg<0b001011, (outs GPRegs:$dst), (ins GPRegs:$src),
             "mov $dst, $src",
@@ -383,8 +416,19 @@ def MOV  :  DirAddrTwoReg<0b001011, (outs GPRegs:$dst), (ins GPRegs:$src),
 def MOVW : DirAddrTwoWReg<0b00000001,(outs WRegs:$dst),(ins WRegs:$src),
            "movw $dst, $src",
            []>;
-//           [(set WRegs:$dst, WRegs:$src)]>;
 
+// Load direct from dataspace
+/*
+let canFoldAsLoad = 1, isReMaterializable = 1, mayHaveSideEffects = 1 in {
+def LDS  : DataDirAddr<0b10010000000,(outs GPRegs:$dst), (ins memsrc:$src),
+                "lds $dst, $src",
+                [(set GPRegs:$dst, (load addr:$src))]>;
+}
+
+def STS  : DataDirAddr<0b10010010000,(outs), (ins memdst:$dst, GPRegs:$src),
+                "sts $dst, $src",
+                [(store GPRegs:$src, addr:$dst)]>;
+*/
 // FIXME: some kind of multiclasses should be used to define these instruction.
 // load functions
 let mayLoad = 1 in {
@@ -520,6 +564,18 @@ def POP  : DirAddrSingleReg<0b10010001111,(outs GPRegs:$dst),(ins),
 //===----------------------------------------------------------------------===//
 
 
+let Constraints = "$src = $dst" in {
+  // Logical Shift Right
+  def LSR : DirAddrSingleReg<0b10010100110,(outs GPRegs:$dst),(ins GPRegs:$src),
+        "lsr $dst",
+        [(set GPRegs:$dst, (AVRrra GPRegs:$src))]>;
+
+  // Logical Shift Left == ADD Rd, Rd
+  //def LSL : DirAddrSingleReg<0b000,(outs GPRegs:$dst),(ins GPRegs:$src),
+  //      "lsl $dst",
+  //      []>;
+}
+
 //===----------------------------------------------------------------------===//
 // MCU control instructions
 //===----------------------------------------------------------------------===//
@@ -532,3 +588,7 @@ let neverHasSideEffects = 1 in
 // BREAK
 
 
+// FIXME: Provide proper encoding!
+let isReturn = 1, isTerminator = 1 in {
+  def RET: Pseudo<0b100101010001000,(outs), (ins), "ret", [(AVRretflag)]>;
+}
