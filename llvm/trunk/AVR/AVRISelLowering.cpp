@@ -169,7 +169,7 @@ AVRTargetLowering::LowerFormalArguments(SDValue Chain,
                          const SmallVectorImpl<ISD::InputArg> &Ins,
                          DebugLoc dl, SelectionDAG &DAG,
                          SmallVectorImpl<SDValue> &InVals) {
-  DEBUG(errs() << "CallingConvention:" << CallConv <<"\n");
+  DEBUG(errs() << "CallingConvention: " << CallConv <<"\n");
   
   // TODO: we currently don't support arguments
   assert((Ins.size() == 0) && "Arguments not supported yet");
@@ -300,9 +300,11 @@ AVRTargetLowering::LowerReturn(SDValue Chain,
                                   const SmallVectorImpl<ISD::OutputArg> &Outs,
                                   DebugLoc dl, SelectionDAG &DAG) {
   DEBUG(errs() << "return outs: " << Outs.size() << "\n");
-  assert((Outs.size() == 0) && "Only void returns are supported yet!");
+ 
+  assert(!isVarArg && "VarArgs are not supported!");
+  //assert((Outs.size() == 0) && "Only void returns are supported yet!");
 				 
-  /*
+  
   // CCValAssign - represent the assignment of the return value to a location
   SmallVector<CCValAssign, 16> RVLocs;
 
@@ -338,7 +340,7 @@ AVRTargetLowering::LowerReturn(SDValue Chain,
 
   if (Flag.getNode())
     return DAG.getNode(AVRISD::RET_FLAG, dl, MVT::Other, Chain, Flag);
-*/
+
   // Return Void
   return DAG.getNode(AVRISD::RET_FLAG, dl, MVT::Other, Chain);
 }

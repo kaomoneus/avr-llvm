@@ -44,7 +44,7 @@ unsigned AVRInstrInfo::isStoreToStackSlot(const MachineInstr *MI,
     FrameIndex = MI->getOperand(1).getIndex();
     return MI->getOperand(0).getReg();
   }*/
-  assert(0 && __THIS_IS_A_TEMPORARY_MACRO__);
+  assert(0 && "not yet implemented");
   return 0;
 }
 
@@ -55,13 +55,13 @@ unsigned AVRInstrInfo::isStoreToStackSlot(const MachineInstr *MI,
 /// any side effects other than storing to the stack slot.
 unsigned AVRInstrInfo::isLoadFromStackSlot(const MachineInstr *MI,
                                             int &FrameIndex) const {
+  // FIXME: No stack stuff yet
 /*  if (MI->getOpcode() == AVR::movf 
       && MI->getOperand(0).isReg()
       && MI->getOperand(1).isSymbol()) {
     FrameIndex = MI->getOperand(1).getIndex();
     return MI->getOperand(0).getReg();
   }*/
-  assert(0 && __THIS_IS_A_TEMPORARY_MACRO__);
   return 0;
 }
 

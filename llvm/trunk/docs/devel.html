@@ -16,7 +16,7 @@ This document contains rules and guideline for the
 <h2><a name="reading">Recommended Reading</a></h2>
 <p>
   These article are recommended before starting hacking on the
-  avr-llvm back-end
+  avr-llvm back-end:
 </p>
 <ul>
   <li><a href="http://llvm.org/docs/ProgrammersManual.html">LLVM Programmers Manual</a>: 
@@ -93,12 +93,14 @@ $ svn update             # get the latest revision
 $ svn revert -R  *       # revert all changes
 $ rm -rf lib/Target/AVR  # remove AVR Target
 
-$ patch -p0 &lt; ../avr-llvm/trunk/patches/configure.diff 
-$ patch -p0 &lt; ../avr-llvm/trunk/patches/configure.ac.diff 
-$ patch -p0 &lt; ../avr-llvm/trunk/patches/Tripple.diff 
-$ patch -p0 &lt; ../avr-llvm/trunk/patches/CMake/CMake.diff 
+$ patch -p0 &lt; ../avr-llvm/patches/configure.ac.diff 
+$ patch -p0 &lt; ../avr-llvm/patches/Tripple.diff 
+$ patch -p0 &lt; ../avr-llvm/patches/CMake/CMake.diff 
 
-$ cp -rf ../avr-llvm/trunk/AVR lib/Target/  # cp working copy to llvm src tree
+$ cp ../avr-llvm/patches/configure ./
+$ cp ../avr-llvm/patches/CMake/LLVMLibDeps.cmake cmake/modules
+
+$ cp -rf ../avr-llvm/AVR lib/Target/  # cp working copy to llvm src tree
 $ cd ../build
 $ rm * -rf               # remove old builds (important!)
   
@@ -113,6 +115,21 @@ creating a branch, commit the changes there and merge them back into trunk as so
 Trunk should be compilable all the time. The only reason the trunk can fail should be API 
 changes in llvm. 
 </p>
+
+<h2>Tips and Tricks</h2>
+
+<h3>Faster development</h3>
+<p>
+When working on an LLVM back-end a lot of time is spent rebuilding the LLVM tools. 
+<code>ccache</code> can increase the build process dramatically (see also: 
+<a href="http://wiki.llvm.org/Howto:_Faster_LLVM_development">LLVM Wiki</a> article) 
+and it is very easy to use. Just put <code>CXX="ccache g++"</code>  before your <code>
+configure</code> command:
+</p>
+
+<pre>
+$ CXX="ccache g++" ../llvm/configure --prefix=$HOME/usr/avr-llvm/ --disable-optimized --enable-targets=avr
+</pre>
 
 <hr/>
 
