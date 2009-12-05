@@ -91,7 +91,8 @@ namespace {
   };
 } // end of anonymous namespace
 
-void AVRAsmPrinter::PrintGlobalVariable(const GlobalVariable* GVar) {
+void AVRAsmPrinter::PrintGlobalVariable(const GlobalVariable* GVar)
+{
   if (!GVar->hasInitializer())
     return;   // External global require no code
 
@@ -115,8 +116,8 @@ void AVRAsmPrinter::PrintGlobalVariable(const GlobalVariable* GVar) {
 
   if (C->isNullValue() && !GVar->hasSection() &&
       !GVar->isThreadLocal() &&
-      (GVar->hasLocalLinkage() || GVar->isWeakForLinker())) {
-
+      (GVar->hasLocalLinkage() || GVar->isWeakForLinker())) 
+  {
     if (Size == 0) Size = 1;   // .comm Foo, 0 is undefined, avoid it.
 
     if (GVar->hasLocalLinkage())
@@ -126,7 +127,8 @@ void AVRAsmPrinter::PrintGlobalVariable(const GlobalVariable* GVar) {
     if (MAI->getCOMMDirectiveTakesAlignment())
       O << ',' << (MAI->getAlignmentIsInBytes() ? (1 << Align) : Align);
 
-    if (VerboseAsm) {
+    if (VerboseAsm)
+    {
       O.PadToColumn(MAI->getCommentColumn());
       O << MAI->getCommentString() << ' ';
       WriteAsOperand(O, GVar, /*PrintType=*/false, GVar->getParent());
@@ -135,34 +137,37 @@ void AVRAsmPrinter::PrintGlobalVariable(const GlobalVariable* GVar) {
     return;
   }
 
-  switch (GVar->getLinkage()) {
-  case GlobalValue::CommonLinkage:
-  case GlobalValue::LinkOnceAnyLinkage:
-  case GlobalValue::LinkOnceODRLinkage:
-  case GlobalValue::WeakAnyLinkage:
-  case GlobalValue::WeakODRLinkage:
-    O << "\t.weak\t" << name << '\n';
-    break;
-  case GlobalValue::DLLExportLinkage:
-  case GlobalValue::AppendingLinkage:
-    // FIXME: appending linkage variables should go into a section of
-    // their name or something.  For now, just emit them as external.
-  case GlobalValue::ExternalLinkage:
-    // If external or appending, declare as a global symbol
-    O << "\t.globl " << name << '\n';
-    // FALL THROUGH
-  case GlobalValue::PrivateLinkage:
-  case GlobalValue::LinkerPrivateLinkage:
-  case GlobalValue::InternalLinkage:
-     break;
-  default:
-    assert(0 && "Unknown linkage type!");
+  switch (GVar->getLinkage()) 
+  {
+    case GlobalValue::CommonLinkage:
+    case GlobalValue::LinkOnceAnyLinkage:
+    case GlobalValue::LinkOnceODRLinkage:
+    case GlobalValue::WeakAnyLinkage:
+    case GlobalValue::WeakODRLinkage:
+      O << "\t.weak\t" << name << '\n';
+      break;
+    case GlobalValue::AppendingLinkage:
+      // FIXME: appending linkage variables should go into a section of
+      // their name or something.  For now, just emit them as external.
+    case GlobalValue::ExternalLinkage:
+      // If external or appending, declare as a global symbol
+      O << "\t.global " << name << '\n';
+      // FALL THROUGH
+    case GlobalValue::PrivateLinkage:
+    case GlobalValue::LinkerPrivateLinkage:
+      break;
+    case GlobalValue::InternalLinkage:
+      O << "\t.internal " << name << '\n';
+      break;
+    default:
+      assert(0 && "Unknown linkage type!");
   }
 
   // Use 16-bit alignment by default to simplify bunch of stuff
   EmitAlignment(Align, GVar);
   O << name << ":";
-  if (VerboseAsm) {
+  if (VerboseAsm) 
+  {
     O.PadToColumn(MAI->getCommentColumn());
     O << MAI->getCommentString() << ' ';
     WriteAsOperand(O, GVar, /*PrintType=*/false, GVar->getParent());
@@ -175,7 +180,8 @@ void AVRAsmPrinter::PrintGlobalVariable(const GlobalVariable* GVar) {
     O << "\t.size\t" << name << ", " << Size << '\n';
 }
 
-void AVRAsmPrinter::emitFunctionHeader(const MachineFunction &MF) {
+void AVRAsmPrinter::emitFunctionHeader(const MachineFunction &MF) 
+{
   const Function *F = MF.getFunction();
 
   OutStreamer.SwitchSection(getObjFileLowering().SectionForGlobal(F, Mang, TM));
@@ -183,21 +189,22 @@ void AVRAsmPrinter::emitFunctionHeader(const MachineFunction &MF) {
   unsigned FnAlign = MF.getAlignment();
   EmitAlignment(FnAlign, F);
 
-  switch (F->getLinkage()) {
-  default: llvm_unreachable("Unknown linkage type!");
-  case Function::InternalLinkage:  // Symbols default to internal.
-  case Function::PrivateLinkage:
-  case Function::LinkerPrivateLinkage:
-    break;
-  case Function::ExternalLinkage:
-    O << "\t.globl\t" << CurrentFnName << '\n';
-    break;
-  case Function::LinkOnceAnyLinkage:
-  case Function::LinkOnceODRLinkage:
-  case Function::WeakAnyLinkage:
-  case Function::WeakODRLinkage:
-    O << "\t.weak\t" << CurrentFnName << '\n';
-    break;
+  switch (F->getLinkage()) 
+  {
+    default: llvm_unreachable("Unknown linkage type!");
+    case Function::InternalLinkage:  // Symbols default to internal.
+    case Function::PrivateLinkage:
+    case Function::LinkerPrivateLinkage:
+      break;
+    case Function::ExternalLinkage:
+      O << "\t.global\t" << CurrentFnName << '\n';
+      break;
+    case Function::LinkOnceAnyLinkage:
+    case Function::LinkOnceODRLinkage:
+    case Function::WeakAnyLinkage:
+    case Function::WeakODRLinkage:
+      O << "\t.weak\t" << CurrentFnName << '\n';
+      break;
   }
 
   printVisibility(CurrentFnName, F->getVisibility());
@@ -206,7 +213,8 @@ void AVRAsmPrinter::emitFunctionHeader(const MachineFunction &MF) {
     << CurrentFnName << ":\n";
 }
 
-bool AVRAsmPrinter::runOnMachineFunction(MachineFunction &MF) {
+bool AVRAsmPrinter::runOnMachineFunction(MachineFunction &MF)
+{
   SetupMachineFunction(MF);
   O << "\n\n";
 
@@ -215,7 +223,8 @@ bool AVRAsmPrinter::runOnMachineFunction(MachineFunction &MF) {
 
   // Print out code for the function.
   for (MachineFunction::const_iterator I = MF.begin(), E = MF.end();
-       I != E; ++I) {
+        I != E; ++I)
+  {
     // Print a label for the basic block.
     EmitBasicBlockStart(I);
 
@@ -232,7 +241,8 @@ bool AVRAsmPrinter::runOnMachineFunction(MachineFunction &MF) {
   return false;
 }
 
-void AVRAsmPrinter::printMachineInstruction(const MachineInstr *MI) {
+void AVRAsmPrinter::printMachineInstruction(const MachineInstr *MI)
+{
   ++EmittedInsts;
 
   processDebugLoc(MI, true);
@@ -247,118 +257,138 @@ void AVRAsmPrinter::printMachineInstruction(const MachineInstr *MI) {
 }
 
 void AVRAsmPrinter::printOperand(const MachineInstr *MI, int OpNum,
-                                    const char* Modifier) {
+                                    const char* Modifier)
+{
   const MachineOperand &MO = MI->getOperand(OpNum);
-  switch (MO.getType()) {
-  case MachineOperand::MO_Register:
-    O << AVRInstPrinter::getRegisterName(MO.getReg());
-    return;
-  case MachineOperand::MO_Immediate:
-    if (!Modifier || strcmp(Modifier, "nohash"))
-      O << '#';
-    O << MO.getImm();
-    return;
-  case MachineOperand::MO_MachineBasicBlock:
-    GetMBBSymbol(MO.getMBB()->getNumber())->print(O, MAI);
-    return;
-  case MachineOperand::MO_GlobalAddress: {
-    bool isMemOp  = Modifier && !strcmp(Modifier, "mem");
-    std::string Name = Mang->getMangledName(MO.getGlobal());
-    uint64_t Offset = MO.getOffset();
+  switch (MO.getType()) 
+  {
+    case MachineOperand::MO_Register:
+	     O << AVRInstPrinter::getRegisterName(MO.getReg());
+	     return;
+    case MachineOperand::MO_Immediate:
+      if (!Modifier || strcmp(Modifier, "nohash"))
+	     {
+        O << '#';
+	     }
+      O << MO.getImm();
+      return;
+    case MachineOperand::MO_MachineBasicBlock:
+      GetMBBSymbol(MO.getMBB()->getNumber())->print(O, MAI);
+      return;
+    case MachineOperand::MO_GlobalAddress: 
+    {
+      bool isMemOp  = Modifier && !strcmp(Modifier, "mem");
+      std::string Name = Mang->getMangledName(MO.getGlobal());
+      uint64_t Offset = MO.getOffset();
 
-    O << (isMemOp ? '&' : '#');
-    if (Offset)
-      O << '(' << Offset << '+';
+      O << (isMemOp ? '&' : '#');
+      if (Offset)
+      {
+        O << '(' << Offset << '+';
+	     }
+      O << Name;
+      if (Offset)
+	     {
+        O << ')';
+	     }
+      return;
+    }
+    case MachineOperand::MO_ExternalSymbol: 
+    {
+      bool isMemOp  = Modifier && !strcmp(Modifier, "mem");
+      std::string Name(MAI->getGlobalPrefix());
+      Name += MO.getSymbolName();
 
-    O << Name;
-    if (Offset)
-      O << ')';
+      O << (isMemOp ? '&' : '#') << Name;
 
-    return;
-  }
-  case MachineOperand::MO_ExternalSymbol: {
-    bool isMemOp  = Modifier && !strcmp(Modifier, "mem");
-    std::string Name(MAI->getGlobalPrefix());
-    Name += MO.getSymbolName();
-
-    O << (isMemOp ? '&' : '#') << Name;
-
-    return;
-  }
-  default:
-    llvm_unreachable("Not implemented yet!");
+      return;
+    }
+    default:
+      llvm_unreachable("Not implemented yet!");
   }
 }
 
 void AVRAsmPrinter::printSrcMemOperand(const MachineInstr *MI, int OpNum,
-                                          const char* Modifier) {
+                                          const char* Modifier)
+{
   const MachineOperand &Base = MI->getOperand(OpNum);
   const MachineOperand &Disp = MI->getOperand(OpNum+1);
 
   // Print displacement first
-  if (!Disp.isImm()) {
+  if (!Disp.isImm())
+  {
     printOperand(MI, OpNum+1, "mem");
-  } else {
+  } 
+  else 
+  {
     if (!Base.getReg())
+    {
       O << '&';
-
+    }
     printOperand(MI, OpNum+1, "nohash");
   }
 
-
   // Print register base field
-  if (Base.getReg()) {
+  if (Base.getReg()) 
+  {
     O << '(';
     printOperand(MI, OpNum);
     O << ')';
   }
 }
 
-void AVRAsmPrinter::printCCOperand(const MachineInstr *MI, int OpNum) {
+void AVRAsmPrinter::printCCOperand(const MachineInstr *MI, int OpNum) 
+{
   unsigned CC = MI->getOperand(OpNum).getImm();
-/* MSP430CC defined in MSP430.h
-  switch (CC) {
-  default:
-   llvm_unreachable("Unsupported CC code");
-   break;
-  case MSP430CC::COND_E:
-   O << "eq";
-   break;
-  case MSP430CC::COND_NE:
-   O << "ne";
-   break;
-  case MSP430CC::COND_HS:
-   O << "hs";
-   break;
-  case MSP430CC::COND_LO:
-   O << "lo";
-   break;
-  case MSP430CC::COND_GE:
-   O << "ge";
-   break;
-  case MSP430CC::COND_L:
-   O << 'l';
-   break;
-  }*/
+#if 0 //-MSP430CC defined in MSP430.h
+  switch (CC) 
+  {
+    default:
+      llvm_unreachable("Unsupported CC code");
+      break;
+    case MSP430CC::COND_E:
+      O << "eq";
+      break;
+    case MSP430CC::COND_NE:
+      O << "ne";
+      break;
+    case MSP430CC::COND_HS:
+      O << "hs";
+      break;
+    case MSP430CC::COND_LO:
+      O << "lo";
+       break;
+    case MSP430CC::COND_GE:
+      O << "ge";
+       break;
+    case MSP430CC::COND_L:
+      O << 'l';
+      break;
+  }
+#endif
 }
 
 /// PrintAsmOperand - Print out an operand for an inline asm expression.
 ///
 bool AVRAsmPrinter::PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
-                                       unsigned AsmVariant,
-                                       const char *ExtraCode) {
+                                     unsigned AsmVariant,const char *ExtraCode)
+{
   // Does this asm operand have a single letter operand modifier?
   if (ExtraCode && ExtraCode[0])
+  {
     return true; // Unknown modifier.
-
+  }
   printOperand(MI, OpNo);
   return false;
 }
 
-bool AVRAsmPrinter::PrintAsmMemoryOperand(const MachineInstr *MI,
-                                             unsigned OpNo, unsigned AsmVariant,
-                                             const char *ExtraCode) {
-  if (ExtraCode && ExtraCode[0]) {
+bool AVRAsmPrinter::PrintAsmMemoryOperand(const MachineInstr *MI, 
+                                          unsigned OpNo, unsigned AsmVariant, 
+                                          const char *ExtraCode)
+{
+                                             
+  if (ExtraCode && ExtraCode[0])
+  {
     return true; // Unknown modifier.
   }
   printSrcMemOperand(MI, OpNo);
@@ -366,26 +396,28 @@ bool AVRAsmPrinter::PrintAsmMemoryOperand(const MachineInstr *MI,
 }
 
 //===----------------------------------------------------------------------===//
-void AVRAsmPrinter::printInstructionThroughMCStreamer(const MachineInstr *MI){
+void AVRAsmPrinter::printInstructionThroughMCStreamer(const MachineInstr *MI)
+{
 
   AVRMCInstLower MCInstLowering(OutContext, *Mang, *this);
 
-  switch (MI->getOpcode()) {
-  case TargetInstrInfo::DBG_LABEL:
-  case TargetInstrInfo::EH_LABEL:
-  case TargetInstrInfo::GC_LABEL:
-    printLabel(MI);
-    return;
-  case TargetInstrInfo::KILL:
-    printKill(MI);
-    return;
-  case TargetInstrInfo::INLINEASM:
-    printInlineAsm(MI);
-    return;
-  case TargetInstrInfo::IMPLICIT_DEF:
-    printImplicitDef(MI);
-    return;
-  default: break;
+  switch (MI->getOpcode())
+  {
+    case TargetInstrInfo::DBG_LABEL:
+    case TargetInstrInfo::EH_LABEL:
+    case TargetInstrInfo::GC_LABEL:
+      printLabel(MI);
+      return;
+    case TargetInstrInfo::KILL:
+      printKill(MI);
+      return;
+    case TargetInstrInfo::INLINEASM:
+      printInlineAsm(MI);
+      return;
+    case TargetInstrInfo::IMPLICIT_DEF:
+      printImplicitDef(MI);
+      return;
+    default: break;
   }
 
   MCInst TmpInst;
@@ -395,16 +427,18 @@ void AVRAsmPrinter::printInstructionThroughMCStreamer(const MachineInstr *MI){
 }
 
 static MCInstPrinter *createAVRMCInstPrinter(const Target &T,
-                                                unsigned SyntaxVariant,
-                                                const MCAsmInfo &MAI,
-                                                raw_ostream &O) {
+                                              unsigned SyntaxVariant,
+                                              const MCAsmInfo &MAI,
+                                              raw_ostream &O) 
+{
   if (SyntaxVariant == 0)
     return new AVRInstPrinter(O, MAI);
   return 0;
 }
 
 // Force static initialization.
-extern "C" void LLVMInitializeAVRAsmPrinter() {
+extern "C" void LLVMInitializeAVRAsmPrinter()
+{
   RegisterAsmPrinter<AVRAsmPrinter> X(TheAVRTarget);
   TargetRegistry::RegisterMCInstPrinter(TheAVRTarget,
                                         createAVRMCInstPrinter);

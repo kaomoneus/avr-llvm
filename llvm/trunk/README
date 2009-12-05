@@ -38,17 +38,24 @@ Build (CMake)
 =====
   Run cmake in the directory you want to use as the built directory (LLVM_OBJ_DIR)
 
-<example> This configures the built scripts in the directory 'llvm' and also makes an Eclipse project file
+    <example:linux> 
+    This creates the built scripts in the directory LLVM_OBJ_DIR based on files in 'llvm' and also makes an Eclipse project file
 
 % cmake -G"Eclipse CDT4 - Unix Makefiles" -DLLVM_TARGETS_TO_BUILD="AVR" \
                        -DCMAKE_BUILD_TYPE=Debug -DLLVM_BUILD_TOOLS=ON -DLLVM_BUILD_EXAMPLES=OFF -DLLVM_ENABLE_THREADS=OFF ../llvm
 
-  Run make in the directory you want avr-llvm to be built (LLVM_OBJ_DIR)
 
-% make all
+
+    <example:windows>
+    This creates the built scripts in the directory LLVM_OBJ_DIR based on files in 'llvm' and also creates a Visual Studio 9 2008 project
+
+<drive>:\LLVM_OBJ_DIR>cmake -G "Visual Studio 9 2008" -DLLVM_TARGETS_TO_BUILD ="AVR" -DCMAKE_BUILD_TYPE=Debug \
+                        -DLLVM_BUILD_TOOLS=ON -DLLVM_BUILD_EXAMPLES=OFF -DLLVM_ENABLE_THREADS=OFF ..\llvm
+  
+
 
 Checkin Rules
 =============
 
-- Alway perform an svn update in the LLVM_SRC_ROOT __and__ in the avr-llvm target directory before checking in changes
+- Always perform an svn update in the LLVM_SRC_ROOT __and__ in the avr-llvm target directory before checking in changes
 - Ensure that LLVM compiles with the commands above (llvm-gcc is not yet working)
