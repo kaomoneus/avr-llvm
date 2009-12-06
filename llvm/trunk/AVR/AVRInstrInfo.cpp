@@ -26,10 +26,12 @@
 
 using namespace llvm;
 
-// FIXME: Add the subtarget support on this constructor.
 AVRInstrInfo::AVRInstrInfo(AVRSubtarget &ST)
   : TargetInstrInfoImpl(AVRInsts, array_lengthof(AVRInsts)),
-    RegInfo(ST, *this), Subtarget(ST) {}
+    RegInfo(ST, *this), Subtarget(ST) 
+{
+
+}
 
 /// isStoreToStackSlot - If the specified machine instruction is a direct
 /// store to a stack slot, return the virtual or physical register number of
@@ -37,14 +39,18 @@ AVRInstrInfo::AVRInstrInfo(AVRSubtarget &ST)
 /// If not, return 0.  This predicate must return 0 if the instruction has
 /// any side effects other than storing to the stack slot.
 unsigned AVRInstrInfo::isStoreToStackSlot(const MachineInstr *MI,
-                                            int &FrameIndex) const {
-/*  if (MI->getOpcode() == AVR::movwf 
+                                            int &FrameIndex) const
+{
+#if 0 
+~~~STUB FROM PIC16~~~~
+  if (MI->getOpcode() == AVR::movwf 
       && MI->getOperand(0).isReg()
       && MI->getOperand(1).isSymbol()) {
     FrameIndex = MI->getOperand(1).getIndex();
     return MI->getOperand(0).getReg();
-  }*/
-  assert(0 && "not yet implemented");
+  }
+#endif
+  assert(0 && "isStoreToStackSlot not yet implemented");
   return 0;
 }
 
@@ -54,14 +60,19 @@ unsigned AVRInstrInfo::isStoreToStackSlot(const MachineInstr *MI,
 /// If not, return 0.  This predicate must return 0 if the instruction has
 /// any side effects other than storing to the stack slot.
 unsigned AVRInstrInfo::isLoadFromStackSlot(const MachineInstr *MI,
-                                            int &FrameIndex) const {
+                                            int &FrameIndex) const
+{
+#if 0 
+~~~STUB FROM PIC16~~~~
   // FIXME: No stack stuff yet
-/*  if (MI->getOpcode() == AVR::movf 
+  if (MI->getOpcode() == AVR::movf 
       && MI->getOperand(0).isReg()
-      && MI->getOperand(1).isSymbol()) {
+      && MI->getOperand(1).isSymbol()) 
+  {
     FrameIndex = MI->getOperand(1).getIndex();
     return MI->getOperand(0).getReg();
-  }*/
+  }
+#endif
   return 0;
 }
 
@@ -69,8 +80,10 @@ unsigned AVRInstrInfo::isLoadFromStackSlot(const MachineInstr *MI,
 void AVRInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB, 
                                          MachineBasicBlock::iterator I,
                                          unsigned SrcReg, bool isKill, int FI,
-                                         const TargetRegisterClass *RC) const {
-/*
+                                         const TargetRegisterClass *RC) const
+{
+#if 0
+~~~STUB FROM PIC16~~~~
   const Function *Func = MBB.getParent()->getFunction();
   const std::string FuncName = Func->getName();
 
@@ -89,7 +102,8 @@ void AVRInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
   }
   else if (RC == AVR::FSR16RegisterClass)
     assert(0 && "Don't know yet how to store a FSR16 to stack slot");
-  else*/
+  else
+#endif
     assert(0 && "Can't store this register to stack slot");
 
 }
@@ -97,8 +111,10 @@ void AVRInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
 void AVRInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB, 
                                           MachineBasicBlock::iterator I,
                                           unsigned DestReg, int FI,
-                                          const TargetRegisterClass *RC) const {
-/*
+                                          const TargetRegisterClass *RC) const
+{
+#if 0
+~~~STUB FROM PIC16~~~~
   const Function *Func = MBB.getParent()->getFunction();
   const std::string FuncName = Func->getName();
 
@@ -116,7 +132,8 @@ void AVRInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
   }
   else if (RC == AVR::FSR16RegisterClass)
     assert(0 && "Don't know yet how to load an FSR16 from stack slot");
-  else*/
+  else
+#endif
     assert(0 && "Can't load this register from stack slot");
 
 }
@@ -125,19 +142,23 @@ bool AVRInstrInfo::copyRegToReg (MachineBasicBlock &MBB,
                                    MachineBasicBlock::iterator I,
                                    unsigned DestReg, unsigned SrcReg,
                                    const TargetRegisterClass *DestRC,
-                                   const TargetRegisterClass *SrcRC) const {
+                                   const TargetRegisterClass *SrcRC) const 
+{
   DebugLoc DL = DebugLoc::getUnknownLoc(); 
-  if (DestRC != SrcRC) {
+  if (DestRC != SrcRC)
+  {
     // Not yet supported
     return false;
   }  
 
-  if (DestRC == AVR::GPRegsRegisterClass) {
+  if (DestRC == AVR::GPRegsRegisterClass)
+  {
     BuildMI(MBB, I, DL, get(AVR::MOV), DestReg).addReg(SrcReg);
     return true;
   }
 
-  if (DestRC == AVR::WRegsRegisterClass) {
+  if (DestRC == AVR::WRegsRegisterClass)
+  {
     BuildMI(MBB, I, DL, get(AVR::MOVW), DestReg).addReg(SrcReg);
     return true;
   }
@@ -147,17 +168,24 @@ bool AVRInstrInfo::copyRegToReg (MachineBasicBlock &MBB,
 }
 
 bool AVRInstrInfo::isMoveInstr(const MachineInstr &MI,
-                                 unsigned &SrcReg, unsigned &DestReg,
-                                 unsigned &SrcSubIdx, unsigned &DstSubIdx) const {
-/*  SrcSubIdx = DstSubIdx = 0; // No sub-registers.
-
-  if (MI.getOpcode() == AVR::copy_fsr
-      || MI.getOpcode() == AVR::copy_w) {
-    DestReg = MI.getOperand(0).getReg();
-    SrcReg = MI.getOperand(1).getReg();
-    return true;
+                                 unsigned &SrcReg, unsigned &DstReg,
+                                 unsigned &SrcSubIdx, unsigned &DstSubIdx) const 
+{
+  SrcSubIdx = DstSubIdx = 0; // No sub-registers.
+  
+  switch (MI.getOpcode())
+  {
+    default:
+      return false;
+    case AVR::MOV:
+    case AVR::MOVW:
+      assert(MI.getNumOperands() >= 2 &&
+              MI.getOperand(0).isReg() &&
+              MI.getOperand(1).isReg() &&
+              "invalid register-register move instruction");
+      SrcReg = MI.getOperand(1).getReg();
+      DstReg = MI.getOperand(0).getReg();
+      return true;
   }
-*/
-  return false;
 }
 
