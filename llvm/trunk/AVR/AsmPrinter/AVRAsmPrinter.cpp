@@ -337,6 +337,7 @@ void AVRAsmPrinter::printSrcMemOperand(const MachineInstr *MI, int OpNum,
   }
 }
 
+/// Condition Code Operand (for conditional statements)
 void AVRAsmPrinter::printCCOperand(const MachineInstr *MI, int OpNum) 
 {
   unsigned CC = MI->getOperand(OpNum).getImm();

@@ -6,7 +6,6 @@
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
-
 #ifndef AVR_MCINSTLOWER_H
 #define AVR_MCINSTLOWER_H
 
@@ -26,23 +25,24 @@ namespace llvm {
 
   /// AVRMCInstLower - This class is used to lower an MachineInstr
   /// into an MCInst.
-class VISIBILITY_HIDDEN AVRMCInstLower {
-  MCContext &Ctx;
-  Mangler &Mang;
+  class VISIBILITY_HIDDEN AVRMCInstLower
+  {
+    MCContext &Ctx;
+    Mangler &Mang;
 
-  AsmPrinter &Printer;
-public:
-  AVRMCInstLower(MCContext &ctx, Mangler &mang, AsmPrinter &printer)
-    : Ctx(ctx), Mang(mang), Printer(printer) {}
-  void Lower(const MachineInstr *MI, MCInst &OutMI) const;
+    AsmPrinter &Printer;
+    public:
+      AVRMCInstLower(MCContext &ctx, Mangler &mang, AsmPrinter &printer)
+        : Ctx(ctx), Mang(mang), Printer(printer) {}
+      void Lower(const MachineInstr *MI, MCInst &OutMI) const;
 
-  MCOperand LowerSymbolOperand(const MachineOperand &MO, MCSymbol *Sym) const;
+      MCOperand LowerSymbolOperand(const MachineOperand &MO, MCSymbol *Sym) const;
 
-  MCSymbol *GetGlobalAddressSymbol(const MachineOperand &MO) const;
-  MCSymbol *GetExternalSymbolSymbol(const MachineOperand &MO) const;
-  MCSymbol *GetJumpTableSymbol(const MachineOperand &MO) const;
-  MCSymbol *GetConstantPoolIndexSymbol(const MachineOperand &MO) const;
-};
+      MCSymbol *GetGlobalAddressSymbol(const MachineOperand &MO) const;
+      MCSymbol *GetExternalSymbolSymbol(const MachineOperand &MO) const;
+      MCSymbol *GetJumpTableSymbol(const MachineOperand &MO) const;
+      MCSymbol *GetConstantPoolIndexSymbol(const MachineOperand &MO) const;
+  };
 
 }
 

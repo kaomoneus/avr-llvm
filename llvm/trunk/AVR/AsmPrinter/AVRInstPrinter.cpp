@@ -22,18 +22,19 @@
 #include "llvm/Support/FormattedStream.h"
 using namespace llvm;
 
-
 // Include the auto-generated portion of the assembly writer.
 #define MachineInstr MCInst
 #define NO_ASM_WRITER_BOILERPLATE
 #include "AVRGenAsmWriter.inc"
 #undef MachineInstr
 
-void AVRInstPrinter::printInst(const MCInst *MI) {
+void AVRInstPrinter::printInst(const MCInst *MI)
+{
   printInstruction(MI);
 }
 
-void AVRInstPrinter::printPCRelImmOperand(const MCInst *MI, unsigned OpNo) {
+void AVRInstPrinter::printPCRelImmOperand(const MCInst *MI, unsigned OpNo)
+{
   const MCOperand &Op = MI->getOperand(OpNo);
   if (Op.isImm())
     O << Op.getImm();
@@ -44,7 +45,8 @@ void AVRInstPrinter::printPCRelImmOperand(const MCInst *MI, unsigned OpNo) {
 }
 
 void AVRInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
-                                     const char *Modifier) {
+                                     const char *Modifier) 
+{
   assert((Modifier == 0 || Modifier[0] == 0) && "No modifiers supported");
   const MCOperand &Op = MI->getOperand(OpNo);
   if (Op.isReg()) {
@@ -59,7 +61,8 @@ void AVRInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
 }
 
 void AVRInstPrinter::printSrcMemOperand(const MCInst *MI, unsigned OpNo,
-                                           const char *Modifier) {
+                                           const char *Modifier)
+{
   const MCOperand &Base = MI->getOperand(OpNo);
   const MCOperand &Disp = MI->getOperand(OpNo+1);
 
@@ -82,12 +85,15 @@ void AVRInstPrinter::printSrcMemOperand(const MCInst *MI, unsigned OpNo,
   }
 }
 
-void AVRInstPrinter::printCCOperand(const MCInst *MI, unsigned OpNo) {
+/// Condition Code Operand (for conditional statements)
+void AVRInstPrinter::printCCOperand(const MCInst *MI, unsigned OpNo)
+{
   unsigned CC = MI->getOperand(OpNo).getImm();
-/* MSP430CC defined in MSP430.h
+#if 0 
+// MSP430CC::COND_xx defined in MSP430.h
   switch (CC) {
   default:
-   llvm_unreachable("Unsupported CC code");
+   llvm_unreachable("Unsupported CC Operand");
    break;
   case AVRCC::COND_E:
    O << "eq";
@@ -107,5 +113,6 @@ void AVRInstPrinter::printCCOperand(const MCInst *MI, unsigned OpNo) {
   case AVRCC::COND_L:
    O << 'l';
    break;
-  }*/
+  }
+#endif
 }
