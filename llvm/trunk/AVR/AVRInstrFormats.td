@@ -1,5 +1,4 @@
 //===- AVRInstrFormats.td - AVR Instruction Formats ----------*- tblgen -*-===//
-
 //                     The LLVM Compiler Infrastructure
 //
 // This file is distributed under the University of Illinois Open Source 
@@ -12,7 +11,7 @@
 //
 //  Registers and Operands:
 //
-//  op    - operation code (all bits ).
+//  op    - operation code (all bits).
 //  Rd    - Destination (and source) register
 //  Rr    - Source register 
 //  w     - Arithmetic Word register (R24, R26, R28, R30)
@@ -39,7 +38,6 @@ class AVRInst<dag outs, dag ins, string asmstr, list<dag> pattern>
   let AsmString = asmstr;
   let Pattern = pattern;
 }
-
 
 // AVR word instruction
 class WordInst<dag outs, dag ins, string asmstr,
@@ -81,7 +79,6 @@ class DirAddrSingleReg<bits<11> op, dag outs, dag ins, string asmstr,
   let Instr{8-4} = Rd;
   let Instr{3-0} = op{3-0};
 }
-  
 
 //===----------------------------------------------------------------------===/
 // direct register register addressing,two regs   | op  | Rr | Rd|
@@ -179,7 +176,6 @@ class ProgDirAddr<bits<10> op, dag outs, dag ins, string asmstr,
   let Instr{16-0}  = k{16-0};
 }
 
-
 //===----------------------------------------------------------------------===/
 // Data Indirect with Displacement (X or Y + off) | op | Rr | q  |
 //===----------------------------------------------------------------------===/
@@ -212,7 +208,6 @@ class RelProgAddr<bits<4> op, dag outs, dag ins, string asmstr,
   let Instr{15-12} = op;
   let Instr{11-0}  = k;
 }
-
 
 //===----------------------------------------------------------------------===/
 // SREG bit manipulation (bclr, bset)             |     op      |s|
@@ -301,5 +296,3 @@ class CondBr<bits<4> op, dag outs, dag ins, string asmstr,
   let Instr{11-0}  = k;
 }
 */
-
-

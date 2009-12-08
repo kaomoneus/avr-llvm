@@ -19,33 +19,37 @@
 //       special class for the extented IO registers with an 8-bit Num. But on 
 //       the other hand all registers can be accessed via the Data Ram so they 
 //       belong to each other and therefor need the same Num type.
-class AVRReg<string n> : Register<n> {
+class AVRReg<string n> : Register<n>
+{
   let Namespace = "AVR";
   field bits<8> Num;
 }
 
 // AVR General Purpose Register (0-32)
-class GPR<bits<8> num, string n> : AVRReg<n> {
+class GPR<bits<8> num, string n> : AVRReg<n>
+{
   let Num = num;
 }
 
 // AVR Pointer Registers
-class PTR<bits<8> num,string n,list<Register> subregs>: AVRReg<n> {
+class PTR<bits<8> num,string n,list<Register> subregs>: AVRReg<n>
+{
   let Num = num;
   let SubRegs = subregs;
 }
 
 // AVR standard IO Register (0-64)
-class IOReg<bits<8> num, string n> : AVRReg<n> {
+class IOReg<bits<8> num, string n> : AVRReg<n>
+{
   let Num = num;
 }
 
 // AVR bit addressable IO Register (0-32)
-class BitIOReg<bits<8> num, string n> : IOReg<num,n> {
-}
+class BitIOReg<bits<8> num, string n> : IOReg<num,n> {}
 
 // AVR extended IO Registers (only accessable via Load, Store Instructions)
-class ExtIOReg<bits<8> num, string n> : AVRReg<n> {
+class ExtIOReg<bits<8> num, string n> : AVRReg<n>
+{
   let Num = num;
 }
 
@@ -54,13 +58,15 @@ class ExtIOReg<bits<8> num, string n> : AVRReg<n> {
 //       which flags are affected by a instruction...
 
 // AVR Flags
-class AVRFlag<bits<3> num, string n> : Register<n> {
+class AVRFlag<bits<3> num, string n> : Register<n>
+{
   let Namespace = "AVR";
   field bits<3> Num = num;
 }
 
 // AVR Flag register
-class FlagReg<bits<8> num, string n,list<AVRFlag> flags> : IOReg<num, n> {
+class FlagReg<bits<8> num, string n,list<AVRFlag> flags> : IOReg<num, n>
+{
   let Num = num;
   let SubRegs = flags;
 }
@@ -155,30 +161,34 @@ def SP : PTR<0x5D,"SP", [SPL, SPH]>, DwarfRegNum<[0x5D]>;
 // Gereral Purpose Regsister Class
 // NOTE: If an allocation_order_* methode is not specified, than regList also 
 //       defines the order of allocation used by the register allocator. 
-def GPRegs : RegisterClass<"AVR", [i8], 8, [
-                              // Call-used registers (Caller saved)
-                                           R24, R25, 
-                                           R18, R19, 
-                                           R20, R21, 
+def GPRegs : RegisterClass<"AVR", [i8], 8, [ 
+                                // Call-used registers (Caller saved)
+                                           R24, R25,
+                                           R18, R19,
+                                           R20, R21,
                                            R22, R23,
-                                           R30, R31, 
+                                           R30, R31,
                                            R26, R27,
-			      // Call-saved registers (Callee saved)
-					   R28, R29, 
-					   R17, R16, R15, R14, R13, R12, R11, 
-					   R10, R9, R8, R7, R6, R5, R4, R3, R2, 
-			      // Fixed registers
-					   R1, R0]> {
-// NOTE: The allocation_order_end methode is implemented to tell the 
-//       register allocator not to use fixed registers!
-  let MethodProtos = [{
-    iterator allocation_order_end(const MachineFunction &MF) const;
+			                             // Call-saved registers (Callee saved)
+                                      R28, R29, R17, R16, R15, R14,
+					                                 R13, R12, R11, R10, R9, R8,
+					                                 R7, R6, R5, R4, R3, R2, 
+			                             // Fixed registers
+					                                       R1, R0]> 
+{
+    // NOTE: The allocation_order_end methode is implemented to tell the 
+    //       register allocator not to use fixed registers!
+  let MethodProtos = 
+  [{
+      iterator allocation_order_end(const MachineFunction &MF) const;
   }];
-  let MethodBodies = [{
-    GPRegsClass::iterator
-    GPRegsClass::allocation_order_end(const MachineFunction &MF) const {
-      return end()-2;	// R1 and R0 are reseverd for fixed purposes
-    }
+  let MethodBodies = 
+  [{
+      GPRegsClass::iterator
+      GPRegsClass::allocation_order_end(const MachineFunction &MF) const
+      {
+        return end()-2;	// R1 and R0 are reseverd for fixed purposes
+      }
   }];
 }
 
@@ -188,8 +198,8 @@ def ADIWRegs : RegisterClass<"AVR", [i16], 16, [
                                            R25R24,
                                            R31R30,
                                            R27R26,
-			      // Call-saved registers (Callee saved)
-					   R29R28]> {}
+			                           // Call-saved registers (Callee saved)
+					                                       R29R28]> {}
 
 def LDIRegs : RegisterClass<"AVR", [i8], 8, [
                               // Call-used registers (Caller saved)
@@ -199,35 +209,42 @@ def LDIRegs : RegisterClass<"AVR", [i8], 8, [
                                            R22, R23,
                                            R30, R31, 
                                            R26, R27,
-			      // Call-saved registers (Callee saved)
-					   R28, R29, 
-					   R17, R16]> {}
+			                           // Call-saved registers (Callee saved)
+					                                       R28, R29,
+					                                       R17, R16]> {}
+					                                       
 def NoLDIGPRegs : RegisterClass<"AVR", [i8], 8, [
-			      // Call-saved registers (Callee saved)
-					   R15, R14, R13, R12, R11, 
-					   R10, R9, R8, R7, R6, R5, R4, R3, R2, 
-			      // Fixed registers
-					   R1, R0]> {
-// NOTE: The allocation_order_end methode is implemented to tell the 
-//       register allocator not to use fixed registers!
-  let MethodProtos = [{
-    iterator allocation_order_end(const MachineFunction &MF) const;
+			                            // Call-saved registers (Callee saved)
+					                           R15, R14, R13, R12, R11, R10, R9, 
+					                           R8, R7, R6, R5, R4, R3, R2, 
+			                            // Fixed registers
+					                           R1, R0]>
+{
+  // NOTE: The allocation_order_end methode is implemented to tell the 
+  //       register allocator not to use fixed registers!
+  let MethodProtos = 
+  [{
+      iterator allocation_order_end(const MachineFunction &MF) const;
   }];
-  let MethodBodies = [{
-    NoLDIGPRegsClass::iterator
-    NoLDIGPRegsClass::allocation_order_end(const MachineFunction &MF) const {
-      return end()-2;	// R1 and R0 are reseverd for fixed purposes
-    }
+  let MethodBodies = 
+  [{
+      NoLDIGPRegsClass::iterator
+      NoLDIGPRegsClass::allocation_order_end(const MachineFunction &MF) const
+      {
+        return end()-2;	// R1 and R0 are reseverd for fixed purposes
+      }
   }];
 }
+
 // registers to use with the MULSU and the FMULxx instrcutions
 def FMULRegs : RegisterClass<"AVR", [i8], 8, [
                               // Call-used registers (Caller saved)
                                            R18, R19, 
                                            R20, R21, 
                                            R22, R23,
-			      // Call-saved registers (Callee saved)
-					   R17, R16]> {}
+			                           // Call-saved registers (Callee saved)
+					                                       R17, R16]> {}
+					                                       
 // WordRegister groups to use with the movw instruction
 def WRegs : RegisterClass<"AVR", [i16], 16, [
                               // Call-used registers (Caller saved)
@@ -237,57 +254,53 @@ def WRegs : RegisterClass<"AVR", [i16], 16, [
                                            R23R22,
                                            R31R30, 
                                            R27R26,
-			      // Call-saved registers (Callee saved)
-					   R29R28,  
-					   R17R16, 
-					   R15R14,
-					   R13R12, 
-					   R11R10, 
-					   R9R8,
-					   R7R6, 
-					   R5R4, 
-					   R3R2, 
-			      // Fixed registers
-					   R1R0]> {
-// NOTE: The allocation_order_end methode is implemented to tell the 
-//       register allocator not to use fixed registers!
-  let MethodProtos = [{
-    iterator allocation_order_end(const MachineFunction &MF) const;
+			                           // Call-saved registers (Callee saved)
+					                                     R29R28,
+					                                     R17R16,
+					                                     R15R14,
+					                                     R13R12,
+					                                     R11R10,
+					                                     R9R8,
+					                                     R7R6,
+					                                     R5R4,
+					                                     R3R2,
+			                           // Fixed registers
+					                                       R1R0]> 
+{
+  // NOTE: The allocation_order_end methode is implemented to tell the 
+  //       register allocator not to use fixed registers!
+  let MethodProtos = 
+  [{
+      iterator allocation_order_end(const MachineFunction &MF) const;
   }];
-  let MethodBodies = [{
-    WRegsClass::iterator
-    WRegsClass::allocation_order_end(const MachineFunction &MF) const {
-      return end()-1;	// R1R0 are reseverd for fixed purposes
-    }
+  
+  let MethodBodies = 
+  [{
+      WRegsClass::iterator
+      WRegsClass::allocation_order_end(const MachineFunction &MF) const
+      {
+        return end()-1;	// R1R0 are reseverd for fixed purposes
+      }
   }];
 }
 
 // Double Word Registers
-def DWRegs : RegisterClass<"AVR", [i32], 32, [
-	R25R22,
-        R21R18,
-        R17R14,
-        R13R10]> {}
+def DWRegs : RegisterClass<"AVR", [i32], 32, [R25R22,
+                                              R21R18,
+                                              R17R14,
+                                              R13R10]> {}
 
 // Quad Word Registers
-def QWRegs : RegisterClass<"AVR", [i64], 64, [
-	R25R18,
-        R17R10]> {}
-
+def QWRegs : RegisterClass<"AVR", [i64], 64, [R25R18, R17R10]> {}
 
 // Pointer Registers
-def PTRRegs : RegisterClass<"AVR", [i16], 16, [ 
-                                              X_PTR,
-					      Y_PTR,
-					      Z_PTR]> {}
+def PTRRegs : RegisterClass<"AVR", [i16], 16, [X_PTR, Y_PTR, Z_PTR]> {}
+
 // Base Pointer Registers
-def BasePTRRegs : RegisterClass<"AVR", [i16], 16, [ 
-                                              Y_PTR,
-					      Z_PTR]> {}
+def BasePTRRegs : RegisterClass<"AVR", [i16], 16, [Y_PTR, Z_PTR]> {}                             
+
 // Mul return register R1:R0
-def MulRetReg : RegisterClass<"AVR", [i16], 16, [ 
-                                              R1R0]> {}
+def MulRetReg : RegisterClass<"AVR", [i16], 16, [R1R0]> {}
+                                              
 // AVR status flags
 def StatusFlags : RegisterClass<"AVR", [i1], 1, [C,Z,N,V,S,H,T,I]> {}
-
-

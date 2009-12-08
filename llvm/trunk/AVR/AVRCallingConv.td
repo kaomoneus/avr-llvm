@@ -18,7 +18,8 @@
 //===----------------------------------------------------------------------===//
 
 // Return-value convention.
-def RetCC_AVR : CallingConv<[
+def RetCC_AVR : CallingConv
+<[
   // Promote i8 arguments to i16.
   //CCIfType<[i8], CCPromoteToType<i16>>,
 
@@ -33,8 +34,8 @@ def RetCC_AVR : CallingConv<[
 // AVR Argument Calling Convention
 //===----------------------------------------------------------------------===//
 
-def CC_AVR : CallingConv<[
-  
+def CC_AVR : CallingConv
+<[
   // If the current function dosen't take variable arguments
   //TODO: add CCIfNotVarArg, if required
   //CCIfNotVarArg<
@@ -54,4 +55,3 @@ def CC_AVR : CallingConv<[
   // stack. i8 is extended to i16.
   CCIfType<[i16,i32,i64], CCAssignToStack<1, 1>>
 ]>;
-
