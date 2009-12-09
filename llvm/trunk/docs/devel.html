@@ -24,6 +24,31 @@ This document contains rules and guideline for the
   <li><a href="http://llvm.org/docs/CodingStandards.html">LLVM Coding Standards</a></li>
 </ul>
 
+<h2><a name="svn">SVN Repository</a></h2>
+
+<pre>
+svn co https://avr-llvm.svn.sourceforge.net/svnroot/avr-llvm/ avr-llvm 
+</pre>
+
+<p>avr-llvm svn structure:</p>
+
+<pre>
+avr-llvm
+|-- cfe
+|   `-- trunk
+|-- llvm
+|   |-- branches
+|   |-- tags
+|   `-- trunk
+|       |-- AVR
+|       |-- docs
+|       |-- patches
+|       |   `-- replace
+|       `-- testcases
+`-- llvm-gcc-4.2
+    `-- trunk
+</pre>
+
 <h2><a name="coding">Coding Standards</a></h2>
 <p>
   Many rules are covered by the 
@@ -89,20 +114,16 @@ trunk is <code>llvm</code> and your build directory is <code>build</code>.
 
 <pre>
 $ cd llvm
-$ svn update             # get the latest revision
-$ svn revert -R  *       # revert all changes
-$ rm -rf lib/Target/AVR  # remove AVR Target
+$ svn update                             # get the latest revision
+$ svn revert -R  *                       # revert all changes
+$ rm -rf lib/Target/AVR                  # remove AVR Target
 
-$ patch -p0 &lt; ../avr-llvm/patches/configure.ac.diff 
-$ patch -p0 &lt; ../avr-llvm/patches/Tripple.diff 
-$ patch -p0 &lt; ../avr-llvm/patches/CMake/CMake.diff 
+$ cat ../avr-llvm/patches/*.diff | patch -p0                  # apply *all* patches 
+$ rsync -r --exclude=.svn ../avr-llvm/patches/replace/* ./    # replace *all* autogen files 
 
-$ cp ../avr-llvm/patches/configure ./
-$ cp ../avr-llvm/patches/CMake/LLVMLibDeps.cmake cmake/modules
-
-$ cp -rf ../avr-llvm/AVR lib/Target/  # cp working copy to llvm src tree
+$ cp -rf ../avr-llvm/AVR lib/Target/     # cp working copy to llvm src tree
 $ cd ../build
-$ rm * -rf               # remove old builds (important!)
+$ rm * -rf                               # remove old builds (important!)
   
 $ ../llvm/configure --prefix=$HOME/usr/avr-llvm/ --disable-optimized --enable-targets=avr
 $ make
