@@ -12,7 +12,17 @@ img
 {
   border-style:none;
 }
-address img
+dd
+{
+  padding-bottom:0.5em;
+}
+#footer img
 {
   float:right;
+}
+#footer ul
+{
+  list-style-type:none;
+  padding-left:0;
+  margin-left:0;
 }

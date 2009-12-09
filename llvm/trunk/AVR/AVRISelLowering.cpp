@@ -171,11 +171,6 @@ AVRTargetLowering::LowerFormalArguments(SDValue Chain,
                          SmallVectorImpl<SDValue> &InVals) {
   DEBUG(errs() << "CallingConvention: " << CallConv <<"\n");
   
-  // TODO: we currently don't support arguments
-  assert((Ins.size() == 0) && "Arguments not supported yet");
-
-  assert(!isVarArg && "Varargs not supported yet");
-/*
 
   switch (CallConv) {
   default:
@@ -183,7 +178,7 @@ AVRTargetLowering::LowerFormalArguments(SDValue Chain,
   case CallingConv::C:
   case CallingConv::Fast:
     return LowerCCCArguments(Chain, CallConv, isVarArg, Ins, dl, DAG, InVals);
-  }*/
+  }
   return Chain;
 }
 
@@ -214,13 +209,16 @@ AVRTargetLowering::LowerCall(SDValue Chain, SDValue Callee,
 // FIXME: varargs
 SDValue
 AVRTargetLowering::LowerCCCArguments(SDValue Chain,
-                                        unsigned CallConv,
+                                        CallingConv::ID CallConv,
                                         bool isVarArg,
                                         const SmallVectorImpl<ISD::InputArg>
                                           &Ins,
                                         DebugLoc dl,
                                         SelectionDAG &DAG,
-                                        SmallVectorImpl<SDValue> &InVals) {/*
+                                        SmallVectorImpl<SDValue> &InVals) 
+{
+
+
   MachineFunction &MF = DAG.getMachineFunction();
   MachineFrameInfo *MFI = MF.getFrameInfo();
   MachineRegisterInfo &RegInfo = MF.getRegInfo();
@@ -229,24 +227,60 @@ AVRTargetLowering::LowerCCCArguments(SDValue Chain,
   SmallVector<CCValAssign, 16> ArgLocs;
   CCState CCInfo(CallConv, isVarArg, getTargetMachine(),
                  ArgLocs, *DAG.getContext());
-//  CCInfo.AnalyzeFormalArguments(Ins, CC_AVR);
-//TODO what's this? ^
+  CCInfo.AnalyzeFormalArguments(Ins, CC_AVR);
+  // TODO varargs support
   assert(!isVarArg && "Varargs not supported yet");
 
-  for (unsigned i = 0, e = ArgLocs.size(); i != e; ++i) {
+  for (unsigned i = 0, e = ArgLocs.size(); i != e; ++i) 
+  {
     CCValAssign &VA = ArgLocs[i];
-    if (VA.isRegLoc()) {
+    if (VA.isRegLoc()) 
+    {
+
+      DEBUG(errs() << "Argument in Register\n");
       // Arguments passed in registers
       EVT RegVT = VA.getLocVT();
-      switch (RegVT.getSimpleVT().SimpleTy) {
+
+      switch (RegVT.getSimpleVT().SimpleTy) 
+      {
       default:
         {
-#ifndef NDEBUG
-          cerr << "LowerFormalArguments Unhandled argument type: "
-               << RegVT.getSimpleVT().SimpleTy << "\n";
-#endif
+          DEBUG(errs() << "LowerFormalArguments Unhandled argument type: "
+               << RegVT.getSimpleVT().SimpleTy << "\n");
+          DEBUG(errs() << "EVT string: " << RegVT.getEVTString() << "\n");
+          assert(0 && "Argument type not supported yet");
           llvm_unreachable(0);
         }
+      case MVT::i8:
+        unsigned VReg =
+        RegInfo.createVirtualRegister(AVR::GPRegsRegisterClass); //TODO <----why?
+        RegInfo.addLiveIn(VA.getLocReg(), VReg);
+        SDValue ArgValue = DAG.getCopyFromReg(Chain, dl, VReg, RegVT);
+
+        // If this is an 8-bit value, it is really passed promoted to 16
+        // bits. Insert an assert[sz]ext to capture this, then truncate to the
+        // right size.
+        if (VA.getLocInfo() == CCValAssign::SExt)
+	{
+          assert(0 && "SExt not supported yet");
+          ArgValue = DAG.getNode(ISD::AssertSext, dl, RegVT, ArgValue,
+                                 DAG.getValueType(VA.getValVT()));
+        }
+	else if (VA.getLocInfo() == CCValAssign::ZExt)
+	{
+          assert(0 && "ZExt not supported yet");
+          ArgValue = DAG.getNode(ISD::AssertZext, dl, RegVT, ArgValue,
+                                 DAG.getValueType(VA.getValVT()));
+        }
+        
+	if (VA.getLocInfo() != CCValAssign::Full)
+	{
+          assert(0 && "Full not supported yet");
+          ArgValue = DAG.getNode(ISD::TRUNCATE, dl, VA.getValVT(), ArgValue);
+	}
+
+        InVals.push_back(ArgValue);
+#if 0
       case MVT::i16:
         unsigned VReg =
         RegInfo.createVirtualRegister(AVR::GPRegsRegisterClass); //TODO <----why?
@@ -267,10 +301,18 @@ AVRTargetLowering::LowerCCCArguments(SDValue Chain,
           ArgValue = DAG.getNode(ISD::TRUNCATE, dl, VA.getValVT(), ArgValue);
 
         InVals.push_back(ArgValue);
+#endif
       }
-    } else {
+    } 
+    else 
+    {
       // Sanity check
-      assert(VA.isMemLoc());
+      assert(VA.isMemLoc() && "not in Reg and not in Mem??");
+      
+      DEBUG(errs() << "Argument on Stack\n");
+
+      assert(0 && "Arguments on stack are not implemented yet!");
+#if 0
       // Load the argument to a virtual register
       unsigned ObjSize = VA.getLocVT().getSizeInBits()/8;
       if (ObjSize > 2) {
@@ -286,12 +328,11 @@ AVRTargetLowering::LowerCCCArguments(SDValue Chain,
       SDValue FIN = DAG.getFrameIndex(FI, MVT::i16);
       InVals.push_back(DAG.getLoad(VA.getLocVT(), dl, Chain, FIN,
                                    PseudoSourceValue::getFixedStack(FI), 0));
+#endif
     }
   }
 
-  return Chain;*/
-  assert(0 && "Not implemented");
-  return SDValue();
+  return Chain;
 }
 
 SDValue
@@ -350,7 +391,7 @@ AVRTargetLowering::LowerReturn(SDValue Chain,
 /// TODO: sret.
 SDValue
 AVRTargetLowering::LowerCCCCallTo(SDValue Chain, SDValue Callee,
-                                     unsigned CallConv, bool isVarArg,
+                                     CallingConv::ID CallConv, bool isVarArg,
                                      bool isTailCall,
                                      const SmallVectorImpl<ISD::OutputArg>
                                        &Outs,
@@ -478,7 +519,7 @@ AVRTargetLowering::LowerCCCCallTo(SDValue Chain, SDValue Callee,
 ///
 SDValue
 AVRTargetLowering::LowerCallResult(SDValue Chain, SDValue InFlag,
-                                      unsigned CallConv, bool isVarArg,
+                                      CallingConv::ID CallConv, bool isVarArg,
                                       const SmallVectorImpl<ISD::InputArg> &Ins,
                                       DebugLoc dl, SelectionDAG &DAG,
                                       SmallVectorImpl<SDValue> &InVals) {/*
