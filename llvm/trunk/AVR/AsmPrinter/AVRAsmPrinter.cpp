@@ -186,8 +186,9 @@ void AVRAsmPrinter::emitFunctionHeader(const MachineFunction &MF)
 
   OutStreamer.SwitchSection(getObjFileLowering().SectionForGlobal(F, Mang, TM));
 
-  unsigned FnAlign = MF.getAlignment();
-  EmitAlignment(FnAlign, F);
+/// Do not emit .align (avr-as doesn't use it)
+//  unsigned FnAlign = MF.getAlignment();
+//  EmitAlignment(FnAlign, F);
 
   switch (F->getLinkage()) 
   {
