@@ -162,7 +162,7 @@ void AVRRegisterInfo::emitEpilogue(MachineFunction &MF,
 
 unsigned AVRRegisterInfo::getRARegister() const {
   assert(0 && "What is the return address register");
-  return 0;
+  return AVR::SP;
 }
 
 unsigned AVRRegisterInfo::getFrameRegister(const MachineFunction &MF) const {
@@ -181,8 +181,7 @@ unsigned AVRRegisterInfo::getEHHandlerRegister() const {
 }
 
 int AVRRegisterInfo::getDwarfRegNum(unsigned RegNum, bool isEH) const {
-  assert(0 && "What is the dwarf register number");
-  return -1;
+  return AVRGenRegisterInfo::getDwarfRegNumFull(RegNum, 0);
 }
 
 #include "AVRGenRegisterInfo.inc"
