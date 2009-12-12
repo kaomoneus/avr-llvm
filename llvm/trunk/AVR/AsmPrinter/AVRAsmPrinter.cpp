@@ -63,13 +63,12 @@ namespace {
     void printMCInst(const MCInst *MI) {
       AVRInstPrinter(O, *MAI).printInstruction(MI);
     }
-    void printOperand(const MachineInstr *MI, int OpNum,
-                      const char* Modifier = 0);
+    void printOperand(const MachineInstr *MI, int OpNum);
+    
     void printPCRelImmOperand(const MachineInstr *MI, int OpNum) {
       printOperand(MI, OpNum);
     }
-    void printSrcMemOperand(const MachineInstr *MI, int OpNum,
-                            const char* Modifier = 0);
+    void printSrcMemOperand(const MachineInstr *MI, int OpNum);
     void printCCOperand(const MachineInstr *MI, int OpNum);
     void printMachineInstruction(const MachineInstr * MI);
     bool PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
@@ -257,8 +256,7 @@ void AVRAsmPrinter::printMachineInstruction(const MachineInstr *MI)
   processDebugLoc(MI, false);
 }
 
-void AVRAsmPrinter::printOperand(const MachineInstr *MI, int OpNum,
-                                    const char* Modifier)
+void AVRAsmPrinter::printOperand(const MachineInstr *MI, int OpNum)
 {
   const MachineOperand &MO = MI->getOperand(OpNum);
   switch (MO.getType()) 
@@ -267,16 +265,14 @@ void AVRAsmPrinter::printOperand(const MachineInstr *MI, int OpNum,
 	     O << AVRInstPrinter::getRegisterName(MO.getReg());
 	     return;
     case MachineOperand::MO_Immediate:
-      if (!Modifier || strcmp(Modifier, "nohash"))
-	     {
-        O << '#';
-	     }
       O << MO.getImm();
       return;
     case MachineOperand::MO_MachineBasicBlock:
       GetMBBSymbol(MO.getMBB()->getNumber())->print(O, MAI);
       return;
-    case MachineOperand::MO_GlobalAddress: 
+    case MachineOperand::MO_GlobalAddress:
+//- MSP430 asm specific. keeping as reference for now      
+#if 0
     {
       bool isMemOp  = Modifier && !strcmp(Modifier, "mem");
       std::string Name = Mang->getMangledName(MO.getGlobal());
@@ -294,7 +290,9 @@ void AVRAsmPrinter::printOperand(const MachineInstr *MI, int OpNum,
 	     }
       return;
     }
-    case MachineOperand::MO_ExternalSymbol: 
+#endif
+    case MachineOperand::MO_ExternalSymbol:
+#if 0
     {
       bool isMemOp  = Modifier && !strcmp(Modifier, "mem");
       std::string Name(MAI->getGlobalPrefix());
@@ -304,14 +302,16 @@ void AVRAsmPrinter::printOperand(const MachineInstr *MI, int OpNum,
 
       return;
     }
+#endif
     default:
       llvm_unreachable("Not implemented yet!");
   }
 }
 
-void AVRAsmPrinter::printSrcMemOperand(const MachineInstr *MI, int OpNum,
-                                          const char* Modifier)
+void AVRAsmPrinter::printSrcMemOperand(const MachineInstr *MI, int OpNum)
 {
+//- MSP430 asm specific. keeping as reference for now      
+#if 0
   const MachineOperand &Base = MI->getOperand(OpNum);
   const MachineOperand &Disp = MI->getOperand(OpNum+1);
 
@@ -336,6 +336,8 @@ void AVRAsmPrinter::printSrcMemOperand(const MachineInstr *MI, int OpNum,
     printOperand(MI, OpNum);
     O << ')';
   }
+#endif 
+  llvm_unreachable("Not implemented yet!");
 }
 
 /// Condition Code Operand (for conditional statements)
