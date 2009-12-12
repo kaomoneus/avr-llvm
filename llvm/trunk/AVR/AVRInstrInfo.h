@@ -83,7 +83,9 @@ public:
   virtual bool isMoveInstr(const MachineInstr &MI,
                            unsigned &SrcReg, unsigned &DstReg,
                            unsigned &SrcSubIdx, unsigned &DstSubIdx) const;
-
+                           
+  virtual void insertNoop(MachineBasicBlock &MBB, 
+                          MachineBasicBlock::iterator MI) const;
 };
 
 } // namespace llvm

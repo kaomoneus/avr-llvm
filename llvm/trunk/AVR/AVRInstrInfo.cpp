@@ -189,3 +189,10 @@ bool AVRInstrInfo::isMoveInstr(const MachineInstr &MI,
   }
 }
 
+void AVRInstrInfo::insertNoop(MachineBasicBlock &MBB, 
+                                MachineBasicBlock::iterator MI) const 
+{
+  DebugLoc DL = DebugLoc::getUnknownLoc();
+  if (MI != MBB.end()) DL = MI->getDebugLoc();
+  BuildMI(MBB, MI, DL, get(AVR::NOP));
+}
