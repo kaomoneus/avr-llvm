@@ -45,56 +45,67 @@ using namespace llvm;
 
 STATISTIC(EmittedInsts, "Number of machine instrs printed");
 
-static cl::opt<bool>
-EnableMCInst("enable-avr-mcinst-printer", cl::Hidden,
-             cl::desc("enable experimental mcinst gunk in the avr backend"));
+namespace
+{
+  class AVRAsmPrinter : public AsmPrinter
+  {
+    public:
+      AVRAsmPrinter(formatted_raw_ostream &O, TargetMachine &TM,
+                       const MCAsmInfo *MAI, bool V)
+        : AsmPrinter(O, TM, MAI, V){}
 
-namespace {
-  class AVRAsmPrinter : public AsmPrinter {
-  public:
-    AVRAsmPrinter(formatted_raw_ostream &O, TargetMachine &TM,
-                     const MCAsmInfo *MAI, bool V)
-      : AsmPrinter(O, TM, MAI, V) {}
+      virtual const char *getPassName() const
+      {
+        return "AVR Assembly Printer";
+      }
+      virtual void EmitStartOfAsmFile(Module &M)
+      {
+        M.setModuleInlineAsm ("__SREG__ = 0x3f\n"
+                              "__SP_H__ = 0x3e\n"
+                              "__SP_L__ = 0x3d\n"
+                              "__CCP__  = 0x34\n"
+                              "__tmp_reg__ = 0\n"
+                              "__zero_reg__ = 1");
+      }
+      void printMCInst(const MCInst *MI)
+      {
+        AVRInstPrinter(O, *MAI).printInstruction(MI);
+      }
+      void printOperand(const MachineInstr *MI, int OpNum);
+      
+      void printPCRelImmOperand(const MachineInstr *MI, int OpNum)
+      {
+        printOperand(MI, OpNum);
+      }
+      void printSrcMemOperand(const MachineInstr *MI, int OpNum);
+      void printCCOperand(const MachineInstr *MI, int OpNum);
+      void printMachineInstruction(const MachineInstr * MI);
+      bool PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
+                           unsigned AsmVariant,
+                           const char *ExtraCode);
+      bool PrintAsmMemoryOperand(const MachineInstr *MI,
+                                 unsigned OpNo, unsigned AsmVariant,
+                                 const char *ExtraCode);
+      void printInstructionThroughMCStreamer(const MachineInstr *MI);
 
-    virtual const char *getPassName() const {
-      return "AVR Assembly Printer";
-    }
+      void PrintGlobalVariable(const GlobalVariable* GVar);
+      void emitFunctionHeader(const MachineFunction &MF);
+      bool runOnMachineFunction(MachineFunction &F);
 
-    void printMCInst(const MCInst *MI) {
-      AVRInstPrinter(O, *MAI).printInstruction(MI);
-    }
-    void printOperand(const MachineInstr *MI, int OpNum);
-    
-    void printPCRelImmOperand(const MachineInstr *MI, int OpNum) {
-      printOperand(MI, OpNum);
-    }
-    void printSrcMemOperand(const MachineInstr *MI, int OpNum);
-    void printCCOperand(const MachineInstr *MI, int OpNum);
-    void printMachineInstruction(const MachineInstr * MI);
-    bool PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
-                         unsigned AsmVariant,
-                         const char *ExtraCode);
-    bool PrintAsmMemoryOperand(const MachineInstr *MI,
-                               unsigned OpNo, unsigned AsmVariant,
-                               const char *ExtraCode);
-    void printInstructionThroughMCStreamer(const MachineInstr *MI);
-
-    void PrintGlobalVariable(const GlobalVariable* GVar);
-    void emitFunctionHeader(const MachineFunction &MF);
-    bool runOnMachineFunction(MachineFunction &F);
-
-    void getAnalysisUsage(AnalysisUsage &AU) const {
-      AsmPrinter::getAnalysisUsage(AU);
-      AU.setPreservesAll();
-    }
+      void getAnalysisUsage(AnalysisUsage &AU) const
+      {
+        AsmPrinter::getAnalysisUsage(AU);
+        AU.setPreservesAll();
+      }
   };
 } // end of anonymous namespace
 
 void AVRAsmPrinter::PrintGlobalVariable(const GlobalVariable* GVar)
 {
   if (!GVar->hasInitializer())
+  {
     return;   // External global require no code
-
+  }
   // Check to see if this is a special global used by LLVM, if so, emit it.
   if (EmitSpecialLLVMGlobal(GVar))
     return;
@@ -108,10 +119,13 @@ void AVRAsmPrinter::PrintGlobalVariable(const GlobalVariable* GVar)
 
   printVisibility(name, GVar->getVisibility());
 
-  O << "\t.type\t" << name << ",@object\n";
-
-  OutStreamer.SwitchSection(getObjFileLowering().SectionForGlobal(GVar, Mang,
-                                                                  TM));
+  if (!GVar->hasCommonLinkage())
+  {
+    O << "\t.type\t" << name << ",@object\n";
+  }
+///avr-gcc doesn't produce section info for globals
+// OutStreamer.SwitchSection(getObjFileLowering().SectionForGlobal(GVar, Mang,
+//                                                             TM));
 
   if (C->isNullValue() && !GVar->hasSection() &&
       !GVar->isThreadLocal() &&
@@ -120,12 +134,14 @@ void AVRAsmPrinter::PrintGlobalVariable(const GlobalVariable* GVar)
     if (Size == 0) Size = 1;   // .comm Foo, 0 is undefined, avoid it.
 
     if (GVar->hasLocalLinkage())
+    {
       O << "\t.local\t" << name << '\n';
-
+    }
     O << MAI->getCOMMDirective()  << name << ',' << Size;
     if (MAI->getCOMMDirectiveTakesAlignment())
+    {
       O << ',' << (MAI->getAlignmentIsInBytes() ? (1 << Align) : Align);
-
+    }
     if (VerboseAsm)
     {
       O.PadToColumn(MAI->getCommentColumn());
@@ -133,6 +149,8 @@ void AVRAsmPrinter::PrintGlobalVariable(const GlobalVariable* GVar)
       WriteAsOperand(O, GVar, /*PrintType=*/false, GVar->getParent());
     }
     O << '\n';
+    /// _HACK_(wrong place, wrong way) add clear bss to match avr-gcc
+    O << ".global __do_clear_bss\n";
     return;
   }
 
@@ -150,7 +168,7 @@ void AVRAsmPrinter::PrintGlobalVariable(const GlobalVariable* GVar)
       // their name or something.  For now, just emit them as external.
     case GlobalValue::ExternalLinkage:
       // If external or appending, declare as a global symbol
-      O << "\t.global " << name << '\n';
+      O << ".global " << name << '\n';
       // FALL THROUGH
     case GlobalValue::PrivateLinkage:
     case GlobalValue::LinkerPrivateLinkage:
@@ -161,7 +179,14 @@ void AVRAsmPrinter::PrintGlobalVariable(const GlobalVariable* GVar)
     default:
       assert(0 && "Unknown linkage type!");
   }
-
+  
+  /// _HACK_ (wrong place, wrong way) to match avr-gcc output
+  /// TODO: Need to find were the .data directive is in LLVM
+  O << "\t.data\n";
+  if (MAI->hasDotTypeDotSizeDirective())
+  {
+    O << "\t.size\t" << name << ", " << Size << '\n';
+  }
   // Use 16-bit alignment by default to simplify bunch of stuff
   EmitAlignment(Align, GVar);
   O << name << ":";
@@ -174,9 +199,8 @@ void AVRAsmPrinter::PrintGlobalVariable(const GlobalVariable* GVar)
   O << '\n';
 
   EmitGlobalConstant(C);
-
-  if (MAI->hasDotTypeDotSizeDirective())
-    O << "\t.size\t" << name << ", " << Size << '\n';
+  /// _HACK_(wrong place, wrong way) add clear bss to match avr-gcc
+  O << ".global __do_clear_bss\n";
 }
 
 void AVRAsmPrinter::emitFunctionHeader(const MachineFunction &MF) 
@@ -184,10 +208,6 @@ void AVRAsmPrinter::emitFunctionHeader(const MachineFunction &MF)
   const Function *F = MF.getFunction();
 
   OutStreamer.SwitchSection(getObjFileLowering().SectionForGlobal(F, Mang, TM));
-
-/// Do not emit .align (avr-as doesn't use it)
-//  unsigned FnAlign = MF.getAlignment();
-//  EmitAlignment(FnAlign, F);
 
   switch (F->getLinkage()) 
   {

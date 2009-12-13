@@ -18,7 +18,7 @@ using namespace llvm;
 AVRMCAsmInfo::AVRMCAsmInfo(const Target &T, const StringRef &TT)
 {
 
-  COMMDirectiveTakesAlignment = false;
+  //COMMDirectiveTakesAlignment = false;
   LCOMMDirective = "\t.lcomm\t";
   
 }
