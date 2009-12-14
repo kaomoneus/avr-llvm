@@ -16,12 +16,22 @@
 
 #include "llvm/MC/MCAsmInfo.h"
 
-namespace llvm {
+namespace llvm
+{
   class Target;
   class StringRef;
 
-  struct AVRMCAsmInfo : public MCAsmInfo {
+  struct AVRMCAsmInfo : public MCAsmInfo
+  {
     explicit AVRMCAsmInfo(const Target &T, const StringRef &TT);
+    
+    /// Get Data Directive (address space specific)
+    virtual const char *getDataASDirective(unsigned Size, unsigned AS) const
+    {
+      assert(AS != 0 && "Don't know the directives for default addr space");
+      return 0;
+    }
+    
   };
 
 } // namespace llvm

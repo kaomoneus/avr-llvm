@@ -17,8 +17,11 @@ using namespace llvm;
 
 AVRMCAsmInfo::AVRMCAsmInfo(const Target &T, const StringRef &TT)
 {
-
-  //COMMDirectiveTakesAlignment = false;
+  PCSymbol = ".";
+  SeparatorChar = '$';
+  SetDirective = "\t.set\t";
   LCOMMDirective = "\t.lcomm\t";
-  
+  GlobalDirective = "\t.global\t";
+  ExternDirective = "\t.extern\t";
+  UsesELFSectionDirectiveForBSS = true;
 }
