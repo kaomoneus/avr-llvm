@@ -14,53 +14,52 @@
 #ifndef AVRREGISTERINFO_H
 #define AVRREGISTERINFO_H
 
-#include "llvm/Target/TargetRegisterInfo.h"
 #include "AVRGenRegisterInfo.h.inc"
+#include "llvm/Support/ErrorHandling.h"
+#include "llvm/Target/TargetRegisterInfo.h"
 
-namespace llvm {
-
+namespace llvm
+{
 class AVRSubtarget;
 class TargetInstrInfo;
 class Type;
 
-struct AVRRegisterInfo : public AVRGenRegisterInfo {
-  AVRSubtarget &Subtarget;
-  const TargetInstrInfo &TII;
+  struct AVRRegisterInfo : public AVRGenRegisterInfo
+  {
+    AVRSubtarget &Subtarget;
+    const TargetInstrInfo &TII;
 
-  AVRRegisterInfo(AVRSubtarget &st, const TargetInstrInfo &tii);
+    AVRRegisterInfo(AVRSubtarget &st, const TargetInstrInfo &tii);
 
-  /// Code Generation virtual methods...
-  const unsigned *getCalleeSavedRegs(const MachineFunction *MF = 0) const;
+    /// Code Generation virtual methods...
+    const unsigned *getCalleeSavedRegs(const MachineFunction *MF = 0) const;
 
-  const TargetRegisterClass* const* getCalleeSavedRegClasses(
-                                     const MachineFunction *MF = 0) const;
+    const TargetRegisterClass* const* getCalleeSavedRegClasses(
+                                       const MachineFunction *MF = 0) const;
 
-  BitVector getReservedRegs(const MachineFunction &MF) const;
+    BitVector getReservedRegs(const MachineFunction &MF) const;
 
-  bool hasFP(const MachineFunction &MF) const;
+    bool hasFP(const MachineFunction &MF) const;
 
-  void eliminateCallFramePseudoInstr(MachineFunction &MF,
-                                     MachineBasicBlock &MBB,
-                                     MachineBasicBlock::iterator I) const;
-/**/
-  unsigned int eliminateFrameIndex(MachineBasicBlock::iterator II,
-                           int SPAdj, int *Value = NULL,RegScavenger *RS = NULL) const;
-/**/
-  void processFunctionBeforeFrameFinalized(MachineFunction &MF) const;
+    unsigned int eliminateFrameIndex(MachineBasicBlock::iterator II,
+                      int SPAdj, int *Value = NULL,RegScavenger *RS = NULL) const
+    {                        
+      llvm_unreachable("Not implemented");
+      return 0;
+    }
+    
+    void processFunctionBeforeFrameFinalized(MachineFunction &MF) const;
+    void emitPrologue(MachineFunction &MF) const;
+    void emitEpilogue(MachineFunction &MF, MachineBasicBlock &MBB) const;
+    unsigned getRARegister() const;
+    unsigned getFrameRegister(const MachineFunction &MF) const;
 
-  void emitPrologue(MachineFunction &MF) const;
-  void emitEpilogue(MachineFunction &MF, MachineBasicBlock &MBB) const;
-
-  // Debug information queries.
-  unsigned getRARegister() const;
-  unsigned getFrameRegister(const MachineFunction &MF) const;
-
-  // Exception handling queries.
-  unsigned getEHExceptionRegister() const;
-  unsigned getEHHandlerRegister() const;
-
-  int getDwarfRegNum(unsigned RegNum, bool isEH) const;
-};
+    // Exception handling queries.
+    unsigned getEHExceptionRegister() const;
+    unsigned getEHHandlerRegister() const;
+    // Debug information queries.
+    int getDwarfRegNum(unsigned RegNum, bool isEH) const;
+  };
 
 } // end namespace llvm
 

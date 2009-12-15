@@ -19,6 +19,7 @@
 #include "AVRMCAsmInfo.h"
 #include "AVRMCInstLower.h"
 #include "AVRTargetMachine.h"
+#include "llvm/LLVMContext.h"
 #include "llvm/Constants.h"
 #include "llvm/DerivedTypes.h"
 #include "llvm/Module.h"
@@ -59,7 +60,7 @@ namespace
         return "AVR Assembly Printer";
       }
       virtual void EmitStartOfAsmFile(Module &M)
-      {
+      { 
         M.setModuleInlineAsm ("__SREG__ = 0x3f\n"
                               "__SP_H__ = 0x3e\n"
                               "__SP_L__ = 0x3d\n"
@@ -67,6 +68,11 @@ namespace
                               "__tmp_reg__ = 0\n"
                               "__zero_reg__ = 1");
       }
+/*      virtual void EmitEndOfAsmFile(Module &M)
+      {
+        //M.getOrInsertGlobal("__do_clear_bss",);
+        M.getOrInsertFunction("_f_do_clear_bss", Type::getVoidTy(getGlobalContext()), NULL);
+      }*/
       void printMCInst(const MCInst *MI)
       {
         AVRInstPrinter(O, *MAI).printInstruction(MI);
@@ -177,11 +183,11 @@ void AVRAsmPrinter::PrintGlobalVariable(const GlobalVariable* GVar)
       O << "\t.internal " << name << '\n';
       break;
     default:
-      assert(0 && "Unknown linkage type!");
+      llvm_unreachable("Unknown linkage type!");
   }
   
   /// _HACK_ (wrong place, wrong way) to match avr-gcc output
-  /// TODO: Need to find were the .data directive is in LLVM
+  /// TODO: Need to find were the .data directive is in LLVM <---inside EmitGlobalConstant
   O << "\t.data\n";
   if (MAI->hasDotTypeDotSizeDirective())
   {

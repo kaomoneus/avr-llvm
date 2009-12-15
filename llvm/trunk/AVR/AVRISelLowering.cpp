@@ -40,7 +40,8 @@ using namespace llvm;
 
 AVRTargetLowering::AVRTargetLowering(AVRTargetMachine &tm) :
   TargetLowering(tm, new TargetLoweringObjectFileELF()),
-  ST(*tm.getSubtargetImpl()), TM(tm) {
+  ST(*tm.getSubtargetImpl()), TM(tm)
+{
 
   // Set up the register classes.
   addRegisterClass(MVT::i8,  AVR::GPRegsRegisterClass);
@@ -136,19 +137,21 @@ AVRTargetLowering::AVRTargetLowering(AVRTargetMachine &tm) :
   setOperationAction(ISD::SREM,             MVT::i16,   Expand);
 }
 
-SDValue AVRTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) {
-  switch (Op.getOpcode()) {
-  case ISD::SHL: // FALLTHROUGH
-  case ISD::SRL:
-  case ISD::SRA:              return LowerShifts(Op, DAG);
-  case ISD::GlobalAddress:    return LowerGlobalAddress(Op, DAG);
-  case ISD::ExternalSymbol:   return LowerExternalSymbol(Op, DAG);
-  case ISD::BR_CC:            return LowerBR_CC(Op, DAG);
-  case ISD::SELECT_CC:        return LowerSELECT_CC(Op, DAG);
-  case ISD::SIGN_EXTEND:      return LowerSIGN_EXTEND(Op, DAG);
-  default:
-    llvm_unreachable("unimplemented operand");
-    return SDValue();
+SDValue AVRTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG)
+{
+  switch (Op.getOpcode())
+  {
+    case ISD::SHL: // FALLTHROUGH
+    case ISD::SRL:
+    case ISD::SRA:              return LowerShifts(Op, DAG);
+    case ISD::GlobalAddress:    return LowerGlobalAddress(Op, DAG);
+    case ISD::ExternalSymbol:   return LowerExternalSymbol(Op, DAG);
+    case ISD::BR_CC:            return LowerBR_CC(Op, DAG);
+    case ISD::SELECT_CC:        return LowerSELECT_CC(Op, DAG);
+    case ISD::SIGN_EXTEND:      return LowerSIGN_EXTEND(Op, DAG);
+    default:
+      llvm_unreachable("unimplemented operand");
+      return SDValue();
   }
 }
 
@@ -168,16 +171,17 @@ AVRTargetLowering::LowerFormalArguments(SDValue Chain,
                          CallingConv::ID CallConv, bool isVarArg,
                          const SmallVectorImpl<ISD::InputArg> &Ins,
                          DebugLoc dl, SelectionDAG &DAG,
-                         SmallVectorImpl<SDValue> &InVals) {
+                         SmallVectorImpl<SDValue> &InVals)
+{
   DEBUG(errs() << "CallingConvention: " << CallConv <<"\n");
-  
 
-  switch (CallConv) {
-  default:
-    llvm_unreachable("Unsupported calling convention");
-  case CallingConv::C:
-  case CallingConv::Fast:
-    return LowerCCCArguments(Chain, CallConv, isVarArg, Ins, dl, DAG, InVals);
+  switch (CallConv)
+  {
+    default:
+      llvm_unreachable("Unsupported calling convention");
+    case CallingConv::C:
+    case CallingConv::Fast:
+      return LowerCCCArguments(Chain, CallConv, isVarArg, Ins, dl, DAG, InVals);
   }
   return Chain;
 }
@@ -189,8 +193,9 @@ AVRTargetLowering::LowerCall(SDValue Chain, SDValue Callee,
                                 const SmallVectorImpl<ISD::OutputArg> &Outs,
                                 const SmallVectorImpl<ISD::InputArg> &Ins,
                                 DebugLoc dl, SelectionDAG &DAG,
-                                SmallVectorImpl<SDValue> &InVals) {/*
-
+                                SmallVectorImpl<SDValue> &InVals)
+{
+#if 0
   switch (CallConv) {
   default:
     llvm_unreachable("Unsupported calling convention");
@@ -198,8 +203,9 @@ AVRTargetLowering::LowerCall(SDValue Chain, SDValue Callee,
   case CallingConv::C:
     return LowerCCCCallTo(Chain, Callee, CallConv, isVarArg, isTailCall,
                           Outs, Ins, dl, DAG, InVals);
-  }*/
-  assert(0 && "Not implemented");
+  }
+#endif
+  llvm_unreachable("Not implemented");
   return SDValue();
 }
 
@@ -248,7 +254,7 @@ AVRTargetLowering::LowerCCCArguments(SDValue Chain,
           DEBUG(errs() << "LowerFormalArguments Unhandled argument type: "
                << RegVT.getSimpleVT().SimpleTy << "\n");
           DEBUG(errs() << "EVT string: " << RegVT.getEVTString() << "\n");
-          assert(0 && "Argument type not supported yet");
+          llvm_unreachable("Argument type not supported yet");
           llvm_unreachable(0);
         }
       case MVT::i8:
@@ -262,20 +268,20 @@ AVRTargetLowering::LowerCCCArguments(SDValue Chain,
         // right size.
         if (VA.getLocInfo() == CCValAssign::SExt)
 	{
-          assert(0 && "SExt not supported yet");
+          llvm_unreachable("SExt not supported yet");
           ArgValue = DAG.getNode(ISD::AssertSext, dl, RegVT, ArgValue,
                                  DAG.getValueType(VA.getValVT()));
         }
 	else if (VA.getLocInfo() == CCValAssign::ZExt)
 	{
-          assert(0 && "ZExt not supported yet");
+          llvm_unreachable("ZExt not supported yet");
           ArgValue = DAG.getNode(ISD::AssertZext, dl, RegVT, ArgValue,
                                  DAG.getValueType(VA.getValVT()));
         }
         
 	if (VA.getLocInfo() != CCValAssign::Full)
 	{
-          assert(0 && "Full not supported yet");
+          llvm_unreachable("Full not supported yet");
           ArgValue = DAG.getNode(ISD::TRUNCATE, dl, VA.getValVT(), ArgValue);
 	}
 
@@ -311,7 +317,7 @@ AVRTargetLowering::LowerCCCArguments(SDValue Chain,
       
       DEBUG(errs() << "Argument on Stack\n");
 
-      assert(0 && "Arguments on stack are not implemented yet!");
+      llvm_unreachable("Arguments on stack are not implemented yet!");
 #if 0
       // Load the argument to a virtual register
       unsigned ObjSize = VA.getLocVT().getSizeInBits()/8;
@@ -510,7 +516,7 @@ AVRTargetLowering::LowerCCCCallTo(SDValue Chain, SDValue Callee,
   // return.
   return LowerCallResult(Chain, InFlag, CallConv, isVarArg, Ins, dl,
                          DAG, InVals);*/
-  assert(0 && "Not implemented");
+  llvm_unreachable("Not implemented");
   return SDValue();
 }
 
@@ -522,8 +528,9 @@ AVRTargetLowering::LowerCallResult(SDValue Chain, SDValue InFlag,
                                       CallingConv::ID CallConv, bool isVarArg,
                                       const SmallVectorImpl<ISD::InputArg> &Ins,
                                       DebugLoc dl, SelectionDAG &DAG,
-                                      SmallVectorImpl<SDValue> &InVals) {/*
-
+                                      SmallVectorImpl<SDValue> &InVals)
+{
+#if 0
   // Assign locations to each value returned by this call.
   SmallVector<CCValAssign, 16> RVLocs;
   CCState CCInfo(CallConv, isVarArg, getTargetMachine(),
@@ -539,13 +546,16 @@ AVRTargetLowering::LowerCallResult(SDValue Chain, SDValue InFlag,
     InVals.push_back(Chain.getValue(0));
   }
 
-  return Chain;*/
-  assert(0 && "Not implemented");
+  return Chain;
+#endif
+  llvm_unreachable("Not implemented");
   return SDValue();
 }
 
 SDValue AVRTargetLowering::LowerShifts(SDValue Op,
-                                          SelectionDAG &DAG) {/*
+                                          SelectionDAG &DAG)
+{
+#if 0
   unsigned Opc = Op.getOpcode();
   SDNode* N = Op.getNode();
   EVT VT = Op.getValueType();
@@ -573,35 +583,43 @@ SDValue AVRTargetLowering::LowerShifts(SDValue Op,
     Victim = DAG.getNode((Opc == ISD::SHL ? AVRISD::RLA : AVRISD::RRA),
                          dl, VT, Victim);
 
-  return Victim;*/
-  assert(0 && "Not implemented");
+  return Victim;
+#endif
+  llvm_unreachable("Not implemented");
   return SDValue();
 }
 
-SDValue AVRTargetLowering::LowerGlobalAddress(SDValue Op, SelectionDAG &DAG) {/*
+SDValue AVRTargetLowering::LowerGlobalAddress(SDValue Op, SelectionDAG &DAG)
+{
+#if 0
   const GlobalValue *GV = cast<GlobalAddressSDNode>(Op)->getGlobal();
   int64_t Offset = cast<GlobalAddressSDNode>(Op)->getOffset();
 
   // Create the TargetGlobalAddress node, folding in the constant offset.
   SDValue Result = DAG.getTargetGlobalAddress(GV, getPointerTy(), Offset);
   return DAG.getNode(AVRISD::Wrapper, Op.getDebugLoc(),
-                     getPointerTy(), Result);*/
-  assert(0 && "Not implemented");
+                     getPointerTy(), Result);
+#endif
+  llvm_unreachable("Not implemented");
   return SDValue();
 }
 
 SDValue AVRTargetLowering::LowerExternalSymbol(SDValue Op,
-                                                  SelectionDAG &DAG) {/*
+                                                  SelectionDAG &DAG)
+{
+#if 0
   DebugLoc dl = Op.getDebugLoc();
   const char *Sym = cast<ExternalSymbolSDNode>(Op)->getSymbol();
   SDValue Result = DAG.getTargetExternalSymbol(Sym, getPointerTy());
 
-  return DAG.getNode(AVRISD::Wrapper, dl, getPointerTy(), Result);;*/
-  assert(0 && "Not implemented");
+  return DAG.getNode(AVRISD::Wrapper, dl, getPointerTy(), Result);
+#endif
+  llvm_unreachable("Not implemented");
   return SDValue();
 }
 
-/*static SDValue EmitCMP(SDValue &LHS, SDValue &RHS, unsigned &TargetCC,
+#if 0
+static SDValue EmitCMP(SDValue &LHS, SDValue &RHS, unsigned &TargetCC,
                        ISD::CondCode CC,
                        DebugLoc dl, SelectionDAG &DAG) {
   // FIXME: Handle bittests someday
@@ -643,9 +661,11 @@ SDValue AVRTargetLowering::LowerExternalSymbol(SDValue Op,
   assert(0 && "Not implemented");
   return SDValue();
 }
-*/
+#endif
 
-SDValue AVRTargetLowering::LowerBR_CC(SDValue Op, SelectionDAG &DAG) {/*
+SDValue AVRTargetLowering::LowerBR_CC(SDValue Op, SelectionDAG &DAG)
+{
+#if 0
   SDValue Chain = Op.getOperand(0);
   ISD::CondCode CC = cast<CondCodeSDNode>(Op.getOperand(1))->get();
   SDValue LHS   = Op.getOperand(2);
@@ -659,12 +679,15 @@ SDValue AVRTargetLowering::LowerBR_CC(SDValue Op, SelectionDAG &DAG) {/*
   return DAG.getNode(AVRISD::BR_CC, dl, Op.getValueType(),
                      Chain,
                      Dest, DAG.getConstant(TargetCC, MVT::i8),
-                     Flag);*/
-  assert(0 && "Not implemented");
+                     Flag);
+#endif
+  llvm_unreachable("Not implemented");
   return SDValue();
 }
 
-SDValue AVRTargetLowering::LowerSELECT_CC(SDValue Op, SelectionDAG &DAG) {/*
+SDValue AVRTargetLowering::LowerSELECT_CC(SDValue Op, SelectionDAG &DAG) 
+{
+#if 0
   SDValue LHS    = Op.getOperand(0);
   SDValue RHS    = Op.getOperand(1);
   SDValue TrueV  = Op.getOperand(2);
@@ -682,18 +705,20 @@ SDValue AVRTargetLowering::LowerSELECT_CC(SDValue Op, SelectionDAG &DAG) {/*
   Ops.push_back(DAG.getConstant(TargetCC, MVT::i8));
   Ops.push_back(Flag);
 
-  return DAG.getNode(AVRISD::SELECT_CC, dl, VTs, &Ops[0], Ops.size());*/
-  assert(0 && "Not implemented");
+  return DAG.getNode(AVRISD::SELECT_CC, dl, VTs, &Ops[0], Ops.size());
+#endif
+  llvm_unreachable("Not implemented");
   return SDValue();
 }
 
 SDValue AVRTargetLowering::LowerSIGN_EXTEND(SDValue Op,
-                                               SelectionDAG &DAG) {
+                                               SelectionDAG &DAG)
+{
   SDValue Val = Op.getOperand(0);
   EVT VT      = Op.getValueType();
   DebugLoc dl = Op.getDebugLoc();
   
-  assert(0 && "Not implemented");
+  llvm_unreachable("Not implemented");
 
   assert(VT == MVT::i16 && "Only support i16 for now!");
 
@@ -702,20 +727,20 @@ SDValue AVRTargetLowering::LowerSIGN_EXTEND(SDValue Op,
                      DAG.getValueType(Val.getValueType()));
 }
 
-const char *AVRTargetLowering::getTargetNodeName(unsigned Opcode) const {
-  //assert(0 && "Not implemented");
-
-  switch (Opcode) {
-  default: return NULL;
-  case AVRISD::RET_FLAG:           return "AVRISD::RET_FLAG";
-  case AVRISD::RRA:                return "AVRISD::RRA";
-  case AVRISD::RLA:                return "AVRISD::RLA";
-  case AVRISD::RRC:                return "AVRISD::RRC";
-  case AVRISD::CALL:               return "AVRISD::CALL";
-  case AVRISD::Wrapper:            return "AVRISD::Wrapper";
-  case AVRISD::BR_CC:              return "AVRISD::BR_CC";
-  case AVRISD::CMP:                return "AVRISD::CMP";
-  case AVRISD::SELECT_CC:          return "AVRISD::SELECT_CC";
+const char *AVRTargetLowering::getTargetNodeName(unsigned Opcode) const
+{
+  switch (Opcode)
+  {
+    default: return NULL;
+    case AVRISD::RET_FLAG:           return "AVRISD::RET_FLAG";
+    case AVRISD::RRA:                return "AVRISD::RRA";
+    case AVRISD::RLA:                return "AVRISD::RLA";
+    case AVRISD::RRC:                return "AVRISD::RRC";
+    case AVRISD::CALL:               return "AVRISD::CALL";
+    case AVRISD::Wrapper:            return "AVRISD::Wrapper";
+    case AVRISD::BR_CC:              return "AVRISD::BR_CC";
+    case AVRISD::CMP:                return "AVRISD::CMP";
+    case AVRISD::SELECT_CC:          return "AVRISD::SELECT_CC";
   }
 }
 
@@ -725,7 +750,8 @@ const char *AVRTargetLowering::getTargetNodeName(unsigned Opcode) const {
 MachineBasicBlock *
 AVRTargetLowering::EmitInstrWithCustomInserter(MachineInstr *MI,
                                                  MachineBasicBlock *BB,
-                   DenseMap<MachineBasicBlock*, MachineBasicBlock*> *EM) const {
+                   DenseMap<MachineBasicBlock*, MachineBasicBlock*> *EM) const
+{
 #if 0
   const TargetInstrInfo &TII = *getTargetMachine().getInstrInfo();
   DebugLoc dl = MI->getDebugLoc();
@@ -783,6 +809,6 @@ AVRTargetLowering::EmitInstrWithCustomInserter(MachineInstr *MI,
   F->DeleteMachineInstr(MI);   // The pseudo instruction is gone now.
   return BB;
 #endif
-  assert(0 && "Not implemented");
+  llvm_unreachable("Not implemented");
   return NULL;
 }
