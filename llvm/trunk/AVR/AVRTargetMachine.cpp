@@ -23,14 +23,17 @@ using namespace llvm;
 
 #if 0
 static const TargetAsmInfo *createTargetAsmInfo(const Target &T,
-                                                const StringRef &TT) {
+                                                const StringRef &TT)
+{
   Triple TheTriple(TT);
 
   return new AVRTargetAsmInfo(T, TT);
 
 }
 #endif
-extern "C" void LLVMInitializeAVRTarget() {
+
+extern "C" void LLVMInitializeAVRTarget()
+{
   // Register the target.
   RegisterTargetMachine<AVRTargetMachine> X(TheAVRTarget);
   RegisterAsmInfo<AVRMCAsmInfo> A(TheAVRTarget);
@@ -46,19 +49,22 @@ AVRTargetMachine::AVRTargetMachine(const Target &T, const std::string &TT,
     DataLayout("e-p:16:8:8-i8:8:8-i16:8:8-i32:8:8"),
     InstrInfo(Subtarget),
     TLInfo(*this),
-    FrameInfo(TargetFrameInfo::StackGrowsDown, 1, 0) { }//FrameInfo()
+    FrameInfo(TargetFrameInfo::StackGrowsDown, 1, 0){}//FrameInfo()
 
 bool AVRTargetMachine::addInstSelector(PassManagerBase &PM,
-                                         CodeGenOpt::Level OptLevel) {
+                                         CodeGenOpt::Level OptLevel)
+{
   // Install an instruction selector.
   PM.add(createAVRISelDag(*this, OptLevel));
   return false;
 }
-/*
+
+#if 0
 bool AVRTargetMachine::addPreEmitPass(PassManagerBase &PM,
-                                         CodeGenOpt::Level OptLevel) {
-  //PM.add(createAVRMemSelOptimizerPass());
+                                         CodeGenOpt::Level OptLevel)
+{
+  PM.add(createAVRMemSelOptimizerPass());
   return true;  // -print-machineinstr should print after this.
 }
-*/
+#endif
 

@@ -259,7 +259,7 @@ AVRTargetLowering::LowerCCCArguments(SDValue Chain,
         }
       case MVT::i8:
         unsigned VReg =
-        RegInfo.createVirtualRegister(AVR::GPRegsRegisterClass); //TODO <----why?
+        RegInfo.createVirtualRegister(AVR::GPRegsRegisterClass);
         RegInfo.addLiveIn(VA.getLocReg(), VReg);
         SDValue ArgValue = DAG.getCopyFromReg(Chain, dl, VReg, RegVT);
 
@@ -267,29 +267,29 @@ AVRTargetLowering::LowerCCCArguments(SDValue Chain,
         // bits. Insert an assert[sz]ext to capture this, then truncate to the
         // right size.
         if (VA.getLocInfo() == CCValAssign::SExt)
-	{
+        {
           llvm_unreachable("SExt not supported yet");
           ArgValue = DAG.getNode(ISD::AssertSext, dl, RegVT, ArgValue,
                                  DAG.getValueType(VA.getValVT()));
         }
-	else if (VA.getLocInfo() == CCValAssign::ZExt)
-	{
+        else if (VA.getLocInfo() == CCValAssign::ZExt)
+        {
           llvm_unreachable("ZExt not supported yet");
           ArgValue = DAG.getNode(ISD::AssertZext, dl, RegVT, ArgValue,
                                  DAG.getValueType(VA.getValVT()));
         }
-        
-	if (VA.getLocInfo() != CCValAssign::Full)
-	{
+
+        if (VA.getLocInfo() != CCValAssign::Full)
+        {
           llvm_unreachable("Full not supported yet");
           ArgValue = DAG.getNode(ISD::TRUNCATE, dl, VA.getValVT(), ArgValue);
-	}
+        }
 
         InVals.push_back(ArgValue);
 #if 0
       case MVT::i16:
         unsigned VReg =
-        RegInfo.createVirtualRegister(AVR::GPRegsRegisterClass); //TODO <----why?
+        RegInfo.createVirtualRegister(AVR::GPRegsRegisterClass);
         RegInfo.addLiveIn(VA.getLocReg(), VReg);
         SDValue ArgValue = DAG.getCopyFromReg(Chain, dl, VReg, RegVT);
 
@@ -347,11 +347,11 @@ AVRTargetLowering::LowerReturn(SDValue Chain,
                                   const SmallVectorImpl<ISD::OutputArg> &Outs,
                                   DebugLoc dl, SelectionDAG &DAG) {
   DEBUG(errs() << "return outs: " << Outs.size() << "\n");
- 
+
   assert(!isVarArg && "VarArgs are not supported!");
   //assert((Outs.size() == 0) && "Only void returns are supported yet!");
-				 
-  
+
+
   // CCValAssign - represent the assignment of the return value to a location
   SmallVector<CCValAssign, 16> RVLocs;
 

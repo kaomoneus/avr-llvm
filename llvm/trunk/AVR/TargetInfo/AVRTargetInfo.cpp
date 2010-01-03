@@ -16,6 +16,6 @@ Target llvm::TheAVRTarget;
 
 extern "C" void LLVMInitializeAVRTargetInfo() 
 { 
-  RegisterTarget<Triple::avr, /*HasJIT=*/false>
+  RegisterTarget<Triple::avr>
     X(TheAVRTarget, "avr", "AVR [experimental]");
 }
