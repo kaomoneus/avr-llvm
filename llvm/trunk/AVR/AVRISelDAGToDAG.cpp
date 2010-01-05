@@ -13,7 +13,6 @@
 
 #define DEBUG_TYPE "avr-isel"
 
-//#include "AVRISelDAGToDAG.h"
 #include "AVR.h"
 #include "AVRISelLowering.h"
 #include "AVRTargetMachine.h"
@@ -57,8 +56,8 @@ namespace {
 #include "AVRGenDAGISel.inc"
 
   private:
-    SDNode *Select(SDValue Op);
-    bool SelectIOAddr(SDValue Op, SDValue N, SDValue &Address);
+    SDNode *Select(SDNode *N);
+    bool SelectIOAddr(SDNode *Op, SDValue N, SDValue &Address);
 
   };
 }  // end anonymous namespace
@@ -72,7 +71,7 @@ FunctionPass *llvm::createAVRISelDag(AVRTargetMachine &TM,
 
 /// Select - Select instructions not customized! Used for
 /// expanded, promoted and normal instructions.
-SDNode* AVRDAGToDAGISel::Select(SDValue N) {
+SDNode* AVRDAGToDAGISel::Select(SDNode *N) {
 
   // Select the default instruction.
   SDNode *ResNode = SelectCode(N);
@@ -90,7 +89,7 @@ void AVRDAGToDAGISel::InstructionSelect() {
 
 // SelectIOAddr - Match a IO address for DAG.
 // A direct address could be a globaladdress or externalsymbol.
-bool AVRDAGToDAGISel::SelectIOAddr(SDValue Op, SDValue N,
+bool AVRDAGToDAGISel::SelectIOAddr(SDNode *Op, SDValue N,
                                       SDValue &Address) {
   // Return true if TGA or ES.
   if (N.getOpcode() == ISD::TargetGlobalAddress
