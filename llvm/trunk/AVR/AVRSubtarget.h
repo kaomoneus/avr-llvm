@@ -37,6 +37,7 @@ class AVRSubtarget : public TargetSubtarget {
   bool HasMOVW_LPMX;
   bool HasRAMPX_Y_D;
   bool HasTiny_Regs_Insns;  
+  bool HasCoreExt;
   
   bool IsAsmOnly;
   bool IsAVRTINY1;

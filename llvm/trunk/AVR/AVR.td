@@ -26,8 +26,8 @@ include "AVRInstrInfo.td"
 
 def AVRInstrInfo : InstrInfo
 {
-    let TSFlagsFields = [];
-    let TSFlagsShifts = [];
+  let TSFlagsFields = [];
+  let TSFlagsShifts = [];
 }
 
 def AVRInstPrinter : AsmWriter 
@@ -49,13 +49,15 @@ def FeatureMUL
                      "Device has multiply instructions">; 
 
 // Up to 128K flash, direct jump.
+///\todo seperating these would add more flexibility when using -mattr=
 def FeatureJMP_CALL
-  : SubtargetFeature<"jmp_call","HasJMP_CALL", "true",
+  : SubtargetFeature<"jmp-call","HasJMP_CALL", "true",
                      "Device has JMP and CALL instructions">;
 
-// MOVW and LPMX instructions 
+// MOVW and LPMX instructions
+///\todo seperating these would add more flexibility when using -mattr=
 def FeatureMOVW_LPMX
-  : SubtargetFeature<"movw_lpmx","HasMOVW_LPMX", "true",
+  : SubtargetFeature<"movw-lpmx","HasMOVW_LPMX", "true",
                      "Device has MOVW and LPM Rx,Z instructions">; 
 
 // ELPM instruction.
@@ -70,7 +72,7 @@ def FeatureELPMX
 
 // Up to 4M Flash (EIJMP, EICALL)
 def FeatureEIJMP_EICALL
-  : SubtargetFeature<"eijmp_eicall", "HasEIJMP_EICALL", "true",
+  : SubtargetFeature<"eijmp-eicall", "HasEIJMP_EICALL", "true",
                      "Device has EIJMP and EICALL instructions">;
 
 def FeatureXMEGA
@@ -78,13 +80,16 @@ def FeatureXMEGA
                      "Device is in the XMEGA family">;
                      
 def FeatureRAMPX_Y_D
-  : SubtargetFeature<"rampx_y_d", "HasRAMPX_Y_D", "true",
+  : SubtargetFeature<"rampx-y-d", "HasRAMPX_Y_D", "true",
                      "Device has RAMPX, RAMPY, and RAMPD registers">;
 
 def FeatureTiny_Regs_Insns
-  : SubtargetFeature<"tiny_regs_insns", "HasTiny_Regs_Insns", "true",
+  : SubtargetFeature<"tiny-regs-insns", "HasTiny_Regs_Insns", "true",
                      "Device has Tiny registers and instructions">;
 
+def FeatureCoreExt
+  : SubtargetFeature<"core-ext", "HasCoreExt", "true",
+                     "Device has a core extension">;
 
 // Feature Sets
 
@@ -353,7 +358,8 @@ def : Device<"atmega6490a",  [FeatureAVR5] >; // "__AVR_ATmega6490A__"
 def : Device<"atmega6490p",  [FeatureAVR5] >; // "__AVR_ATmega6490P__"
 def : Device<"atmega64c1",   [FeatureAVR5] >; // "__AVR_ATmega64C1__"
 def : Device<"atmega64m1",   [FeatureAVR5] >; // "__AVR_ATmega64M1__"
-def : Device<"atmega64hve",  [FeatureAVR5] >; // "__AVR_ATmega64HVE__"
+def : Device<"atmega64hve",  [FeatureAVR5,
+                                FeatureCoreExt] >; // "__AVR_ATmega64HVE__"
 def : Device<"at90can32",    [FeatureAVR5] >; // "__AVR_AT90CAN32__"
 def : Device<"at90can64",    [FeatureAVR5] >; // "__AVR_AT90CAN64__"
 def : Device<"at90pwm216",   [FeatureAVR5] >; // "__AVR_AT90PWM216__"
