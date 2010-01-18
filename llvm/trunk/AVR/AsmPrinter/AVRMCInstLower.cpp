@@ -22,41 +22,31 @@
 #include "llvm/MC/MCInst.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/Mangler.h"
 #include "llvm/ADT/SmallString.h"
 using namespace llvm;
 
 MCSymbol *AVRMCInstLower::
 GetGlobalAddressSymbol(const MachineOperand &MO) const 
 {
-  const GlobalValue *GV = MO.getGlobal();
-
-  SmallString<128> Name;
-  Mang.getNameWithPrefix(Name, GV, false);
-
   switch (MO.getTargetFlags())
   {
     default: llvm_unreachable(0 && "Unknown target flag on GV operand");
     case 0: break;
   }
 
-  return Ctx.GetOrCreateSymbol(Name.str());
+  return Printer.GetGlobalValueSymbol(MO.getGlobal());
 }
 
 MCSymbol *AVRMCInstLower::
 GetExternalSymbolSymbol(const MachineOperand &MO) const
 {
-  SmallString<128> Name;
-  Name += Printer.MAI->getGlobalPrefix();
-  Name += MO.getSymbolName();
-
   switch (MO.getTargetFlags())
   {
     default: assert(0 && "Unknown target flag on GV operand");
     case 0: break;
   }
 
-  return Ctx.GetOrCreateSymbol(Name.str());
+  return Printer.GetExternalSymbolSymbol(MO.getSymbolName());
 }
 
 MCSymbol *AVRMCInstLower::

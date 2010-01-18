@@ -226,7 +226,7 @@ AVRTargetLowering::LowerCCCArguments(SDValue Chain,
 
 
   MachineFunction &MF = DAG.getMachineFunction();
-  MachineFrameInfo *MFI = MF.getFrameInfo();
+  //MachineFrameInfo *MFI = MF.getFrameInfo();
   MachineRegisterInfo &RegInfo = MF.getRegInfo();
 
   // Assign locations to all of the incoming arguments.

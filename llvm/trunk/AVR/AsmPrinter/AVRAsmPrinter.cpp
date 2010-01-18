@@ -39,7 +39,6 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FormattedStream.h"
-#include "llvm/Support/Mangler.h"
 #include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
@@ -118,16 +117,16 @@ void AVRAsmPrinter::PrintGlobalVariable(const GlobalVariable* GVar)
 
   const TargetData *TD = TM.getTargetData();
 
-  std::string name = Mang->getMangledName(GVar);
+  MCSymbol *GVarSym = GetGlobalValueSymbol(GVar);
   Constant *C = GVar->getInitializer();
   unsigned Size = TD->getTypeAllocSize(C->getType());
   unsigned Align = TD->getPreferredAlignmentLog(GVar);
 
-  printVisibility(name, GVar->getVisibility());
+  printVisibility(GVarSym, GVar->getVisibility());
 
   if (!GVar->hasCommonLinkage())
   {
-    O << "\t.type\t" << name << ",@object\n";
+    O << "\t.type\t" << *GVarSym << ",@object\n";
   }
 ///avr-gcc doesn't produce section info for globals
 // OutStreamer.SwitchSection(getObjFileLowering().SectionForGlobal(GVar, Mang,
@@ -141,9 +140,9 @@ void AVRAsmPrinter::PrintGlobalVariable(const GlobalVariable* GVar)
 
     if (GVar->hasLocalLinkage())
     {
-      O << "\t.local\t" << name << '\n';
+      O << "\t.local\t" << *GVarSym << '\n';
     }
-    O << MAI->getCOMMDirective()  << name << ',' << Size;
+    O << MAI->getCOMMDirective()  << *GVarSym << ',' << Size;
     if (MAI->getCOMMDirectiveTakesAlignment())
     {
       O << ',' << (MAI->getAlignmentIsInBytes() ? (1 << Align) : Align);
@@ -167,20 +166,20 @@ void AVRAsmPrinter::PrintGlobalVariable(const GlobalVariable* GVar)
     case GlobalValue::LinkOnceODRLinkage:
     case GlobalValue::WeakAnyLinkage:
     case GlobalValue::WeakODRLinkage:
-      O << "\t.weak\t" << name << '\n';
+      O << "\t.weak\t" << *GVarSym << '\n';
       break;
     case GlobalValue::AppendingLinkage:
       // FIXME: appending linkage variables should go into a section of
       // their name or something.  For now, just emit them as external.
     case GlobalValue::ExternalLinkage:
       // If external or appending, declare as a global symbol
-      O << ".global " << name << '\n';
+      O << ".global " << *GVarSym << '\n';
       // FALL THROUGH
     case GlobalValue::PrivateLinkage:
     case GlobalValue::LinkerPrivateLinkage:
       break;
     case GlobalValue::InternalLinkage:
-      O << "\t.internal " << name << '\n';
+      O << "\t.internal " << *GVarSym << '\n';
       break;
     default:
       llvm_unreachable("Unknown linkage type!");
@@ -191,11 +190,11 @@ void AVRAsmPrinter::PrintGlobalVariable(const GlobalVariable* GVar)
   O << "\t.data\n";
   if (MAI->hasDotTypeDotSizeDirective())
   {
-    O << "\t.size\t" << name << ", " << Size << '\n';
+    O << "\t.size\t" << *GVarSym << ", " << Size << '\n';
   }
   // Use 16-bit alignment by default to simplify bunch of stuff
   EmitAlignment(Align, GVar);
-  O << name << ":";
+  O << *GVarSym << ":";
   if (VerboseAsm) 
   {
     O.PadToColumn(MAI->getCommentColumn());
@@ -223,20 +222,20 @@ void AVRAsmPrinter::emitFunctionHeader(const MachineFunction &MF)
     case Function::LinkerPrivateLinkage:
       break;
     case Function::ExternalLinkage:
-      O << "\t.global\t" << CurrentFnName << '\n';
+      O << "\t.global\t" << *CurrentFnSym << '\n';
       break;
     case Function::LinkOnceAnyLinkage:
     case Function::LinkOnceODRLinkage:
     case Function::WeakAnyLinkage:
     case Function::WeakODRLinkage:
-      O << "\t.weak\t" << CurrentFnName << '\n';
+      O << "\t.weak\t" << *CurrentFnSym << '\n';
       break;
   }
 
-  printVisibility(CurrentFnName, F->getVisibility());
+  printVisibility(CurrentFnSym, F->getVisibility());
 
-  O << "\t.type\t" << CurrentFnName << ",@function\n"
-    << CurrentFnName << ":\n";
+  O << "\t.type\t" << *CurrentFnSym << ",@function\n"
+    << *CurrentFnSym << ":\n";
 }
 
 bool AVRAsmPrinter::runOnMachineFunction(MachineFunction &MF)
@@ -261,7 +260,7 @@ bool AVRAsmPrinter::runOnMachineFunction(MachineFunction &MF)
   }
 
   if (MAI->hasDotTypeDotSizeDirective())
-    O << "\t.size\t" << CurrentFnName << ", .-" << CurrentFnName << '\n';
+    O << "\t.size\t" << *CurrentFnSym << ", .-" << *CurrentFnSym << '\n';
 
   // We didn't modify anything
   return false;
@@ -294,7 +293,7 @@ void AVRAsmPrinter::printOperand(const MachineInstr *MI, int OpNum)
       O << MO.getImm();
       return;
     case MachineOperand::MO_MachineBasicBlock:
-      GetMBBSymbol(MO.getMBB()->getNumber())->print(O, MAI);
+      O << GetMBBSymbol(MO.getMBB()->getNumber());
       return;
     case MachineOperand::MO_GlobalAddress:
 //- MSP430 asm specific. keeping as reference for now      
@@ -369,7 +368,7 @@ void AVRAsmPrinter::printSrcMemOperand(const MachineInstr *MI, int OpNum)
 /// Condition Code Operand (for conditional statements)
 void AVRAsmPrinter::printCCOperand(const MachineInstr *MI, int OpNum) 
 {
-  unsigned CC = MI->getOperand(OpNum).getImm();
+  //unsigned CC = MI->getOperand(OpNum).getImm();
 #if 0 //-MSP430CC defined in MSP430.h
   switch (CC) 
   {

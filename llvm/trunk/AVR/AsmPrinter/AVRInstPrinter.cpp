@@ -40,7 +40,7 @@ void AVRInstPrinter::printPCRelImmOperand(const MCInst *MI, unsigned OpNo)
     O << Op.getImm();
   else {
     assert(Op.isExpr() && "unknown pcrel immediate operand");
-    Op.getExpr()->print(O, &MAI);
+    O << Op.getExpr();
   }
 }
 
@@ -56,7 +56,7 @@ void AVRInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
   } else {
     assert(Op.isExpr() && "unknown operand kind in printOperand");
     O << '#';
-    Op.getExpr()->print(O, &MAI);
+    O << Op.getExpr();
   }
 }
 
@@ -69,7 +69,7 @@ void AVRInstPrinter::printSrcMemOperand(const MCInst *MI, unsigned OpNo,
   // Print displacement first
   if (Disp.isExpr()) {
     O << '&';
-    Disp.getExpr()->print(O, &MAI);
+    O << Disp.getExpr();
   } else {
     assert(Disp.isImm() && "Expected immediate in displacement field");
     if (!Base.getReg())
@@ -88,7 +88,7 @@ void AVRInstPrinter::printSrcMemOperand(const MCInst *MI, unsigned OpNo,
 /// Condition Code Operand (for conditional statements)
 void AVRInstPrinter::printCCOperand(const MCInst *MI, unsigned OpNo)
 {
-  unsigned CC = MI->getOperand(OpNo).getImm();
+  //unsigned CC = MI->getOperand(OpNo).getImm();
 #if 0 
 // MSP430CC::COND_xx defined in MSP430.h
   switch (CC) {
