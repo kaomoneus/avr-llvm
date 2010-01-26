@@ -1,8 +1,8 @@
 Index: lib/Basic/Targets.cpp
 ===================================================================
---- lib/Basic/Targets.cpp	(revision 92434)
-+++ lib/Basic/Targets.cpp	(working copy)
-@@ -1487,6 +1487,84 @@
+--- clang/lib/Basic/Targets.cpp	(revision 94389)
++++ clang/lib/Basic/Targets.cpp	(working copy)
+@@ -1472,6 +1472,88 @@
  } // end anonymous namespace.
  
  namespace {
@@ -42,16 +42,20 @@ Index: lib/Basic/Targets.cpp
 +    virtual uint64_t getPointerAlignV(unsigned AddrSpace) const { return 8; }
 +    
 +    virtual void getTargetDefines(const LangOptions &Opts,
-+                                  std::vector<char> &Defines) const {
-+      DefineStd(Defines, "AVR", Opts);
-+      Define(Defines, "PROGMEM", "__attribute__((address_space(1)))");
-+      Define(Defines, "__ATTR_PROGMEM__", "__attribute__((address_space(1)))");
-+      Define(Defines, "__flash__", "__attribute__((address_space(1)))");
-+      Define(Defines, "__eeprom__", "__attribute__((address_space(2)))");
++                                  MacroBuilder &Builder) const {
++      DefineStd(Builder, "AVR", Opts);
++      //Builder.defineMacro("__AVR_ARCH__", ###);
++      Builder.defineMacro("FUSEMEM", "__attribute__((section(\".fuse\")))");
++      
++      Builder.defineMacro("PROGMEM", "__attribute__((section(\".progmem\")))");
++      Builder.defineMacro("__flash__", "__attribute__((address_space(1)))");
++      
++      Builder.defineMacro("EEMEM", "__attribute__((section(\".eeprom\")))");
++      Builder.defineMacro("__eeprom__", "__attribute__((address_space(2)))");
 +    }
++    
 +    virtual void getTargetBuiltins(const Builtin::Info *&Records,
 +                                   unsigned &NumRecords) const {}
-+     
 +    virtual const char *getVAListDeclaration() const {
 +      return "";
 +    }
@@ -87,7 +91,7 @@ Index: lib/Basic/Targets.cpp
  class SparcV8TargetInfo : public TargetInfo {
    static const TargetInfo::GCCRegAlias GCCRegAliases[];
    static const char * const GCCRegNames[];
-@@ -2082,7 +2160,10 @@
+@@ -2068,7 +2150,10 @@
      default:
        return new ARMTargetInfo(T);
      }
