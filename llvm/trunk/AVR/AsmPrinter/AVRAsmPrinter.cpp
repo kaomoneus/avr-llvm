@@ -142,11 +142,14 @@ void AVRAsmPrinter::PrintGlobalVariable(const GlobalVariable* GVar)
     {
       O << "\t.local\t" << *GVarSym << '\n';
     }
-    O << MAI->getCOMMDirective()  << *GVarSym << ',' << Size;
-    if (MAI->getCOMMDirectiveTakesAlignment())
+    if (MAI->hasLCOMMDirective())
     {
-      O << ',' << (MAI->getAlignmentIsInBytes() ? (1 << Align) : Align);
+      O << "\t.lcomm\t" << *GVarSym << ',' << Size;
     }
+    //if (MAI->getCOMMDirectiveTakesAlignment())
+    //{
+    //  O << ',' << (MAI->getAlignmentIsInBytes() ? (1 << Align) : Align);
+    //}
     if (VerboseAsm)
     {
       O.PadToColumn(MAI->getCommentColumn());
@@ -293,7 +296,7 @@ void AVRAsmPrinter::printOperand(const MachineInstr *MI, int OpNum)
       O << MO.getImm();
       return;
     case MachineOperand::MO_MachineBasicBlock:
-      O << GetMBBSymbol(MO.getMBB()->getNumber());
+      O << *MO.getMBB()->getSymbol(OutContext);
       return;
     case MachineOperand::MO_GlobalAddress:
 //- MSP430 asm specific. keeping as reference for now      
