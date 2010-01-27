@@ -16,23 +16,31 @@ include "AVRInstrFormats.td"
 // Feature predicates.
 //===----------------------------------------------------------------------===//
 
-def HasJMP   : Predicate<"Subtarget.hasJMP()">;
-def HasMUL   : Predicate<"Subtarget.hasMUL()">;
-def HasMOVW  : Predicate<"Subtarget.hasMOVW()">;
-def HasJTAG  : Predicate<"Subtarget.hasJTAG()">;
-def HasEIJMP : Predicate<"Subtarget.hasEIJMP()">;
-def HasSPM   : Predicate<"Subtarget.hasSPM()">;
-def HasDES   : Predicate<"Subtarget.hasDES()">;
+//def HasJMP   : Predicate<"Subtarget.hasJMP()">;
+//def HasMUL   : Predicate<"Subtarget.hasMUL()">;
+//def HasMOVW  : Predicate<"Subtarget.hasMOVW()">;
+//def HasJTAG  : Predicate<"Subtarget.hasJTAG()">;
+//def HasEIJMP : Predicate<"Subtarget.hasEIJMP()">;
+//def HasSPM   : Predicate<"Subtarget.hasSPM()">;
+//def HasDES   : Predicate<"Subtarget.hasDES()">;
+//def HasEIJMP_EICALL : Predicate<"Subtarget.has
+//def HasELPM : Predicate<"Subtarget.has
+//def HasELPMX : Predicate<"Subtarget.has
+//def HasJMP_CALL : Predicate<"Subtarget.has
+//def HasMOVW_LPMX : Predicate<"Subtarget.has
+//def HasRAMPX_Y_D : Predicate<"Subtarget.has
+//def HasTiny_Regs_Insns : Predicate<"Subtarget.has
+//def HasCoreExt : Predicate<"Subtarget.has
 
-def IsAVR2   : Predicate<"Subtarget.isAVR2()">;
-def IsAVR25  : Predicate<"Subtarget.isAVR25()">;
-def IsAVR3   : Predicate<"Subtarget.isAVR3()">;
-def IsAVR31  : Predicate<"Subtarget.isAVR31()">;
-def IsAVR4   : Predicate<"Subtarget.isAVR4()">;
-def IsAVR5   : Predicate<"Subtarget.isAVR5()">;
-def IsAVR51  : Predicate<"Subtarget.isAVR51()">;
-def IsAVR6   : Predicate<"Subtarget.isAVR6()">;
-def IsXMEGA  : Predicate<"Subtarget.isXMEGA()">;
+//def IsAVR2   : Predicate<"Subtarget.isAVR2()">;
+//def IsAVR25  : Predicate<"Subtarget.isAVR25()">;
+//def IsAVR3   : Predicate<"Subtarget.isAVR3()">;
+//def IsAVR31  : Predicate<"Subtarget.isAVR31()">;
+//def IsAVR4   : Predicate<"Subtarget.isAVR4()">;
+//def IsAVR5   : Predicate<"Subtarget.isAVR5()">;
+//def IsAVR51  : Predicate<"Subtarget.isAVR51()">;
+//def IsAVR6   : Predicate<"Subtarget.isAVR6()">;
+//def IsXMEGA  : Predicate<"Subtarget.isXMEGA()">;
 
 //===----------------------------------------------------------------------===//
 // Pseudo instructions

@@ -93,7 +93,7 @@ namespace
                                  const char *ExtraCode);
       void printInstructionThroughMCStreamer(const MachineInstr *MI);
 
-      void PrintGlobalVariable(const GlobalVariable* GVar);
+      //void PrintGlobalVariable(const GlobalVariable* GVar);
       void emitFunctionHeader(const MachineFunction &MF);
       bool runOnMachineFunction(MachineFunction &F);
 
@@ -104,7 +104,9 @@ namespace
       }
   };
 } // end of anonymous namespace
-
+#if 0
+// renamed/changed to EmitGlobalVariable most targets don't override it now though
+// TODO: see if we can avoid adding this function.
 void AVRAsmPrinter::PrintGlobalVariable(const GlobalVariable* GVar)
 {
   if (!GVar->hasInitializer())
@@ -210,6 +212,7 @@ void AVRAsmPrinter::PrintGlobalVariable(const GlobalVariable* GVar)
   /// _HACK_(wrong place, wrong way) add clear bss to match avr-gcc
   O << ".global __do_clear_bss\n";
 }
+#endif
 
 void AVRAsmPrinter::emitFunctionHeader(const MachineFunction &MF) 
 {

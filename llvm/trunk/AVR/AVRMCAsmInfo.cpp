@@ -19,11 +19,10 @@ AVRMCAsmInfo::AVRMCAsmInfo(const Target &T, const StringRef &TT)
 {
   PCSymbol = ".";
   SeparatorChar = '$';
-  SetDirective = "\t.set\t";
-  //LCOMMDirective = "\t.lcomm\t";
-  //TODO: do we need the lcomm directive
-  HasLCOMMDirective = true;
   GlobalDirective = "\t.global\t";
   ExternDirective = "\t.extern\t";
+  WeakRefDirective = "\t.weakref\t"; // .weakref alias, target
+
+  HasLCOMMDirective = true; // static variables == .lcomm
   UsesELFSectionDirectiveForBSS = true;
 }
