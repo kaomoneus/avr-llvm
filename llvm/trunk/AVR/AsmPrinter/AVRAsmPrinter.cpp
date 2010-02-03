@@ -37,13 +37,14 @@
 #include "llvm/Target/TargetLoweringObjectFile.h"
 #include "llvm/Target/TargetRegistry.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Support/CommandLine.h"
+//#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FormattedStream.h"
-#include "llvm/Support/ErrorHandling.h"
+//#include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
 
-STATISTIC(EmittedInsts, "Number of machine instrs printed");
+/// \note Looks like this was hoisted to CodeGen/AsmPrinter/AsmPrinter.cpp
+//STATISTIC(EmittedInsts, "Number of machine instrs printed");
 
 namespace
 {
@@ -51,8 +52,9 @@ namespace
   {
     public:
       AVRAsmPrinter(formatted_raw_ostream &O, TargetMachine &TM,
-                       const MCAsmInfo *MAI, bool V)
-        : AsmPrinter(O, TM, MAI, V){}
+                     MCContext &Ctx, MCStreamer &Streamer,
+                     const MCAsmInfo *MAI)
+      : AsmPrinter(O, TM, Ctx, Streamer, MAI) {}
 
       virtual const char *getPassName() const
       {
@@ -67,11 +69,13 @@ namespace
                               "__tmp_reg__ = 0\n"
                               "__zero_reg__ = 1");
       }
-/*      virtual void EmitEndOfAsmFile(Module &M)
+#if 0      
+      virtual void EmitEndOfAsmFile(Module &M)
       {
         //M.getOrInsertGlobal("__do_clear_bss",);
         M.getOrInsertFunction("_f_do_clear_bss", Type::getVoidTy(getGlobalContext()), NULL);
-      }*/
+      }
+#endif      
       void printMCInst(const MCInst *MI)
       {
         AVRInstPrinter(O, *MAI).printInstruction(MI);
@@ -84,18 +88,18 @@ namespace
       }
       void printSrcMemOperand(const MachineInstr *MI, int OpNum);
       void printCCOperand(const MachineInstr *MI, int OpNum);
-      void printMachineInstruction(const MachineInstr * MI);
+      //void printMachineInstruction(const MachineInstr * MI);
       bool PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
                            unsigned AsmVariant,
                            const char *ExtraCode);
       bool PrintAsmMemoryOperand(const MachineInstr *MI,
                                  unsigned OpNo, unsigned AsmVariant,
                                  const char *ExtraCode);
-      void printInstructionThroughMCStreamer(const MachineInstr *MI);
+      void EmitInstruction(const MachineInstr *MI);
 
       //void PrintGlobalVariable(const GlobalVariable* GVar);
-      void emitFunctionHeader(const MachineFunction &MF);
-      bool runOnMachineFunction(MachineFunction &F);
+      //void emitFunctionHeader(const MachineFunction &MF);
+      //bool runOnMachineFunction(MachineFunction &F);
 
       void getAnalysisUsage(AnalysisUsage &AU) const
       {
@@ -104,6 +108,7 @@ namespace
       }
   };
 } // end of anonymous namespace
+
 #if 0
 // renamed/changed to EmitGlobalVariable most targets don't override it now though
 // TODO: see if we can avoid adding this function.
@@ -124,7 +129,7 @@ void AVRAsmPrinter::PrintGlobalVariable(const GlobalVariable* GVar)
   unsigned Size = TD->getTypeAllocSize(C->getType());
   unsigned Align = TD->getPreferredAlignmentLog(GVar);
 
-  printVisibility(GVarSym, GVar->getVisibility());
+  EmitVisibility(GVarSym, GVar->getVisibility());
 
   if (!GVar->hasCommonLinkage())
   {
@@ -214,6 +219,8 @@ void AVRAsmPrinter::PrintGlobalVariable(const GlobalVariable* GVar)
 }
 #endif
 
+#if 0
+/// Rev:94630 Removed because of refactoring.
 void AVRAsmPrinter::emitFunctionHeader(const MachineFunction &MF) 
 {
   const Function *F = MF.getFunction();
@@ -238,12 +245,16 @@ void AVRAsmPrinter::emitFunctionHeader(const MachineFunction &MF)
       break;
   }
 
-  printVisibility(CurrentFnSym, F->getVisibility());
+  EmitVisibility(CurrentFnSym, F->getVisibility());
 
   O << "\t.type\t" << *CurrentFnSym << ",@function\n"
     << *CurrentFnSym << ":\n";
 }
+#endif
 
+
+#if 0
+/// REV:94727  Removed. Refactored to use EmitFunctionBody() instead
 bool AVRAsmPrinter::runOnMachineFunction(MachineFunction &MF)
 {
   SetupMachineFunction(MF);
@@ -278,7 +289,7 @@ void AVRAsmPrinter::printMachineInstruction(const MachineInstr *MI)
 
   processDebugLoc(MI, true);
 
-  printInstructionThroughMCStreamer(MI);
+  EmitInstruction(MI);
 
   if (VerboseAsm)
     EmitComments(*MI);
@@ -286,6 +297,7 @@ void AVRAsmPrinter::printMachineInstruction(const MachineInstr *MI)
 
   processDebugLoc(MI, false);
 }
+#endif
 
 void AVRAsmPrinter::printOperand(const MachineInstr *MI, int OpNum)
 {
@@ -431,34 +443,15 @@ bool AVRAsmPrinter::PrintAsmMemoryOperand(const MachineInstr *MI,
 }
 
 //===----------------------------------------------------------------------===//
-void AVRAsmPrinter::printInstructionThroughMCStreamer(const MachineInstr *MI)
+void AVRAsmPrinter::EmitInstruction(const MachineInstr *MI)
 {
 
   AVRMCInstLower MCInstLowering(OutContext, *Mang, *this);
 
-  switch (MI->getOpcode())
-  {
-    case TargetInstrInfo::DBG_LABEL:
-    case TargetInstrInfo::EH_LABEL:
-    case TargetInstrInfo::GC_LABEL:
-      printLabel(MI);
-      return;
-    case TargetInstrInfo::KILL:
-      printKill(MI);
-      return;
-    case TargetInstrInfo::INLINEASM:
-      printInlineAsm(MI);
-      return;
-    case TargetInstrInfo::IMPLICIT_DEF:
-      printImplicitDef(MI);
-      return;
-    default: break;
-  }
-
   MCInst TmpInst;
   MCInstLowering.Lower(MI, TmpInst);
-
   printMCInst(&TmpInst);
+  O << '\n';
 }
 
 static MCInstPrinter *createAVRMCInstPrinter(const Target &T,
