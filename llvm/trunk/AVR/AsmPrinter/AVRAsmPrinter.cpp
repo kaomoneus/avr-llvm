@@ -37,14 +37,9 @@
 #include "llvm/Target/TargetLoweringObjectFile.h"
 #include "llvm/Target/TargetRegistry.h"
 #include "llvm/ADT/Statistic.h"
-//#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FormattedStream.h"
-//#include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
-
-/// \note Looks like this was hoisted to CodeGen/AsmPrinter/AsmPrinter.cpp
-//STATISTIC(EmittedInsts, "Number of machine instrs printed");
 
 namespace
 {
@@ -97,9 +92,7 @@ namespace
                                  const char *ExtraCode);
       void EmitInstruction(const MachineInstr *MI);
 
-      //void PrintGlobalVariable(const GlobalVariable* GVar);
-      //void emitFunctionHeader(const MachineFunction &MF);
-      //bool runOnMachineFunction(MachineFunction &F);
+      //void EmitGlobalVariable(const GlobalVariable* GVar);
 
       void getAnalysisUsage(AnalysisUsage &AU) const
       {
@@ -216,86 +209,6 @@ void AVRAsmPrinter::PrintGlobalVariable(const GlobalVariable* GVar)
   EmitGlobalConstant(C);
   /// _HACK_(wrong place, wrong way) add clear bss to match avr-gcc
   O << ".global __do_clear_bss\n";
-}
-#endif
-
-#if 0
-/// Rev:94630 Removed because of refactoring.
-void AVRAsmPrinter::emitFunctionHeader(const MachineFunction &MF) 
-{
-  const Function *F = MF.getFunction();
-
-  OutStreamer.SwitchSection(getObjFileLowering().SectionForGlobal(F, Mang, TM));
-
-  switch (F->getLinkage()) 
-  {
-    default: llvm_unreachable("Unknown linkage type!");
-    case Function::InternalLinkage:  // Symbols default to internal.
-    case Function::PrivateLinkage:
-    case Function::LinkerPrivateLinkage:
-      break;
-    case Function::ExternalLinkage:
-      O << "\t.global\t" << *CurrentFnSym << '\n';
-      break;
-    case Function::LinkOnceAnyLinkage:
-    case Function::LinkOnceODRLinkage:
-    case Function::WeakAnyLinkage:
-    case Function::WeakODRLinkage:
-      O << "\t.weak\t" << *CurrentFnSym << '\n';
-      break;
-  }
-
-  EmitVisibility(CurrentFnSym, F->getVisibility());
-
-  O << "\t.type\t" << *CurrentFnSym << ",@function\n"
-    << *CurrentFnSym << ":\n";
-}
-#endif
-
-
-#if 0
-/// REV:94727  Removed. Refactored to use EmitFunctionBody() instead
-bool AVRAsmPrinter::runOnMachineFunction(MachineFunction &MF)
-{
-  SetupMachineFunction(MF);
-  O << "\n\n";
-
-  // Print the 'header' of function
-  emitFunctionHeader(MF);
-
-  // Print out code for the function.
-  for (MachineFunction::const_iterator I = MF.begin(), E = MF.end();
-        I != E; ++I)
-  {
-    // Print a label for the basic block.
-    EmitBasicBlockStart(I);
-
-    for (MachineBasicBlock::const_iterator II = I->begin(), E = I->end();
-         II != E; ++II)
-      // Print the assembly for the instruction.
-      printMachineInstruction(II);
-  }
-
-  if (MAI->hasDotTypeDotSizeDirective())
-    O << "\t.size\t" << *CurrentFnSym << ", .-" << *CurrentFnSym << '\n';
-
-  // We didn't modify anything
-  return false;
-}
-
-void AVRAsmPrinter::printMachineInstruction(const MachineInstr *MI)
-{
-  ++EmittedInsts;
-
-  processDebugLoc(MI, true);
-
-  EmitInstruction(MI);
-
-  if (VerboseAsm)
-    EmitComments(*MI);
-  O << '\n';
-
-  processDebugLoc(MI, false);
 }
 #endif
 

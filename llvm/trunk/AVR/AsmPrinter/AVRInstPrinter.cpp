@@ -48,14 +48,17 @@ void AVRInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
 {
   assert((Modifier == 0 || Modifier[0] == 0) && "No modifiers supported");
   const MCOperand &Op = MI->getOperand(OpNo);
-  if (Op.isReg()) {
+  if (Op.isReg())
+  {
     O << getRegisterName(Op.getReg());
-  } else if (Op.isImm()) {
-    O << '#' << Op.getImm();
-  } else {
+  } 
+  else if (Op.isImm())
+  {
+    O << Op.getImm();
+  } 
+  else
+  {
     assert(Op.isExpr() && "unknown operand kind in printOperand");
-    O << '#';
-    O << Op.getExpr();
   }
 }
 
