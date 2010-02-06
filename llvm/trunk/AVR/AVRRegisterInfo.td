@@ -236,7 +236,7 @@ def NoLDIGPRegs : RegisterClass<"AVR", [i8], 8, [
   }];
 }
 
-// registers to use with the MULSU and the FMULxx instrcutions
+// registers to use with the MULSU and the FMULxx instructions
 def FMULRegs : RegisterClass<"AVR", [i8], 8, [
                               // Call-used registers (Caller saved)
                                            R18, R19, 

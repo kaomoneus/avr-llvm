@@ -14,15 +14,12 @@
 #ifndef AVRINSTRUCTIONINFO_H
 #define AVRINSTRUCTIONINFO_H
 
-#define __THIS_IS_A_TEMPORARY_MACRO__ "this function is not yet implemented"
-
 #include "AVR.h"
 #include "AVRRegisterInfo.h"
 #include "AVRSubtarget.h"
 #include "llvm/Target/TargetInstrInfo.h"
 
 namespace llvm {
-
 
 class AVRInstrInfo : public TargetInstrInfoImpl 
 {
@@ -31,11 +28,11 @@ class AVRInstrInfo : public TargetInstrInfoImpl
 public:
   explicit AVRInstrInfo(AVRSubtarget &ST);
 
- /// getRegisterInfo - TargetInstrInfo is a superset of MRegister info.  As
- /// such, whenever a client has an instance of instruction info, it should
- /// always be able to get register info as well (through this method).
- ///
- virtual const AVRRegisterInfo &getRegisterInfo() const { return RegInfo; }
+  /// getRegisterInfo - TargetInstrInfo is a superset of MRegister info.  As
+  /// such, whenever a client has an instance of instruction info, it should
+  /// always be able to get register info as well (through this method).
+  ///
+  virtual const AVRRegisterInfo &getRegisterInfo() const { return RegInfo; }
 
   /// isLoadFromStackSlot - If the specified machine instruction is a direct
   /// load from a stack slot, return the virtual or physical register number of
