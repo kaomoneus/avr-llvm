@@ -363,8 +363,7 @@ void AVRAsmPrinter::EmitInstruction(const MachineInstr *MI)
 
   MCInst TmpInst;
   MCInstLowering.Lower(MI, TmpInst);
-  printMCInst(&TmpInst);
-  O << '\n';
+  OutStreamer.EmitInstruction(TmpInst);
 }
 
 static MCInstPrinter *createAVRMCInstPrinter(const Target &T,
