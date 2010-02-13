@@ -110,26 +110,25 @@ namespace llvm {
                             const SmallVectorImpl<ISD::InputArg> &Ins,
                             DebugLoc dl, SelectionDAG &DAG,
                             SmallVectorImpl<SDValue> &InVals);
-  SDValue
-    LowerFormalArguments(SDValue Chain,
-                         CallingConv::ID CallConv, bool isVarArg,
-                         const SmallVectorImpl<ISD::InputArg> &Ins,
-                         DebugLoc dl, SelectionDAG &DAG,
-                         SmallVectorImpl<SDValue> &InVals) ;
-  SDValue
-      LowerCall(SDValue Chain, SDValue Callee,
-                CallingConv::ID CallConv, 
-                bool isVarArg, bool isTailCall,
-                const SmallVectorImpl<ISD::OutputArg> &Outs,
-                const SmallVectorImpl<ISD::InputArg> &Ins,
-                DebugLoc dl, SelectionDAG &DAG,
-                SmallVectorImpl<SDValue> &InVals);
+                            
+    SDValue LowerFormalArguments(SDValue Chain,
+                                 CallingConv::ID CallConv, bool isVarArg,
+                                 const SmallVectorImpl<ISD::InputArg> &Ins,
+                                 DebugLoc dl, SelectionDAG &DAG,
+                                 SmallVectorImpl<SDValue> &InVals) ;
+                           
+    SDValue LowerCall(SDValue Chain, SDValue Callee,
+                      CallingConv::ID CallConv, 
+                      bool isVarArg, bool isTailCall,
+                      const SmallVectorImpl<ISD::OutputArg> &Outs,
+                      const SmallVectorImpl<ISD::InputArg> &Ins,
+                      DebugLoc dl, SelectionDAG &DAG,
+                      SmallVectorImpl<SDValue> &InVals);
 
-  SDValue
-      LowerReturn(SDValue Chain,
-                  CallingConv::ID CallConv, bool isVarArg,
-                  const SmallVectorImpl<ISD::OutputArg> &Outs,
-                  DebugLoc dl, SelectionDAG &DAG);
+    SDValue LowerReturn(SDValue Chain,
+                        CallingConv::ID CallConv, bool isVarArg,
+                        const SmallVectorImpl<ISD::OutputArg> &Outs,
+                        DebugLoc dl, SelectionDAG &DAG);
 
     const AVRSubtarget &ST;
     const AVRTargetMachine &TM;

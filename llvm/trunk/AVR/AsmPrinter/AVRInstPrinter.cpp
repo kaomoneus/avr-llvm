@@ -29,7 +29,7 @@ using namespace llvm;
 
 void AVRInstPrinter::printInst(const MCInst *MI)
 {
-  printInstruction(MI);
+  printInstruction(MI);//TableGen'd: AVRInstrInfo.td --> AVRGenAsmWriter.inc
 }
 
 void AVRInstPrinter::printPCRelImmOperand(const MCInst *MI, unsigned OpNo)
@@ -51,11 +51,11 @@ void AVRInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
   if (Op.isReg())
   {
     O << getRegisterName(Op.getReg());
-  } 
+  }
   else if (Op.isImm())
   {
     O << Op.getImm();
-  } 
+  }
   else
   {
     assert(Op.isExpr() && "unknown operand kind in printOperand");

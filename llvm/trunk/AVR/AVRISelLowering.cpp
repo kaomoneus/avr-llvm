@@ -403,7 +403,9 @@ AVRTargetLowering::LowerCCCCallTo(SDValue Chain, SDValue Callee,
                                        &Outs,
                                      const SmallVectorImpl<ISD::InputArg> &Ins,
                                      DebugLoc dl, SelectionDAG &DAG,
-                                     SmallVectorImpl<SDValue> &InVals) {/*
+                                     SmallVectorImpl<SDValue> &InVals)
+{
+#if 0
   // Analyze operands of the call, assigning locations to each operand.
   SmallVector<CCValAssign, 16> ArgLocs;
   CCState CCInfo(CallConv, isVarArg, getTargetMachine(),
@@ -515,7 +517,8 @@ AVRTargetLowering::LowerCCCCallTo(SDValue Chain, SDValue Callee,
   // Handle result values, copying them out of physregs into vregs that we
   // return.
   return LowerCallResult(Chain, InFlag, CallConv, isVarArg, Ins, dl,
-                         DAG, InVals);*/
+                         DAG, InVals);
+#endif
   llvm_unreachable("Not implemented");
   return SDValue();
 }
@@ -552,8 +555,7 @@ AVRTargetLowering::LowerCallResult(SDValue Chain, SDValue InFlag,
   return SDValue();
 }
 
-SDValue AVRTargetLowering::LowerShifts(SDValue Op,
-                                          SelectionDAG &DAG)
+SDValue AVRTargetLowering::LowerShifts(SDValue Op, SelectionDAG &DAG)
 {
 #if 0
   unsigned Opc = Op.getOpcode();
@@ -617,51 +619,6 @@ SDValue AVRTargetLowering::LowerExternalSymbol(SDValue Op,
   llvm_unreachable("Not implemented");
   return SDValue();
 }
-
-#if 0
-static SDValue EmitCMP(SDValue &LHS, SDValue &RHS, unsigned &TargetCC,
-                       ISD::CondCode CC,
-                       DebugLoc dl, SelectionDAG &DAG) {
-  // FIXME: Handle bittests someday
-  assert(!LHS.getValueType().isFloatingPoint() && "We don't handle FP yet");
-
-  // FIXME: Handle jump negative someday
-  TargetCC = AVR::COND_INVALID;
-  switch (CC) {
-  default: llvm_unreachable("Invalid integer condition!");
-  case ISD::SETEQ:
-    TargetCC = AVR::COND_E;  // aka COND_Z
-    break;
-  case ISD::SETNE:
-    TargetCC = AVR::COND_NE; // aka COND_NZ
-    break;
-  case ISD::SETULE:
-    std::swap(LHS, RHS);        // FALLTHROUGH
-  case ISD::SETUGE:
-    TargetCC = AVR::COND_HS; // aka COND_C
-    break;
-  case ISD::SETUGT:
-    std::swap(LHS, RHS);        // FALLTHROUGH
-  case ISD::SETULT:
-    TargetCC = AVR::COND_LO; // aka COND_NC
-    break;
-  case ISD::SETLE:
-    std::swap(LHS, RHS);        // FALLTHROUGH
-  case ISD::SETGE:
-    TargetCC = AVR::COND_GE;
-    break;
-  case ISD::SETGT:
-    std::swap(LHS, RHS);        // FALLTHROUGH
-  case ISD::SETLT:
-    TargetCC = AVR::COND_L;
-    break;
-  }
-
-  return DAG.getNode(AVRISD::CMP, dl, MVT::Flag, LHS, RHS);
-  assert(0 && "Not implemented");
-  return SDValue();
-}
-#endif
 
 SDValue AVRTargetLowering::LowerBR_CC(SDValue Op, SelectionDAG &DAG)
 {
