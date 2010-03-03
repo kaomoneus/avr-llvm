@@ -30,8 +30,8 @@
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/PseudoSourceValue.h"
 #include "llvm/CodeGen/SelectionDAGISel.h"
+#include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
 #include "llvm/CodeGen/ValueTypes.h"
-#include "llvm/Target/TargetLoweringObjectFile.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
@@ -48,7 +48,7 @@ AVRTargetLowering::AVRTargetLowering(AVRTargetMachine &tm) :
   addRegisterClass(MVT::i16, AVR::ADIWRegsRegisterClass);
   addRegisterClass(MVT::i8,  AVR::LDIRegsRegisterClass);
   addRegisterClass(MVT::i8, AVR::NoLDIGPRegsRegisterClass);
-  addRegisterClass(MVT::i8,  AVR::FMULRegsRegisterClass);
+  //addRegisterClass(MVT::i8,  AVR::FMULRegsRegisterClass);
   addRegisterClass(MVT::i16, AVR::WRegsRegisterClass);
   addRegisterClass(MVT::i32,  AVR::DWRegsRegisterClass);
   addRegisterClass(MVT::i64, AVR::QWRegsRegisterClass);
@@ -255,7 +255,6 @@ AVRTargetLowering::LowerCCCArguments(SDValue Chain,
                << RegVT.getSimpleVT().SimpleTy << "\n");
           DEBUG(errs() << "EVT string: " << RegVT.getEVTString() << "\n");
           llvm_unreachable("Argument type not supported yet");
-          llvm_unreachable(0);
         }
       case MVT::i8:
         unsigned VReg =
@@ -333,7 +332,8 @@ AVRTargetLowering::LowerCCCArguments(SDValue Chain,
       //from this parameter
       SDValue FIN = DAG.getFrameIndex(FI, MVT::i16);
       InVals.push_back(DAG.getLoad(VA.getLocVT(), dl, Chain, FIN,
-                                   PseudoSourceValue::getFixedStack(FI), 0));
+                                   PseudoSourceValue::getFixedStack(FI), 0
+                                    false, false, 0)); // see svn rev 96234
 #endif
     }
   }
@@ -349,8 +349,6 @@ AVRTargetLowering::LowerReturn(SDValue Chain,
   DEBUG(errs() << "return outs: " << Outs.size() << "\n");
 
   assert(!isVarArg && "VarArgs are not supported!");
-  //assert((Outs.size() == 0) && "Only void returns are supported yet!");
-
 
   // CCValAssign - represent the assignment of the return value to a location
   SmallVector<CCValAssign, 16> RVLocs;
