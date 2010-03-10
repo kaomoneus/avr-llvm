@@ -41,8 +41,8 @@ class Type;
 
     bool hasFP(const MachineFunction &MF) const;
 
-    unsigned int eliminateFrameIndex(MachineBasicBlock::iterator II,
-                      int SPAdj, int *Value = NULL,RegScavenger *RS = NULL) const
+    unsigned int eliminateFrameIndex(MachineBasicBlock::iterator II, int SPAdj, 
+                   FrameIndexValue *Value = NULL,RegScavenger *RS = NULL) const
     {                        
       llvm_unreachable("Not implemented");
       return 0;
