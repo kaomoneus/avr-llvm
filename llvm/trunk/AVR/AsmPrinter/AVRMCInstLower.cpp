@@ -132,7 +132,7 @@ void AVRMCInstLower::Lower(const MachineInstr *MI, MCInst &OutMI) const
         break;
       case MachineOperand::MO_MachineBasicBlock:
         MCOp = MCOperand::CreateExpr(MCSymbolRefExpr::Create(
-                           MO.getMBB()->getSymbol(Printer.OutContext), Ctx));
+                           MO.getMBB()->getSymbol(), Ctx));
         break;
       case MachineOperand::MO_GlobalAddress:
         MCOp = LowerSymbolOperand(MO, GetGlobalAddressSymbol(MO));

@@ -47,9 +47,8 @@ namespace
   {
     public:
       AVRAsmPrinter(formatted_raw_ostream &O, TargetMachine &TM,
-                     MCContext &Ctx, MCStreamer &Streamer,
-                     const MCAsmInfo *MAI)
-      : AsmPrinter(O, TM, Ctx, Streamer, MAI) {}
+                     MCStreamer &Streamer)
+      : AsmPrinter(O, TM, Streamer) {}
 
       virtual const char *getPassName() const
       {
@@ -63,14 +62,7 @@ namespace
                               "__CCP__  = 0x34\n"
                               "__tmp_reg__ = 0\n"
                               "__zero_reg__ = 1");
-      }
-#if 0      
-      virtual void EmitEndOfAsmFile(Module &M)
-      {
-        //M.getOrInsertGlobal("__do_clear_bss",);
-        M.getOrInsertFunction("_f_do_clear_bss", Type::getVoidTy(getGlobalContext()), NULL);
-      }
-#endif      
+      }  
       void printMCInst(const MCInst *MI)
       {
         AVRInstPrinter(O, *MAI).printInstruction(MI);
@@ -83,7 +75,6 @@ namespace
       }
       void printSrcMemOperand(const MachineInstr *MI, int OpNum);
       void printCCOperand(const MachineInstr *MI, int OpNum);
-      //void printMachineInstruction(const MachineInstr * MI);
       bool PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
                            unsigned AsmVariant,
                            const char *ExtraCode);
@@ -224,7 +215,7 @@ void AVRAsmPrinter::printOperand(const MachineInstr *MI, int OpNum)
       O << MO.getImm();
       return;
     case MachineOperand::MO_MachineBasicBlock:
-      O << *MO.getMBB()->getSymbol(OutContext);
+      O << *MO.getMBB()->getSymbol();
       return;
     case MachineOperand::MO_GlobalAddress:
 //- MSP430 asm specific. keeping as reference for now      
