@@ -22,6 +22,7 @@
 #include "llvm/MC/MCInst.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Target/Mangler.h"
 #include "llvm/ADT/SmallString.h"
 using namespace llvm;
 
@@ -34,7 +35,7 @@ GetGlobalAddressSymbol(const MachineOperand &MO) const
     case 0: break;
   }
 
-  return Printer.GetGlobalValueSymbol(MO.getGlobal());
+  return Printer.Mang->getSymbol(MO.getGlobal());
 }
 
 MCSymbol *AVRMCInstLower::
