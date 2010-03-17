@@ -47,7 +47,7 @@ AVRTargetLowering::AVRTargetLowering(AVRTargetMachine &tm) :
   addRegisterClass(MVT::i8,  AVR::GPRegsRegisterClass);
   addRegisterClass(MVT::i16, AVR::ADIWRegsRegisterClass);
   addRegisterClass(MVT::i8,  AVR::LDIRegsRegisterClass);
-  addRegisterClass(MVT::i8, AVR::NoLDIGPRegsRegisterClass);
+  //addRegisterClass(MVT::i8, AVR::NoLDIGPRegsRegisterClass);
   //addRegisterClass(MVT::i8,  AVR::FMULRegsRegisterClass);
   addRegisterClass(MVT::i16, AVR::WRegsRegisterClass);
   addRegisterClass(MVT::i32,  AVR::DWRegsRegisterClass);

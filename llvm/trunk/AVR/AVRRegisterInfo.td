@@ -213,38 +213,38 @@ def LDIRegs : RegisterClass<"AVR", [i8], 8, [
 					                                       R28, R29,
 					                                       R17, R16]> {}
 					                                       
-def NoLDIGPRegs : RegisterClass<"AVR", [i8], 8, [
-			                            // Call-saved registers (Callee saved)
-					                           R15, R14, R13, R12, R11, R10, R9, 
-					                           R8, R7, R6, R5, R4, R3, R2, 
-			                            // Fixed registers
-					                           R1, R0]>
-{
-  // NOTE: The allocation_order_end methode is implemented to tell the 
-  //       register allocator not to use fixed registers!
-  let MethodProtos = 
-  [{
-      iterator allocation_order_end(const MachineFunction &MF) const;
-  }];
-  let MethodBodies = 
-  [{
-      NoLDIGPRegsClass::iterator
-      NoLDIGPRegsClass::allocation_order_end(const MachineFunction &MF) const
-      {
-        return end()-2;	// R1 and R0 are reseverd for fixed purposes
-      }
-  }];
-}
+//def NoLDIGPRegs : RegisterClass<"AVR", [i8], 8, [
+//			                            // Call-saved registers (Callee saved)
+//					                           R15, R14, R13, R12, R11, R10, R9, 
+//					                           R8, R7, R6, R5, R4, R3, R2, 
+//			                            // Fixed registers
+//					                           R1, R0]>
+//{
+//  // NOTE: The allocation_order_end methode is implemented to tell the 
+//  //       register allocator not to use fixed registers!
+//  let MethodProtos = 
+//  [{
+//      iterator allocation_order_end(const MachineFunction &MF) const;
+//  }];
+//  let MethodBodies = 
+//  [{
+//      NoLDIGPRegsClass::iterator
+//      NoLDIGPRegsClass::allocation_order_end(const MachineFunction &MF) const
+//      {
+//        return end()-2;	// R1 and R0 are reseverd for fixed purposes
+//      }
+//  }];
+//}
 
 // registers to use with the MULSU and the FMULxx instructions
-def FMULRegs : RegisterClass<"AVR", [i8], 8, [
-                              // Call-used registers (Caller saved)
-                                           R18, R19, 
-                                           R20, R21, 
-                                           R22, R23,
-			                           // Call-saved registers (Callee saved)
-					                                       R17, R16]> {}
-					                                       
+//def FMULRegs : RegisterClass<"AVR", [i8], 8, [
+//                              // Call-used registers (Caller saved)
+//                                           R18, R19, 
+//                                           R20, R21, 
+//                                           R22, R23,
+//			                           // Call-saved registers (Callee saved)
+//					                                       R17, R16]> {}
+ 
 // WordRegister groups to use with the movw instruction
 def WRegs : RegisterClass<"AVR", [i16], 16, [
                               // Call-used registers (Caller saved)

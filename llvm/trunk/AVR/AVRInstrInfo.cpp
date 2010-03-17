@@ -21,8 +21,10 @@
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
-#include <cstdio>
-
+#include "llvm/Support/ErrorHandling.h"
+//#include <cstdio>
+//#include "llvm/CodeGen/PseudoSourceValue.h"
+//#include "llvm/CodeGen/MachineFrameInfo.h"
 
 using namespace llvm;
 
@@ -50,7 +52,7 @@ unsigned AVRInstrInfo::isStoreToStackSlot(const MachineInstr *MI,
     return MI->getOperand(0).getReg();
   }
 #endif
-  assert(0 && "isStoreToStackSlot not yet implemented");
+  llvm_unreachable("isStoreToStackSlot not yet implemented");
   return 0;
 }
 
@@ -62,79 +64,69 @@ unsigned AVRInstrInfo::isStoreToStackSlot(const MachineInstr *MI,
 unsigned AVRInstrInfo::isLoadFromStackSlot(const MachineInstr *MI,
                                             int &FrameIndex) const
 {
-#if 0 
-~~~STUB FROM PIC16~~~~
-  // FIXME: No stack stuff yet
-  if (MI->getOpcode() == AVR::movf 
-      && MI->getOperand(0).isReg()
-      && MI->getOperand(1).isSymbol()) 
+#if 1
+  switch (MI->getOpcode())
   {
-    FrameIndex = MI->getOperand(1).getIndex();
-    return MI->getOperand(0).getReg();
+    default: break;
+    case AVR::LDy:
+      FrameIndex = MI->getOperand(1).getIndex();
+      return MI->getOperand(0).getReg();
+    /*
+      if (MI->getOperand(1).isFI() &&
+          MI->getOperand(2).isReg() &&
+          MI->getOperand(3).isImm() &&
+          MI->getOperand(2).getReg() == 0 &&
+          MI->getOperand(3).getImm() == 0) {
+        FrameIndex = MI->getOperand(1).getIndex();
+        return MI->getOperand(0).getReg();
+      }*/
+      break;
   }
 #endif
+  //llvm_unreachable("isLoadFromStackSlot not yet implemented");
   return 0;
 }
 
 
 void AVRInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB, 
-                                         MachineBasicBlock::iterator I,
-                                         unsigned SrcReg, bool isKill, int FI,
+                                         MachineBasicBlock::iterator MI,
+                                         unsigned SrcReg, bool isKill, int FrameIdx,
                                          const TargetRegisterClass *RC) const
 {
-#if 0
-~~~STUB FROM PIC16~~~~
-  const Function *Func = MBB.getParent()->getFunction();
-  const std::string FuncName = Func->getName();
+  DebugLoc dl = DebugLoc::getUnknownLoc();
+  BuildMI(MBB, MI, dl, get(AVR::STy)).addFrameIndex(FrameIdx);
 
-  char *tmpName = new char [strlen(FuncName.c_str()) +  6];
-  sprintf(tmpName, "%s.tmp", FuncName.c_str());
-
-  // On the order of operands here: think "movwf SrcReg, tmp_slot, offset".
-  if (RC == AVR::GPRRegisterClass) {
-    //MachineFunction &MF = *MBB.getParent();
-    //MachineRegisterInfo &RI = MF.getRegInfo();
-    BuildMI(MBB, I, get(AVR::movwf))
-      .addReg(SrcReg, false, false, isKill)
-      .addImm(FI)
-      .addExternalSymbol(tmpName)
-      .addImm(1); // Emit banksel for it.
-  }
-  else if (RC == AVR::FSR16RegisterClass)
-    assert(0 && "Don't know yet how to store a FSR16 to stack slot");
-  else
-#endif
-    assert(0 && "Can't store this register to stack slot");
+/*
+  BuildMI(MBB, MI, dl, get(AVR::STy)).addReg(SrcReg,getKillRegState(isKill))
+    .addImm(0).addFrameIndex(FrameIdx);*/
+  //llvm_unreachable("Can't store this register to stack slot");
 
 }
 
 void AVRInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB, 
-                                          MachineBasicBlock::iterator I,
-                                          unsigned DestReg, int FI,
+                                          MachineBasicBlock::iterator MI,
+                                          unsigned DestReg, int FrameIdx,
                                           const TargetRegisterClass *RC) const
 {
 #if 0
-~~~STUB FROM PIC16~~~~
-  const Function *Func = MBB.getParent()->getFunction();
-  const std::string FuncName = Func->getName();
+  DebugLoc DL = DebugLoc::getUnknownLoc();
+  if (MI != MBB.end()) DL = MI->getDebugLoc();
+  MachineFunction &MF = *MBB.getParent();
+  MachineFrameInfo &MFI = *MF.getFrameInfo();
 
-  char *tmpName = new char [strlen(FuncName.c_str()) +  6];
-  sprintf(tmpName, "%s.tmp", FuncName.c_str());
+  MachineMemOperand *MMO =
+    MF.getMachineMemOperand(PseudoSourceValue::getFixedStack(FrameIdx),
+                            MachineMemOperand::MOLoad, 0,
+                            MFI.getObjectSize(FrameIdx),
+                            MFI.getObjectAlignment(FrameIdx));
 
-  // On the order of operands here: think "movf FrameIndex, W".
-  if (RC == AVR::GPRRegisterClass) {
-    //MachineFunction &MF = *MBB.getParent();
-    //MachineRegisterInfo &RI = MF.getRegInfo();
-    BuildMI(MBB, I, get(AVR::movf), DestReg)
-      .addImm(FI)
-      .addExternalSymbol(tmpName)
-      .addImm(1); // Emit banksel for it.
-  }
-  else if (RC == AVR::FSR16RegisterClass)
-    assert(0 && "Don't know yet how to load an FSR16 from stack slot");
+  if (RC == &AVR::GPRegsRegClass)
+    BuildMI(MBB, MI, DL, get(AVR::MOV))
+      .addReg(DestReg).addFrameIndex(FrameIdx).addImm(0).addMemOperand(MMO);
   else
+    llvm_unreachable("Cannot store this register to stack slot!");
 #endif
-    assert(0 && "Can't load this register from stack slot");
+    llvm_unreachable("Can't load this register from stack slot");
 
 }
 
@@ -144,13 +136,20 @@ bool AVRInstrInfo::copyRegToReg (MachineBasicBlock &MBB,
                                    const TargetRegisterClass *DestRC,
                                    const TargetRegisterClass *SrcRC) const 
 {
-  DebugLoc DL = DebugLoc::getUnknownLoc(); 
+  DebugLoc DL = DebugLoc::getUnknownLoc();
+/*
   if (DestRC != SrcRC)
   {
-    // Not yet supported
+    llvm_unreachable(DestRC->getName());
     return false;
   }  
-
+*/
+  if (DestRC == AVR::LDIRegsRegisterClass)
+  {
+    BuildMI(MBB, I, DL, get(AVR::LDI), DestReg).addReg(SrcReg);
+    return true;
+  }
+  
   if (DestRC == AVR::GPRegsRegisterClass)
   {
     BuildMI(MBB, I, DL, get(AVR::MOV), DestReg).addReg(SrcReg);
@@ -164,6 +163,7 @@ bool AVRInstrInfo::copyRegToReg (MachineBasicBlock &MBB,
   }
 
   // Not yet supported.
+  llvm_unreachable("copyRegToReg");
   return false;
 }
 
