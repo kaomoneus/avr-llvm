@@ -26,8 +26,8 @@ include "AVRInstrInfo.td"
 
 def AVRInstrInfo : InstrInfo
 {
-  let TSFlagsFields = [];
-  let TSFlagsShifts = [];
+//  let TSFlagsFields = [];
+//  let TSFlagsShifts = [];
 }
 
 def AVRInstPrinter : AsmWriter 

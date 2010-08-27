@@ -105,6 +105,19 @@ def R29 : GPR<29, "r29">, DwarfRegNum<[29]>;
 def R30 : GPR<30, "r30">, DwarfRegNum<[30]>;
 def R31 : GPR<31, "r31">, DwarfRegNum<[31]>;
 
+let Namespace = "AVR" in {
+// Note: Code depends on these having consecutive numbers.
+def ssub_0  : SubRegIndex;
+def ssub_1  : SubRegIndex;
+def ssub_2  : SubRegIndex;
+def ssub_3  : SubRegIndex;
+def ssub_4  : SubRegIndex;
+def ssub_5  : SubRegIndex;
+def ssub_6  : SubRegIndex;
+def ssub_7  : SubRegIndex;
+}
+
+let SubRegIndices = [ssub_0,ssub_1] in {
 // AVR 16-bit Address Pointer Register
 def X_PTR : PTR<26,"X", [R26, R27]>, DwarfRegNum<[26]>;
 def Y_PTR : PTR<28,"Y", [R28, R29]>, DwarfRegNum<[28]>;
@@ -127,16 +140,21 @@ def R25R24 : PTR<24, "r25:24", [R24, R25]>, DwarfRegNum<[24]>;
 def R27R26 : PTR<26, "r27:26", [R26, R27]>, DwarfRegNum<[26]>;
 def R29R28 : PTR<28, "r29:28", [R28, R29]>, DwarfRegNum<[28]>;
 def R31R30 : PTR<30, "r31:30", [R30, R31]>, DwarfRegNum<[30]>;
+}
 
+let SubRegIndices = [ssub_0,ssub_1,ssub_2,ssub_3] in {
 // AVR Double Word Registers
-def R25R22 : PTR<22, "r25-r22", [R25R24, R23R22]>, DwarfRegNum<[22]>;
-def R21R18 : PTR<18, "r21-r18", [R21R20, R19R18]>, DwarfRegNum<[18]>;
-def R17R14 : PTR<14, "r17-r14", [R17R16, R15R14]>, DwarfRegNum<[14]>;
-def R13R10 : PTR<10, "r13-r10", [R13R12, R11R10]>, DwarfRegNum<[10]>;
+def R25R22 : PTR<22, "r25-r22", [R22,R23,R24,R25]>, DwarfRegNum<[22]>;
+def R21R18 : PTR<18, "r21-r18", [R18,R19,R20,R21]>, DwarfRegNum<[18]>;
+def R17R14 : PTR<14, "r17-r14", [R14,R15,R16,R17]>, DwarfRegNum<[14]>;
+def R13R10 : PTR<10, "r13-r10", [R10,R11,R12,R13]>, DwarfRegNum<[10]>;
+}
 
+let SubRegIndices = [ssub_0,ssub_1,ssub_2,ssub_3,ssub_4,ssub_5,ssub_6,ssub_7] in {
 // AVR Quad Word Registers
-def R25R18 : PTR<18, "r25-r18", [R25R22, R21R18]>, DwarfRegNum<[18]>;
-def R17R10 : PTR<10, "r17-r10", [R17R14, R13R10]>, DwarfRegNum<[10]>;
+def R25R18 : PTR<18, "r25-r18", [R18,R19,R20,R21,R22,R23,R24,R25]>, DwarfRegNum<[18]>;
+def R17R10 : PTR<10, "r17-r10", [R10,R11,R12,R13,R14,R15,R16,R17]>, DwarfRegNum<[10]>;
+}
 
 // AVR status flags
 def C : AVRFlag<0,"C">;
@@ -149,14 +167,19 @@ def T : AVRFlag<6,"T">;
 def I : AVRFlag<7,"I">;
 
 // AVR status register
+//TODO: swap dir??
+let SubRegIndices = [ssub_0,ssub_1,ssub_2,ssub_3,ssub_4,ssub_5,ssub_6,ssub_7] in {
 def SREG : FlagReg<0x5F,"SREG", [C,Z,N,V,S,H,T,I]>, DwarfRegNum<[0x5F]>;
+}
 
 // AVR stack registers
 def SPH : IOReg<0x5E,"SPH">, DwarfRegNum<[0x5E]>;
 def SPL : IOReg<0x5D,"SPL">, DwarfRegNum<[0x5D]>;
 
 // AVR stack pointer
+let SubRegIndices = [ssub_0,ssub_1] in {
 def SP : PTR<0x5D,"SP", [SPL, SPH]>, DwarfRegNum<[0x5D]>;
+}
 
 // Gereral Purpose Regsister Class
 // NOTE: If an allocation_order_* methode is not specified, than regList also 
