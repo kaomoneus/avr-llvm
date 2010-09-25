@@ -31,12 +31,14 @@ AVRRegisterInfo::AVRRegisterInfo(AVRSubtarget &st,
 
 const unsigned* AVRRegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const
 {
-  static const unsigned CalleeSavedRegs[] = {
+  static const unsigned CalleeSavedRegs[] =
+  {
     AVR::R0, AVR::R1,
     AVR::R2, AVR::R3, AVR::R4, AVR::R5, AVR::R6, AVR::R7, AVR::R8,
     AVR::R9, AVR::R10, AVR::R11, AVR::R12, AVR::R13, AVR::R14, AVR::R15,
     AVR::R16, AVR::R17,
-    AVR::R28, AVR::R29,0};
+    AVR::R28, AVR::R29,0
+  };
 
   return CalleeSavedRegs;
 }
