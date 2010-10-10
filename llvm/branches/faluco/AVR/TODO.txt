@@ -1,0 +1,6 @@
+- fix calling conventions
+- allocate i16 or wider data in even registers (optimization)
+- optimize shifts (optim)
+- clear __zero_reg__ after doing a multiplication
+- expand movw inserter to be more clever (optim)
+- expand adiw/sbiw (optim)
