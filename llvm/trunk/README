@@ -28,6 +28,11 @@ avr target is NOT enabled by default):
   % LLVM_SRC_ROOT/configure --prefix=$HOME/usr/avr-llvm/ --disable-optimized --enable-targets=avr
   % make
 
+ Alt:
+  % ./configure --with-built-clang --enable-targets=avr --program-prefix=avr- --with-as=/usr/local/avr/bin/avr-as --with-ld=/usr/local/avr/bin/avr-ld --with-local-prefix=/usr/local/avr/avr/include --enable-assertions --disable-optimized
+ Alt2:
+  % ./configure --with-built-clang --enable-targets=avr --program-prefix=avr- --program-suffix=-2.8 --with-as=/usr/local/avr/bin/avr-as --with-ld=/usr/local/avr/bin/avr-ld --with-local-prefix=/usr/local/avr/avr/include
+
 configure and build the GCC front end:
 
   % LLVM_GCC_SRC_DIR/configure   --prefix=$HOME/usr/avr-llvm/ --enable-llvm=LLVM_OBJ_DIR --program-prefix=avr-llvm- --enable-languages=c

@@ -1,8 +1,8 @@
 Index: lib/Basic/Targets.cpp
 ===================================================================
---- lib/Basic/Targets.cpp	(revision 116292)
-+++ lib/Basic/Targets.cpp	(working copy)
-@@ -1991,6 +1991,89 @@
+--- clang/lib/Basic/Targets.cpp	(revision 94389)
++++ clang/lib/Basic/Targets.cpp	(working copy)
+@@ -1472,6 +1472,88 @@
  } // end anonymous namespace.
  
  namespace {
@@ -87,18 +87,19 @@ Index: lib/Basic/Targets.cpp
 +  };
 +} // end anonymous namespace.
 +
-+
 +namespace {
-   class PIC16TargetInfo : public TargetInfo{
-   public:
-     PIC16TargetInfo(const std::string& triple) : TargetInfo(triple) {
-@@ -2493,6 +2576,9 @@
-   default:
-     return NULL;
- 
+ class SparcV8TargetInfo : public TargetInfo {
+   static const TargetInfo::GCCRegAlias GCCRegAliases[];
+   static const char * const GCCRegNames[];
+@@ -2068,7 +2150,10 @@
+     default:
+       return new ARMTargetInfo(T);
+     }
+-
++    
 +  case llvm::Triple::avr:
 +    return new AVRTargetInfo(T);
-+
-   case llvm::Triple::arm:
-   case llvm::Triple::thumb:
-     switch (os) {
++    
+   case llvm::Triple::bfin:
+     return new BlackfinTargetInfo(T);
+ 
