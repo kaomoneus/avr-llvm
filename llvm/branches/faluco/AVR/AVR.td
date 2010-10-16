@@ -34,6 +34,11 @@ include "AVRInstrInfo.td"
 
 def AVRInstrInfo : InstrInfo {}
 
+def AVRInstPrinter : AsmWriter
+{
+  string AsmWriterClassName  = "InstPrinter";
+}
+
 //===----------------------------------------------------------------------===//
 // AVR subtarget features.
 //===----------------------------------------------------------------------===//
@@ -437,6 +442,7 @@ def : Device<"attiny40",    [FeatureAVRTINY1] >; // "__AVR_ATtiny40__"
 
 def AVR : Target
 {
-    // Pull in Instruction Info:
-    let InstructionSet = AVRInstrInfo;
+  // Pull in Instruction Info:
+  let InstructionSet = AVRInstrInfo;
+  let AssemblyWriters = [AVRInstPrinter];
 }
