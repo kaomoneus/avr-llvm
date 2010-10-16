@@ -25,7 +25,6 @@
 #include "llvm/Module.h"
 #include "llvm/Assembly/Writer.h"
 #include "llvm/CodeGen/AsmPrinter.h"
-#include "llvm/CodeGen/DwarfWriter.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineConstantPool.h"
@@ -38,6 +37,7 @@
 #include "llvm/Target/TargetRegistry.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Support/FormattedStream.h"
+#include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
 
@@ -46,9 +46,9 @@ namespace
   class AVRAsmPrinter : public AsmPrinter
   {
     public:
-      AVRAsmPrinter(formatted_raw_ostream &O, TargetMachine &TM,
-                     MCStreamer &Streamer)
-      : AsmPrinter(O, TM, Streamer) {}
+      AVRAsmPrinter(TargetMachine &TM, MCStreamer &Streamer)
+        : AsmPrinter(TM, Streamer) {}
+
 
       virtual const char *getPassName() const
       {
@@ -63,33 +63,12 @@ namespace
                               "__tmp_reg__ = 0\n"
                               "__zero_reg__ = 1");
       }  
-      void printMCInst(const MCInst *MI)
-      {
-        AVRInstPrinter(O, *MAI).printInstruction(MI);
-      }
-      void printOperand(const MachineInstr *MI, int OpNum);
-      
-      void printPCRelImmOperand(const MachineInstr *MI, int OpNum)
-      {
-        printOperand(MI, OpNum);
-      }
-      void printSrcMemOperand(const MachineInstr *MI, int OpNum);
-      void printCCOperand(const MachineInstr *MI, int OpNum);
-      bool PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
-                           unsigned AsmVariant,
-                           const char *ExtraCode);
-      bool PrintAsmMemoryOperand(const MachineInstr *MI,
-                                 unsigned OpNo, unsigned AsmVariant,
-                                 const char *ExtraCode);
-      void EmitInstruction(const MachineInstr *MI);
 
+      void printOperand(const MachineInstr *MI, int OpNum,
+                      raw_ostream &O, const char* Modifier = 0);
+      void EmitInstruction(const MachineInstr *MI);
       //void EmitGlobalVariable(const GlobalVariable* GVar);
 
-      void getAnalysisUsage(AnalysisUsage &AU) const
-      {
-        AsmPrinter::getAnalysisUsage(AU);
-        AU.setPreservesAll();
-      }
   };
 } // end of anonymous namespace
 
@@ -203,8 +182,8 @@ void AVRAsmPrinter::PrintGlobalVariable(const GlobalVariable* GVar)
 }
 #endif
 
-void AVRAsmPrinter::printOperand(const MachineInstr *MI, int OpNum)
-{
+void AVRAsmPrinter::printOperand(const MachineInstr *MI, int OpNum,
+                                    raw_ostream &O, const char *Modifier) {
   const MachineOperand &MO = MI->getOperand(OpNum);
   switch (MO.getType()) 
   {
@@ -255,96 +234,8 @@ void AVRAsmPrinter::printOperand(const MachineInstr *MI, int OpNum)
   }
 }
 
-void AVRAsmPrinter::printSrcMemOperand(const MachineInstr *MI, int OpNum)
-{
-//- MSP430 asm specific. keeping as reference for now      
-#if 0
-  const MachineOperand &Base = MI->getOperand(OpNum);
-  const MachineOperand &Disp = MI->getOperand(OpNum+1);
 
-  // Print displacement first
-  if (!Disp.isImm())
-  {
-    printOperand(MI, OpNum+1, "mem");
-  } 
-  else 
-  {
-    if (!Base.getReg())
-    {
-      O << '&';
-    }
-    printOperand(MI, OpNum+1, "nohash");
-  }
 
-  // Print register base field
-  if (Base.getReg()) 
-  {
-    O << '(';
-    printOperand(MI, OpNum);
-    O << ')';
-  }
-#endif 
-  llvm_unreachable("Not implemented yet!");
-}
-
-/// Condition Code Operand (for conditional statements)
-void AVRAsmPrinter::printCCOperand(const MachineInstr *MI, int OpNum) 
-{
-  //unsigned CC = MI->getOperand(OpNum).getImm();
-#if 0 //-MSP430CC defined in MSP430.h
-  switch (CC) 
-  {
-    default:
-      llvm_unreachable("Unsupported CC code");
-      break;
-    case MSP430CC::COND_E:
-      O << "eq";
-      break;
-    case MSP430CC::COND_NE:
-      O << "ne";
-      break;
-    case MSP430CC::COND_HS:
-      O << "hs";
-      break;
-    case MSP430CC::COND_LO:
-      O << "lo";
-       break;
-    case MSP430CC::COND_GE:
-      O << "ge";
-       break;
-    case MSP430CC::COND_L:
-      O << 'l';
-      break;
-  }
-#endif
-}
-
-/// PrintAsmOperand - Print out an operand for an inline asm expression.
-///
-bool AVRAsmPrinter::PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
-                                     unsigned AsmVariant,const char *ExtraCode)
-{
-  // Does this asm operand have a single letter operand modifier?
-  if (ExtraCode && ExtraCode[0])
-  {
-    return true; // Unknown modifier.
-  }
-  printOperand(MI, OpNo);
-  return false;
-}
-
-bool AVRAsmPrinter::PrintAsmMemoryOperand(const MachineInstr *MI, 
-                                          unsigned OpNo, unsigned AsmVariant, 
-                                          const char *ExtraCode)
-{
-                                             
-  if (ExtraCode && ExtraCode[0])
-  {
-    return true; // Unknown modifier.
-  }
-  printSrcMemOperand(MI, OpNo);
-  return false;
-}
 
 //===----------------------------------------------------------------------===//
 void AVRAsmPrinter::EmitInstruction(const MachineInstr *MI)
@@ -359,11 +250,10 @@ void AVRAsmPrinter::EmitInstruction(const MachineInstr *MI)
 
 static MCInstPrinter *createAVRMCInstPrinter(const Target &T,
                                               unsigned SyntaxVariant,
-                                              const MCAsmInfo &MAI,
-                                              raw_ostream &O) 
+                                              const MCAsmInfo &MAI) 
 {
   if (SyntaxVariant == 0)
-    return new AVRInstPrinter(O, MAI);
+    return new AVRInstPrinter(MAI);
   return 0;
 }
 

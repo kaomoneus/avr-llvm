@@ -25,7 +25,7 @@ namespace llvm {
 
   /// AVRMCInstLower - This class is used to lower an MachineInstr
   /// into an MCInst.
-  class VISIBILITY_HIDDEN AVRMCInstLower
+  class LLVM_LIBRARY_VISIBILITY AVRMCInstLower
   {
     MCContext &Ctx;
     Mangler &Mang;
@@ -46,4 +46,4 @@ namespace llvm {
 
 }
 
-#endif
+#endif  /* AVR_MCINSTLOWER_H */
