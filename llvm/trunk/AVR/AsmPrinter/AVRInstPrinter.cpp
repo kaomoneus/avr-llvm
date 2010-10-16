@@ -27,12 +27,13 @@ using namespace llvm;
 #include "AVRGenAsmWriter.inc"
 #undef MachineInstr
 
-void AVRInstPrinter::printInst(const MCInst *MI)
+void AVRInstPrinter::printInst(const MCInst *MI, raw_ostream &O)
 {
-  printInstruction(MI);//TableGen'd: AVRInstrInfo.td --> AVRGenAsmWriter.inc
+  printInstruction(MI, O);//TableGen'd: AVRInstrInfo.td --> AVRGenAsmWriter.inc
 }
 
-void AVRInstPrinter::printPCRelImmOperand(const MCInst *MI, unsigned OpNo)
+void AVRInstPrinter::printPCRelImmOperand(const MCInst *MI, unsigned OpNo,
+                                             raw_ostream &O)
 {
   const MCOperand &Op = MI->getOperand(OpNo);
   if (Op.isImm())
@@ -44,7 +45,7 @@ void AVRInstPrinter::printPCRelImmOperand(const MCInst *MI, unsigned OpNo)
 }
 
 void AVRInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
-                                     const char *Modifier) 
+                                   raw_ostream &O, const char *Modifier) 
 {
   assert((Modifier == 0 || Modifier[0] == 0) && "No modifiers supported");
   const MCOperand &Op = MI->getOperand(OpNo);
@@ -63,7 +64,7 @@ void AVRInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
 }
 
 void AVRInstPrinter::printSrcMemOperand(const MCInst *MI, unsigned OpNo,
-                                           const char *Modifier)
+                                       raw_ostream &O, const char *Modifier)
 {
   const MCOperand &Base = MI->getOperand(OpNo);
   const MCOperand &Disp = MI->getOperand(OpNo+1);
