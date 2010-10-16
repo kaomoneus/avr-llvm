@@ -1,4 +1,4 @@
-//===-- AVRTargetInfo.cpp - AVR Target Implementation -----------------===//
+//===---------- AVRTargetInfo.cpp - AVR Target Implementation -------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -6,6 +6,7 @@
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
+
 #include "AVR.h"
 #include "llvm/Module.h"
 #include "llvm/Target/TargetRegistry.h"
@@ -14,8 +15,8 @@ using namespace llvm;
 
 Target llvm::TheAVRTarget;
 
-extern "C" void LLVMInitializeAVRTargetInfo() 
-{ 
-  RegisterTarget<Triple::avr>
-    X(TheAVRTarget, "avr", "AVR [experimental]");
+extern "C" void LLVMInitializeAVRTargetInfo()
+{
+  RegisterTarget<Triple::avr> X(TheAVRTarget, "avr",
+                                "Atmel AVR Microcontroller [experimental]");
 }

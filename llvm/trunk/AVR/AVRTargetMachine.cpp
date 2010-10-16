@@ -1,4 +1,4 @@
-//===-- AVRTargetMachine.cpp - Define TargetMachine for AVR -----------===//
+//===------ AVRTargetMachine.cpp - Define TargetMachine for the AVR -------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,64 +7,85 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// Top-level implementation for the AVR target.
+// This file defines the AVR specific subclass of TargetMachine.
 //
-//===----------------------------------------------------------------------===//
+//===----------------------------------------------------------------------===// 
 
 #include "AVR.h"
-#include "AVRMCAsmInfo.h"
 #include "AVRTargetMachine.h"
-#include "llvm/PassManager.h"
-#include "llvm/CodeGen/Passes.h"
-#include "llvm/MC/MCAsmInfo.h"
+#include "AVRMCAsmInfo.h"
 #include "llvm/Target/TargetRegistry.h"
+#include "llvm/PassManager.h"
 
 using namespace llvm;
 
-#if 0
-static const TargetAsmInfo *createTargetAsmInfo(const Target &T,
-                                                const StringRef &TT)
-{
-  Triple TheTriple(TT);
-
-  return new AVRTargetAsmInfo(T, TT);
-
-}
-#endif
-
 extern "C" void LLVMInitializeAVRTarget()
 {
-  // Register the target.
   RegisterTargetMachine<AVRTargetMachine> X(TheAVRTarget);
-  RegisterAsmInfo<AVRMCAsmInfo> A(TheAVRTarget);
-
+  RegisterAsmInfo<AVRELFMCAsmInfo> Y(TheAVRTarget);
 }
 
-
-// Constructor
+//datalayout string
+//:TODO: see if type widths match avr libc ABI
+// "e-p:16:8:8-i8:8:8-i16:8:8-i32:8:8-i64:8:8-f32:8:8-f64:8:8-n8"
+//:TODO: CHECK TARGET ENDIANNESS!!!!
 AVRTargetMachine::AVRTargetMachine(const Target &T, const std::string &TT,
-                                       const std::string &FS)
-  : LLVMTargetMachine(T, TT),
-    Subtarget(TT, FS),
-    DataLayout("e-p:16:8:8-i8:8:8-i16:8:8-i32:8:8"),
-    InstrInfo(Subtarget),
-    TLInfo(*this),
-    FrameInfo(TargetFrameInfo::StackGrowsDown, 1, 0){}//FrameInfo()
+                                   const std::string &FS) :
+  LLVMTargetMachine(T, TT),
+  Subtarget(TT, FS),
+  DataLayout("E-p:16:8:8-i8:8:8-i16:8:8-i32:8:8-i64:8:8-f32:8:8-f64:8:8-n8"),
+  InstrInfo(),
+  TLInfo(*this),
+  TSInfo(*this),
+  FrameInfo(TargetFrameInfo::StackGrowsDown, 8, 0) {}
+
+const AVRInstrInfo *AVRTargetMachine::getInstrInfo() const
+{
+  return &InstrInfo;
+}
+
+const AVRTargetLowering *AVRTargetMachine::getTargetLowering() const
+{
+  return &TLInfo;
+}
+
+const TargetData *AVRTargetMachine::getTargetData() const
+{
+  return &DataLayout;
+}
+
+const AVRRegisterInfo *AVRTargetMachine::getRegisterInfo() const
+{
+  return &(InstrInfo.getRegisterInfo());
+}
+
+const AVRSubtarget *AVRTargetMachine::getSubtargetImpl() const
+{
+  return &Subtarget;
+}
+
+const TargetFrameInfo *AVRTargetMachine::getFrameInfo() const
+{
+  return &FrameInfo;
+}
+
+const AVRSelectionDAGInfo *AVRTargetMachine::getSelectionDAGInfo() const
+{
+  return &TSInfo;
+}
 
 bool AVRTargetMachine::addInstSelector(PassManagerBase &PM,
-                                         CodeGenOpt::Level OptLevel)
+                                       CodeGenOpt::Level OptLevel)
 {
-  // Install an instruction selector.
   PM.add(createAVRISelDag(*this, OptLevel));
+
   return false;
 }
 
-#if 0
 bool AVRTargetMachine::addPreEmitPass(PassManagerBase &PM,
-                                         CodeGenOpt::Level OptLevel)
+                                      CodeGenOpt::Level OptLevel)
 {
-  PM.add(createAVRMemSelOptimizerPass());
-  return true;  // -print-machineinstr should print after this.
-}
-#endif
+  //PM.add(createAVR16bitInstPass()); //:TODO: temporarily disabled
 
+  return false;
+}

@@ -1,4 +1,4 @@
-//===- AVRRegisterInfo.h - AVR Register Information Impl -------*- C++ -*-===//
+//===----- AVRRegisterInfo.h - AVR Register Information Impl ----*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -11,56 +11,41 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef AVRREGISTERINFO_H
-#define AVRREGISTERINFO_H
+#ifndef __INCLUDE_AVRREGISTERINFO_H__
+#define __INCLUDE_AVRREGISTERINFO_H__
 
-#include "AVRGenRegisterInfo.h.inc"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Target/TargetRegisterInfo.h"
+#include "AVRGenRegisterInfo.h.inc"
 
 namespace llvm
 {
-class AVRSubtarget;
+
+class AVRTargetMachine;
 class TargetInstrInfo;
-class Type;
 
-  struct AVRRegisterInfo : public AVRGenRegisterInfo
-  {
-    AVRSubtarget &Subtarget;
-    const TargetInstrInfo &TII;
+class AVRRegisterInfo : public AVRGenRegisterInfo
+{
+public:
+  AVRRegisterInfo(const TargetInstrInfo &tii);
+public:
+  static unsigned getAVRRegNum(unsigned reg);
+public: // TargetRegisterInfo
+  const unsigned *getCalleeSavedRegs(const MachineFunction *MF = 0) const;
+  BitVector getReservedRegs(const MachineFunction &MF) const;
+  bool hasFP(const MachineFunction &MF) const;
+  void eliminateFrameIndex(MachineBasicBlock::iterator MI,
+                           int SPAdj,
+                           RegScavenger *RS = NULL) const;
+  void emitPrologue(MachineFunction &MF) const;
+  void emitEpilogue(MachineFunction &MF,
+                    MachineBasicBlock &MBB) const;
+  int getDwarfRegNum(unsigned RegNum, bool isEH) const;
+  unsigned getFrameRegister(const MachineFunction &MF) const;
+  unsigned getRARegister() const;
+private:
+  const TargetInstrInfo &TII; //:TODO: is this needed?!
+};
 
-    AVRRegisterInfo(AVRSubtarget &st, const TargetInstrInfo &tii);
+} // end llvm namespace
 
-    /// Code Generation virtual methods...
-    const unsigned *getCalleeSavedRegs(const MachineFunction *MF = 0) const;
-
-    const TargetRegisterClass* const* getCalleeSavedRegClasses(
-                                       const MachineFunction *MF = 0) const;
-
-    BitVector getReservedRegs(const MachineFunction &MF) const;
-
-    bool hasFP(const MachineFunction &MF) const;
-
-    unsigned int eliminateFrameIndex(MachineBasicBlock::iterator II, int SPAdj, 
-                   FrameIndexValue *Value = NULL,RegScavenger *RS = NULL) const
-    {                        
-      llvm_unreachable("Not implemented");
-      return 0;
-    }
-    
-    void processFunctionBeforeFrameFinalized(MachineFunction &MF) const;
-    void emitPrologue(MachineFunction &MF) const;
-    void emitEpilogue(MachineFunction &MF, MachineBasicBlock &MBB) const;
-    unsigned getRARegister() const;
-    unsigned getFrameRegister(const MachineFunction &MF) const;
-
-    // Exception handling queries.
-    unsigned getEHExceptionRegister() const;
-    unsigned getEHHandlerRegister() const;
-    // Debug information queries.
-    int getDwarfRegNum(unsigned RegNum, bool isEH) const;
-  };
-
-} // end namespace llvm
-
-#endif
+#endif //__INCLUDE_AVRREGISTERINFO_H__

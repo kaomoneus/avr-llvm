@@ -1,4 +1,4 @@
-//===- AVRSubtarget.cpp - AVR Subtarget Information -----------------------===//
+//===------- AVRSubtarget.cpp - AVR Subtarget Information ---------*- C++ -*-=//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -13,17 +13,16 @@
 
 #include "AVRSubtarget.h"
 #include "AVRGenSubtarget.inc"
-#include "llvm/GlobalValue.h"
-#include "llvm/Target/TargetOptions.h"
-#include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
 
 AVRSubtarget::AVRSubtarget(const std::string &TT, const std::string &FS)
 {
-   
+  //:TODO: implement subtargets here!
+  /*
   std::string CPU = "avr2"; // Classic AVR Core set as default
-  
+
   // Parse features string.
   ParseSubtargetFeatures(FS, CPU);
+  */
 }

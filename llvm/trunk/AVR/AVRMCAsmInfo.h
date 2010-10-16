@@ -1,8 +1,8 @@
-//=====-- AVRMCAsmInfo.h - AVR asm properties ---------*- C++ -*--====//
+//=====-------- AVRMCAsmInfo.h - AVR asm properties -----------*- C++ -*--====//
 //
 //                     The LLVM Compiler Infrastructure
 //
-// This file is distributed under the University of Illinois Open Source 
+// This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
@@ -11,29 +11,22 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef AVRTARGETASMINFO_H
-#define AVRTARGETASMINFO_H
+#ifndef __INCLUDE_AVRMCASMINFO_H__
+#define __INCLUDE_AVRMCASMINFO_H__
 
+#include "llvm/ADT/StringRef.h"
 #include "llvm/MC/MCAsmInfo.h"
 
 namespace llvm
 {
-  class Target;
-  class StringRef;
 
-  struct AVRMCAsmInfo : public MCAsmInfo
-  {
-    explicit AVRMCAsmInfo(const Target &T, const StringRef &TT);
-    
-    /// Get Data Directive (address space specific)
-    virtual const char *getDataASDirective(unsigned Size, unsigned AS) const
-    {
-      assert(AS != 0 && "Don't know the directives for default addr space");
-      return 0;
-    }
-    
-  };
+class Target;
+
+struct AVRELFMCAsmInfo : public MCAsmInfo
+{
+  explicit AVRELFMCAsmInfo(const Target &T, StringRef TT);
+};
 
 } // namespace llvm
 
-#endif
+#endif // __INCLUDE_AVRMCASMINFO_H__

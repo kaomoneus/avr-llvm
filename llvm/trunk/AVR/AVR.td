@@ -16,21 +16,25 @@
 include "llvm/Target/Target.td"
 
 //===----------------------------------------------------------------------===//
-// Descriptions
+// Register File Description
 //===----------------------------------------------------------------------===//
 
 include "AVRRegisterInfo.td"
+
+//===----------------------------------------------------------------------===//
+// Calling Convention Description
+//===----------------------------------------------------------------------===//
 include "AVRCallingConv.td"
+
+//===----------------------------------------------------------------------===//
+// Instruction Descriptions
+//===----------------------------------------------------------------------===//
+
 include "AVRInstrInfo.td"
 
+def AVRInstrInfo : InstrInfo {}
 
-def AVRInstrInfo : InstrInfo
-{
-//  let TSFlagsFields = [];
-//  let TSFlagsShifts = [];
-}
-
-def AVRInstPrinter : AsmWriter 
+def AVRInstPrinter : AsmWriter
 {
   string AsmWriterClassName  = "InstPrinter";
 }
@@ -40,7 +44,7 @@ def AVRInstPrinter : AsmWriter
 //===----------------------------------------------------------------------===//
 
 def FeatureAsmOnly
-  : SubtargetFeature<"asmonly","IsAsmOnly", "true", 
+  : SubtargetFeature<"asmonly","IsAsmOnly", "true",
                      "Device is assembler only">;
 
 // Multiply instructions (MUL, FMUL)
@@ -195,11 +199,11 @@ def FeatureAVRTINY1
 
 
 //===----------------------------------------------------------------------===//
-// AVR devices supported.
+// AVR microcontrollers supported
 //===----------------------------------------------------------------------===//
 
-class Device <string Name, list<SubtargetFeature> Features> :
-    Processor <Name, NoItineraries, Features>;
+class Device <string Name, list<SubtargetFeature> Features>
+  : Processor <Name, NoItineraries, Features>;
 
 // Assembler only.
 def : Device<"avr1",         [FeatureAVR1] >;
@@ -432,15 +436,13 @@ def : Device<"attiny10",    [FeatureAVRTINY1] >; // "__AVR_ATtiny10__"
 def : Device<"attiny20",    [FeatureAVRTINY1] >; // "__AVR_ATtiny20__"
 def : Device<"attiny40",    [FeatureAVRTINY1] >; // "__AVR_ATtiny40__"
 
-
-
 //===----------------------------------------------------------------------===//
 // Declare the target which we are implementing
 //===----------------------------------------------------------------------===//
 
 def AVR : Target
 {
-    // Pull in Instruction Info:
-    let InstructionSet = AVRInstrInfo;
-    let AssemblyWriters = [AVRInstPrinter];
+  // Pull in Instruction Info:
+  let InstructionSet = AVRInstrInfo;
+  let AssemblyWriters = [AVRInstPrinter];
 }
