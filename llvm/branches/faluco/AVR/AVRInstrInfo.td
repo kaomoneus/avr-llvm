@@ -20,6 +20,65 @@ include "AVRInstrFormats.td"
 // clearer.
 
 //===----------------------------------------------------------------------===//
+// Feature predicates.
+//===----------------------------------------------------------------------===//
+//:TODO: enable this once we get into subtarget support
+
+//def HasJMP   : Predicate<"Subtarget.hasJMP()">;
+//def HasMUL   : Predicate<"Subtarget.hasMUL()">;
+//def HasMOVW  : Predicate<"Subtarget.hasMOVW()">;
+//def HasJTAG  : Predicate<"Subtarget.hasJTAG()">;
+//def HasEIJMP : Predicate<"Subtarget.hasEIJMP()">;
+//def HasSPM   : Predicate<"Subtarget.hasSPM()">;
+//def HasDES   : Predicate<"Subtarget.hasDES()">;
+//def HasEIJMP_EICALL : Predicate<"Subtarget.has
+//def HasELPM : Predicate<"Subtarget.has
+//def HasELPMX : Predicate<"Subtarget.has
+//def HasJMP_CALL : Predicate<"Subtarget.has
+//def HasMOVW_LPMX : Predicate<"Subtarget.has
+//def HasRAMPX_Y_D : Predicate<"Subtarget.has
+//def HasTiny_Regs_Insns : Predicate<"Subtarget.has
+//def HasCoreExt : Predicate<"Subtarget.has
+
+//def IsAVR2   : Predicate<"Subtarget.isAVR2()">;
+//def IsAVR25  : Predicate<"Subtarget.isAVR25()">;
+//def IsAVR3   : Predicate<"Subtarget.isAVR3()">;
+//def IsAVR31  : Predicate<"Subtarget.isAVR31()">;
+//def IsAVR4   : Predicate<"Subtarget.isAVR4()">;
+//def IsAVR5   : Predicate<"Subtarget.isAVR5()">;
+//def IsAVR51  : Predicate<"Subtarget.isAVR51()">;
+//def IsAVR6   : Predicate<"Subtarget.isAVR6()">;
+//def IsXMEGA  : Predicate<"Subtarget.isXMEGA()">;
+
+//===----------------------------------------------------------------------===//
+// AVR Condition Codes
+//===----------------------------------------------------------------------===//
+//:TODO: enable this once we implement branching
+
+/*/// test on SREG flags
+def AVR_COND_C  : PatLeaf<(i8 0)>; // Carry Flag
+def AVR_COND_Z  : PatLeaf<(i8 1)>; // Zero Flag
+def AVR_COND_N  : PatLeaf<(i8 2)>; // Negative Flag
+def AVR_COND_V  : PatLeaf<(i8 3)>; // Two's complement overflow indicator
+def AVR_COND_S  : PatLeaf<(i8 4)>; // Sign Test
+def AVR_COND_H  : PatLeaf<(i8 5)>; // Half Carry Flag
+def AVR_COND_T  : PatLeaf<(i8 6)>; // Transfer bit
+def AVR_COND_I  : PatLeaf<(i8 7)>; // Global Interupt*/
+/*
+/// conditional tests
+/// bit is set
+def AVR_COND_E  : PatLeaf<(i8 1)>; // Equal
+def AVR_COND_LO : PatLeaf<(i8 0)>; // Lower (unsigned)
+def AVR_COND_LT : PatLeaf<(i8 4)>; // Less Then (signed)
+def AVR_COND_MI : PatLeaf<(i8 2)>; // Minus
+/// bit is cleared
+def AVR_COND_GE : PatLeaf<(i8 4)>; // Greater or Equal (signed)
+def AVR_COND_NE : PatLeaf<(i8 1)>; // Not Equal
+def AVR_COND_PL : PatLeaf<(i8 2)>; // Plus
+def AVR_COND_SH : PatLeaf<(i8 0)>; // Same or higher (unsigned)
+*/
+
+//===----------------------------------------------------------------------===//
 // Type Profiles.
 //===----------------------------------------------------------------------===//
 

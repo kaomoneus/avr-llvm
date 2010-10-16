@@ -110,7 +110,7 @@ void AVRRegisterInfo::emitEpilogue(MachineFunction &MF,
 
 int AVRRegisterInfo::getDwarfRegNum(unsigned RegNum, bool isEH) const
 {
-  return 4;
+  return AVRGenRegisterInfo::getDwarfRegNumFull(RegNum, 0);
 }
 
 unsigned AVRRegisterInfo::getFrameRegister(const MachineFunction &MF) const

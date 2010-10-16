@@ -19,4 +19,10 @@ using namespace llvm;
 AVRSubtarget::AVRSubtarget(const std::string &TT, const std::string &FS)
 {
   //:TODO: implement subtargets here!
+  /*
+  std::string CPU = "avr2"; // Classic AVR Core set as default
+
+  // Parse features string.
+  ParseSubtargetFeatures(FS, CPU);
+  */
 }

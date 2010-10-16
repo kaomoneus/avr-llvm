@@ -19,5 +19,15 @@ AVRELFMCAsmInfo::AVRELFMCAsmInfo(const Target &T, StringRef TT)
 {
   Data16bitsDirective = "\t.half\t";
   Data32bitsDirective = "\t.word\t";
+
+  PCSymbol = ".";
+  SeparatorChar = '$';
+  GlobalDirective = "\t.global\t";
+  ExternDirective = "\t.extern\t";
+  WeakRefDirective = "\t.weakref\t";    // .weakref alias, target
+
+  HasLCOMMDirective = true;             // static variables == .lcomm
+  UsesELFSectionDirectiveForBSS = true;
+
   //:TODO: implement all this
 }
