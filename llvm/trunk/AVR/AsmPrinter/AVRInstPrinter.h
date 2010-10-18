@@ -37,10 +37,9 @@ namespace llvm
                                              raw_ostream &O);
       void printSrcMemOperand(const MCInst *MI, unsigned OpNo,
                               raw_ostream &O, const char *Modifier = 0);
-      void printCCOperand(const MCInst *MI, unsigned OpNo);
 
   };
 }
 
 
-#endif
+#endif /* AVRINSTPRINTER_H */

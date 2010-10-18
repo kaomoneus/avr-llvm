@@ -60,6 +60,7 @@ void AVRInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
   else
   {
     assert(Op.isExpr() && "unknown operand kind in printOperand");
+    O << *Op.getExpr();
   }
 }
 
@@ -86,36 +87,4 @@ void AVRInstPrinter::printSrcMemOperand(const MCInst *MI, unsigned OpNo,
   if (Base.getReg()) {
     O << '(' << getRegisterName(Base.getReg()) << ')';
   }
-}
-
-/// Condition Code Operand (for conditional statements)
-void AVRInstPrinter::printCCOperand(const MCInst *MI, unsigned OpNo)
-{
-  //unsigned CC = MI->getOperand(OpNo).getImm();
-#if 0 
-// MSP430CC::COND_xx defined in MSP430.h
-  switch (CC) {
-  default:
-   llvm_unreachable("Unsupported CC Operand");
-   break;
-  case AVRCC::COND_E:
-   O << "eq";
-   break;
-  case AVRCC::COND_NE:
-   O << "ne";
-   break;
-  case AVRCC::COND_HS:
-   O << "hs";
-   break;
-  case AVRCC::COND_LO:
-   O << "lo";
-   break;
-  case AVRCC::COND_GE:
-   O << "ge";
-   break;
-  case AVRCC::COND_L:
-   O << 'l';
-   break;
-  }
-#endif
 }
