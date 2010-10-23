@@ -91,21 +91,17 @@ def SDT_AVRWrapper : SDTypeProfile<1, 1, [SDTCisSameAs<0, 1>, SDTCisPtrTy<0>]>;
 // AVR Specific Node Definitions
 //===----------------------------------------------------------------------===//
 
-def AVRretflag : SDNode<"AVRISD::RET_FLAG",
-                        SDTNone,
+def AVRretflag : SDNode<"AVRISD::RET_FLAG", SDTNone,
                         [SDNPHasChain, SDNPOptInFlag]>;
 
-def AVRcallseq_start : SDNode<"ISD::CALLSEQ_START",
-                              SDT_AVRCallSeqStart,
+def AVRcallseq_start : SDNode<"ISD::CALLSEQ_START", SDT_AVRCallSeqStart,
                               [SDNPHasChain, SDNPOutFlag]>;
 
-def AVRcallseq_end : SDNode<"ISD::CALLSEQ_END",
-                            SDT_AVRCallSeqEnd,
+def AVRcallseq_end : SDNode<"ISD::CALLSEQ_END", SDT_AVRCallSeqEnd,
                             [SDNPHasChain, SDNPOptInFlag, SDNPOutFlag]>;
 
-def AVRcall : SDNode<"AVRISD::CALL",
-                     SDT_AVRCall,
-                     [SDNPHasChain, SDNPOutFlag, SDNPOptInFlag]>;
+def AVRcall : SDNode<"AVRISD::CALL", SDT_AVRCall,
+                     [SDNPHasChain, SDNPOutFlag, SDNPOptInFlag, SDNPVariadic]>;
 
 def AVRWrapper : SDNode<"AVRISD::Wrapper", SDT_AVRWrapper>;
 
@@ -531,10 +527,12 @@ let isCall = 1 in
   Uses = [R4] in //:TODO: add the stack ptr here
   {
       def CALLk : F32BRk<0b111,
-                          (outs),
-                          (ins i16imm:$dst), //:TODO: this can vary between 16 and 22
-                          "call\t$dst",
-                          [(AVRcall imm:$dst)]>;
+                         (outs),
+      //:TODO: the imm field can be either 16 or 22 bits in devices with more
+      // than 64k of ROM, fix it once we support the largests devices.
+                         (ins i16imm:$dst, variable_ops),
+                         "call\t$dst",
+                         [(AVRcall imm:$dst)]>;
   }
 
 let isTerminator = 1,
