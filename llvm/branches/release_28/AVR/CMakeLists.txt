@@ -11,15 +11,17 @@ tablegen(AVRGenSubtarget.inc -gen-subtarget)
 tablegen(AVRGenCallingConv.inc -gen-callingconv)
 
 add_llvm_target(AVRCodeGen
-  AVRInstrInfo.cpp
+  AVR16bitInstPass.cpp
+  AVRAsmPrinter.cpp
   AVRISelDAGToDAG.cpp
   AVRISelLowering.cpp
-  AVRRegisterInfo.cpp
-  AVRTargetMachine.cpp
+  AVRInstrInfo.cpp
   AVRMCAsmInfo.cpp
-  AVRSubtarget.cpp
-  AVR16bitInstPass.cpp
+  AVRMCInstLower.cpp
+  AVRRegisterInfo.cpp
   AVRSelectionDAGInfo.cpp
+  AVRSubtarget.cpp
+  AVRTargetMachine.cpp
   )
 
 target_link_libraries (LLVMAVRCodeGen LLVMSelectionDAG)
