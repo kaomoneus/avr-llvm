@@ -15,6 +15,7 @@
 #define AVRINSTPRINTER_H
 
 #include "llvm/MC/MCInstPrinter.h"
+#include "llvm/Support/raw_ostream.h"
 
 namespace llvm
 {
