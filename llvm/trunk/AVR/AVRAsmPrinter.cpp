@@ -14,8 +14,8 @@
 
 #define DEBUG_TYPE "asm-printer"
 #include "AVR.h"
-#include "AVRInstrInfo.h"
-#include "AsmPrinter/AVRInstPrinter.h"
+//#include "AVRInstrInfo.h"
+#include "InstPrinter/AVRInstPrinter.h"
 #include "AVRMCAsmInfo.h"
 #include "AVRMCInstLower.h"
 #include "AVRTargetMachine.h"
