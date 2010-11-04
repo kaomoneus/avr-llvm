@@ -13,7 +13,6 @@
 
 #define DEBUG_TYPE "asm-printer"
 #include "AVR.h"
-#include "AVRInstrInfo.h"
 #include "AVRInstPrinter.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCAsmInfo.h"
