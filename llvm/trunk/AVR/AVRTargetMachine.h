@@ -16,6 +16,7 @@
 
 #include "AVRInstrInfo.h"
 #include "AVRISelLowering.h"
+#include "AVRFrameInfo.h"
 #include "AVRSelectionDAGInfo.h"
 #include "AVRRegisterInfo.h"
 #include "AVRSubtarget.h"
@@ -48,7 +49,7 @@ private:
   AVRInstrInfo InstrInfo;
   AVRTargetLowering TLInfo;
   AVRSelectionDAGInfo TSInfo;
-  TargetFrameInfo FrameInfo;
+  AVRFrameInfo FrameInfo;
 };
 
 } // end namespace llvm

@@ -97,17 +97,6 @@ void AVRRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator MI,
   return;
 }
 
-void AVRRegisterInfo::emitPrologue(MachineFunction &MF) const
-{
-  return;
-}
-
-void AVRRegisterInfo::emitEpilogue(MachineFunction &MF,
-                                   MachineBasicBlock &MBB) const
-{
-  return;
-}
-
 int AVRRegisterInfo::getDwarfRegNum(unsigned RegNum, bool isEH) const
 {
   return AVRGenRegisterInfo::getDwarfRegNumFull(RegNum, 0);

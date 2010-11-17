@@ -37,7 +37,7 @@ AVRTargetMachine::AVRTargetMachine(const Target &T, const std::string &TT,
   InstrInfo(),
   TLInfo(*this),
   TSInfo(*this),
-  FrameInfo(TargetFrameInfo::StackGrowsDown, 8, 0) {}
+  FrameInfo(Subtarget) {}
 
 const AVRInstrInfo *AVRTargetMachine::getInstrInfo() const
 {

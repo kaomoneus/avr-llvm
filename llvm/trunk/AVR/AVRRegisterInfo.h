@@ -36,9 +36,6 @@ public: // TargetRegisterInfo
   void eliminateFrameIndex(MachineBasicBlock::iterator MI,
                            int SPAdj,
                            RegScavenger *RS = NULL) const;
-  void emitPrologue(MachineFunction &MF) const;
-  void emitEpilogue(MachineFunction &MF,
-                    MachineBasicBlock &MBB) const;
   int getDwarfRegNum(unsigned RegNum, bool isEH) const;
   unsigned getFrameRegister(const MachineFunction &MF) const;
   unsigned getRARegister() const;
