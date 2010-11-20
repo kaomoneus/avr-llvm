@@ -31,3 +31,9 @@ void AVRFrameInfo::emitPrologue(MachineFunction &MF) const {}
 void AVRFrameInfo::emitEpilogue(MachineFunction &MF,
                                    MachineBasicBlock &MBB) const {}
 
+
+bool AVRFrameInfo::hasFP(const MachineFunction &MF) const
+{
+  return false;
+}
+

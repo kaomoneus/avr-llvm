@@ -32,7 +32,6 @@ public:
 public: // TargetRegisterInfo
   const unsigned *getCalleeSavedRegs(const MachineFunction *MF = 0) const;
   BitVector getReservedRegs(const MachineFunction &MF) const;
-  bool hasFP(const MachineFunction &MF) const;
   void eliminateFrameIndex(MachineBasicBlock::iterator MI,
                            int SPAdj,
                            RegScavenger *RS = NULL) const;

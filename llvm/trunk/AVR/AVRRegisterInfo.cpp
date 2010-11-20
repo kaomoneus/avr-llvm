@@ -86,11 +86,6 @@ BitVector AVRRegisterInfo::getReservedRegs(const MachineFunction &MF) const
   return Reserved;
 }
 
-bool AVRRegisterInfo::hasFP(const MachineFunction &MF) const
-{
-  return false;
-}
-
 void AVRRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator MI,
                                               int SPAdj, RegScavenger *RS) const
 {
