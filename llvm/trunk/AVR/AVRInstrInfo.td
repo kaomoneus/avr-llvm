@@ -92,16 +92,16 @@ def SDT_AVRWrapper : SDTypeProfile<1, 1, [SDTCisSameAs<0, 1>, SDTCisPtrTy<0>]>;
 //===----------------------------------------------------------------------===//
 
 def AVRretflag : SDNode<"AVRISD::RET_FLAG", SDTNone,
-                        [SDNPHasChain, SDNPOptInFlag]>;
+                        [SDNPHasChain, SDNPOptInGlue]>;
 
 def AVRcallseq_start : SDNode<"ISD::CALLSEQ_START", SDT_AVRCallSeqStart,
-                              [SDNPHasChain, SDNPOutFlag]>;
+                              [SDNPHasChain, SDNPOutGlue]>;
 
 def AVRcallseq_end : SDNode<"ISD::CALLSEQ_END", SDT_AVRCallSeqEnd,
-                            [SDNPHasChain, SDNPOptInFlag, SDNPOutFlag]>;
+                            [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue]>;
 
 def AVRcall : SDNode<"AVRISD::CALL", SDT_AVRCall,
-                     [SDNPHasChain, SDNPOutFlag, SDNPOptInFlag, SDNPVariadic]>;
+                     [SDNPHasChain, SDNPOutGlue, SDNPOptInGlue, SDNPVariadic]>;
 
 def AVRWrapper : SDNode<"AVRISD::Wrapper", SDT_AVRWrapper>;
 

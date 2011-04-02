@@ -16,7 +16,7 @@
 
 #include "AVRInstrInfo.h"
 #include "AVRISelLowering.h"
-#include "AVRFrameInfo.h"
+#include "AVRFrameLowering.h"
 #include "AVRSelectionDAGInfo.h"
 #include "AVRRegisterInfo.h"
 #include "AVRSubtarget.h"
@@ -39,7 +39,7 @@ public: // TargetMachine
   const TargetData *getTargetData() const;
   const AVRRegisterInfo *getRegisterInfo() const;
   const AVRSubtarget *getSubtargetImpl() const;
-  const TargetFrameInfo *getFrameInfo() const;
+  const TargetFrameLowering *getFrameInfo() const;
   const AVRSelectionDAGInfo *getSelectionDAGInfo() const;
   bool addInstSelector(PassManagerBase &PM, CodeGenOpt::Level OptLevel);
   bool addPreEmitPass(PassManagerBase &PM, CodeGenOpt::Level OptLevel);
@@ -49,7 +49,7 @@ private:
   AVRInstrInfo InstrInfo;
   AVRTargetLowering TLInfo;
   AVRSelectionDAGInfo TSInfo;
-  AVRFrameInfo FrameInfo;
+  AVRFrameLowering FrameLowering;
 };
 
 } // end namespace llvm

@@ -13,6 +13,7 @@
 
 #include "AVR.h"
 #include "AVRTargetMachine.h"
+#include "AVRRegisterInfo.h"
 #include "AVRMCAsmInfo.h"
 #include "llvm/Target/TargetRegistry.h"
 #include "llvm/PassManager.h"
@@ -37,7 +38,7 @@ AVRTargetMachine::AVRTargetMachine(const Target &T, const std::string &TT,
   InstrInfo(),
   TLInfo(*this),
   TSInfo(*this),
-  FrameInfo(Subtarget) {}
+  FrameLowering(Subtarget) {}
 
 const AVRInstrInfo *AVRTargetMachine::getInstrInfo() const
 {
@@ -64,9 +65,9 @@ const AVRSubtarget *AVRTargetMachine::getSubtargetImpl() const
   return &Subtarget;
 }
 
-const TargetFrameInfo *AVRTargetMachine::getFrameInfo() const
+const TargetFrameLowering *AVRTargetMachine::getFrameInfo() const
 {
-  return &FrameInfo;
+  return &FrameLowering;
 }
 
 const AVRSelectionDAGInfo *AVRTargetMachine::getSelectionDAGInfo() const
@@ -89,3 +90,4 @@ bool AVRTargetMachine::addPreEmitPass(PassManagerBase &PM,
 
   return false;
 }
+

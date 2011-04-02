@@ -13,7 +13,7 @@ tablegen(AVRGenCallingConv.inc -gen-callingconv)
 add_llvm_target(AVRCodeGen
   AVR16bitInstPass.cpp
   AVRAsmPrinter.cpp
-  AVRFrameInfo.cpp
+  AVRFrameLowering.cpp
   AVRISelDAGToDAG.cpp
   AVRISelLowering.cpp
   AVRInstrInfo.cpp

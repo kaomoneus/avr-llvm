@@ -110,13 +110,15 @@ void AVRAsmPrinter::EmitInstruction(const MachineInstr *MI)
 }
 
 static MCInstPrinter *createAVRMCInstPrinter(const Target &T,
+                                              TargetMachine &TM,
                                               unsigned SyntaxVariant,
                                               const MCAsmInfo &MAI) 
 {
   if (SyntaxVariant == 0)
-    return new AVRInstPrinter(MAI);
+    return new AVRInstPrinter(TM, MAI);
   return 0;
 }
+
 
 // Force static initialization.
 extern "C" void LLVMInitializeAVRAsmPrinter()

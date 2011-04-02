@@ -43,7 +43,6 @@ AVRTargetLowering::AVRTargetLowering(TargetMachine &TM) :
 
   //:TODO: check rest of config methods
   // Target configuration
-  setShiftAmountType(MVT::i8);
   setBooleanContents(ZeroOrOneBooleanContent);
   setSchedulingPreference(Sched::RegPressure);
   setIntDivIsCheap(false);
@@ -204,7 +203,7 @@ SDValue ExpandADDSUB(SDNode *N, SelectionDAG &DAG)
                                   LO1, LO2);
         SDValue Lo(myadd.getNode(), 0);
     SDValue carry(myadd.getNode(), 1);
-    SDValue myadde = DAG.getNode(ISD::ADDE, dl, DAG.getVTList(MVT::i8, MVT::i8, MVT::Flag),
+    SDValue myadde = DAG.getNode(ISD::ADDE, dl, DAG.getVTList(MVT::i8, MVT::i8, MVT::Other),
                                   HI1, HI2, carry);
     SDValue Hi(myadde.getNode(), 0);
 
@@ -468,7 +467,7 @@ AVRTargetLowering::LowerCall(SDValue Chain, SDValue Callee,
   }
 
   // Returns a chain & a flag for retval copy to use.
-  SDVTList NodeTys = DAG.getVTList(MVT::Other, MVT::Flag);
+  SDVTList NodeTys = DAG.getVTList(MVT::Other, MVT::Other);
   SmallVector<SDValue, 8> Ops;
   Ops.push_back(Chain);
   Ops.push_back(Callee);

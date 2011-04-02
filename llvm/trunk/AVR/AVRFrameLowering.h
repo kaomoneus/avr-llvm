@@ -1,4 +1,4 @@
-//===-- AVRFrameInfo.h - Define TargetFrameInfo for AVR --*- C++ -*--===//
+//===-- AVRFrameLowering.h  - Define Frame Lowering  for AVR  --*- C++ -*--===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -16,18 +16,18 @@
 
 #include "AVR.h"
 #include "AVRSubtarget.h"
-#include "llvm/Target/TargetFrameInfo.h"
+#include "llvm/Target/TargetFrameLowering.h"
 
 namespace llvm {
   class AVRSubtarget;
 
-class AVRFrameInfo : public TargetFrameInfo {
+class AVRFrameLowering : public TargetFrameLowering {
 protected:
   const AVRSubtarget &STI;
 
 public:
-  explicit AVRFrameInfo(const AVRSubtarget &sti)
-    : TargetFrameInfo(TargetFrameInfo::StackGrowsDown, 8, 0), STI(sti) {
+  explicit AVRFrameLowering(const AVRSubtarget &sti)
+    : TargetFrameLowering(TargetFrameLowering::StackGrowsDown, 8, 0), STI(sti) {
   }
 
   /// emitProlog/emitEpilog - These methods insert prolog and epilog code into

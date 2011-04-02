@@ -79,7 +79,7 @@ SDNode *AVRDAGToDAGISel::Select(SDNode *N)
         unsigned Opc = AVR::MULRdRr;
 
         SDValue InFlag =
-          SDValue(CurDAG->getMachineNode(Opc, dl, MVT::Flag, Op1, Op2), 0);
+          SDValue(CurDAG->getMachineNode(Opc, dl, MVT::Other, Op1, Op2), 0);
 
         // Copy the low half of the result, if it is needed.
         if (!SDValue(N, 0).use_empty())

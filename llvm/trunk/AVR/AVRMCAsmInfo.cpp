@@ -21,7 +21,7 @@ AVRELFMCAsmInfo::AVRELFMCAsmInfo(const Target &T, StringRef TT)
   Data32bitsDirective = "\t.word\t";
 
   PCSymbol = ".";
-  SeparatorChar = '$';
+  SeparatorString = "$";
   GlobalDirective = "\t.global\t";
   ExternDirective = "\t.extern\t";
   WeakRefDirective = "\t.weakref\t";    // .weakref alias, target

@@ -1,4 +1,4 @@
-//=======- AVRFrameInfo.cpp - AVR Frame Information ------*- C++ -*-====//
+//=======- AVRFrameLowering.cpp - AVR Frame Information ------*- C++ -*-====//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -11,7 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "AVRFrameInfo.h"
+#include "AVRFrameLowering.h"
 //#include "AVRInstrInfo.h"
 //#include "AVRMachineFunctionInfo.h"
 //#include "llvm/Function.h"
@@ -26,13 +26,13 @@
 
 using namespace llvm;
 
-void AVRFrameInfo::emitPrologue(MachineFunction &MF) const {}
+void AVRFrameLowering::emitPrologue(MachineFunction &MF) const {}
 
-void AVRFrameInfo::emitEpilogue(MachineFunction &MF,
+void AVRFrameLowering::emitEpilogue(MachineFunction &MF,
                                    MachineBasicBlock &MBB) const {}
 
 
-bool AVRFrameInfo::hasFP(const MachineFunction &MF) const
+bool AVRFrameLowering::hasFP(const MachineFunction &MF) const
 {
   return false;
 }

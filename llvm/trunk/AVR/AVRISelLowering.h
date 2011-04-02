@@ -46,6 +46,7 @@ class AVRTargetLowering : public TargetLowering
 public:
   explicit AVRTargetLowering(TargetMachine &TM);
 public : // TargetLowering
+  virtual MVT getShiftAmountTy(EVT LHSTy) const { return MVT::i8; }
   unsigned getFunctionAlignment(const Function *) const;
   const char *getTargetNodeName(unsigned Opcode) const;
   SDValue LowerOperation(SDValue Op, SelectionDAG &DAG) const;
