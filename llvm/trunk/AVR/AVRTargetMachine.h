@@ -21,7 +21,7 @@
 #include "AVRRegisterInfo.h"
 #include "AVRSubtarget.h"
 #include "llvm/Target/TargetData.h"
-#include "llvm/Target/TargetFrameInfo.h"
+#include "llvm/Target/TargetFrameLowering.h"
 #include "llvm/Target/TargetMachine.h"
 
 namespace llvm
