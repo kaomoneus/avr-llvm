@@ -1,8 +1,8 @@
 Index: CMakeLists.txt
 ===================================================================
---- CMakeLists.txt	(revision 90294)
+--- CMakeLists.txt	(revision 129634)
 +++ CMakeLists.txt	(working copy)
-@@ -47,6 +47,7 @@
+@@ -66,6 +66,7 @@
  set(LLVM_ALL_TARGETS
    Alpha
    ARM
@@ -12,9 +12,9 @@ Index: CMakeLists.txt
    CellSPU
 Index: cmake/config-ix.cmake
 ===================================================================
---- cmake/config-ix.cmake	(revision 90294)
+--- cmake/config-ix.cmake	(revision 129634)
 +++ cmake/config-ix.cmake	(working copy)
-@@ -191,6 +191,8 @@
+@@ -318,6 +318,8 @@
    set(LLVM_NATIVE_ARCH Alpha)
  elseif (LLVM_NATIVE_ARCH MATCHES "arm")
    set(LLVM_NATIVE_ARCH ARM)
@@ -22,4 +22,4 @@ Index: cmake/config-ix.cmake
 +  set(LLVM_NATIVE_ARCH AVR)
  elseif (LLVM_NATIVE_ARCH MATCHES "mips")
    set(LLVM_NATIVE_ARCH Mips)
- elseif (LLVM_NATIVE_ARCH MATCHES "pic16")
+ elseif (LLVM_NATIVE_ARCH MATCHES "xcore")

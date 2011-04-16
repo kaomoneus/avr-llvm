@@ -1,46 +1,44 @@
 Index: include/llvm/ADT/Triple.h
 ===================================================================
---- include/llvm/ADT/Triple.h	(revision 92403)
+--- include/llvm/ADT/Triple.h	(revision 129634)
 +++ include/llvm/ADT/Triple.h	(working copy)
-@@ -57,6 +57,7 @@
-     
+@@ -48,6 +48,7 @@
+ 
      alpha,   // Alpha: alpha
      arm,     // ARM; arm, armv.*, xscale
 +    avr,     // AVR: avr
      bfin,    // Blackfin: bfin
      cellspu, // CellSPU: spu, cellspu
      mips,    // MIPS: mips, mipsallegrex
-@@ -78,7 +79,8 @@
+@@ -71,6 +72,7 @@
    enum VendorType {
      UnknownVendor,
  
--    Apple, 
-+    Apple,
 +    Atmel,
-     PC
-   };
-   enum OSType {
-@@ -89,6 +91,7 @@
+     Apple,
+     PC,
+     SCEI
+@@ -83,6 +85,7 @@
      Darwin,
      DragonFly,
      FreeBSD,
-+//    FreeRTOS,
++    FreeRTOS,
      Linux,
      Lv2,        // PS3
-     MinGW32,
+     MinGW32,    // i*86-pc-mingw32, *-w64-mingw32
 Index: lib/Support/Triple.cpp
 ===================================================================
---- lib/Support/Triple.cpp	(revision 92403)
+--- lib/Support/Triple.cpp	(revision 129634)
 +++ lib/Support/Triple.cpp	(working copy)
-@@ -24,6 +24,7 @@
-     
+@@ -25,6 +25,7 @@
+ 
    case alpha:   return "alpha";
    case arm:     return "arm";
 +  case avr:     return "avr";
    case bfin:    return "bfin";
    case cellspu: return "cellspu";
    case mips:    return "mips";
-@@ -54,6 +55,8 @@
+@@ -57,6 +58,8 @@
    case arm:
    case thumb:   return "arm";
  
@@ -49,23 +47,23 @@ Index: lib/Support/Triple.cpp
    case bfin:    return "bfin";
  
    case cellspu: return "spu";
-@@ -74,6 +77,7 @@
+@@ -83,6 +86,7 @@
    case UnknownVendor: return "unknown";
  
    case Apple: return "apple";
 +  case Atmel: return "atmel";
    case PC: return "pc";
+   case SCEI: return "scei";
    }
- 
-@@ -89,6 +93,7 @@
+@@ -99,6 +103,7 @@
    case Darwin: return "darwin";
    case DragonFly: return "dragonfly";
    case FreeBSD: return "freebsd";
-+//  case FreeRTOS: return "freertos";
++  case FreeRTOS: return "freertos";
    case Linux: return "linux";
    case Lv2: return "lv2";
    case MinGW32: return "mingw32";
-@@ -109,6 +114,8 @@
+@@ -131,6 +136,8 @@
      return alpha;
    if (Name == "arm")
      return arm;
@@ -74,39 +72,3 @@ Index: lib/Support/Triple.cpp
    if (Name == "bfin")
      return bfin;
    if (Name == "cellspu")
-@@ -180,7 +187,7 @@
-   return Triple::UnknownArch;
- }
- 
--// Returns architecture name that is unsderstood by the target assembler.
-+// Returns architecture name that is understood by the target assembler.
- const char *Triple::getArchNameForAssembler() {
-   if (getOS() != Triple::Darwin && getVendor() != Triple::Apple)
-     return NULL;
-@@ -226,6 +233,8 @@
-     Arch = bfin;
-   else if (ArchName == "pic16")
-     Arch = pic16;
-+  else if (ArchName == "avr")
-+    Arch = avr;
-   else if (ArchName == "powerpc")
-     Arch = ppc;
-   else if ((ArchName == "powerpc64") || (ArchName == "ppu"))
-@@ -277,6 +286,8 @@
- 
-   if (VendorName == "apple")
-     Vendor = Apple;
-+  else if (VendorName == "atmel")
-+    Vendor = Atmel;   
-   else if (VendorName == "pc")
-     Vendor = PC;
-   else
-@@ -292,6 +303,8 @@
-     OS = DragonFly;
-   else if (OSName.startswith("freebsd"))
-     OS = FreeBSD;
-+//  else if (OSName.startswith("freertos"))
-+//   OS = FreeRTOS;
-   else if (OSName.startswith("linux"))
-     OS = Linux;
-   else if (OSName.startswith("lv2"))
