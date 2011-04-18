@@ -1,6 +1,6 @@
 Index: include/llvm/ADT/Triple.h
 ===================================================================
---- include/llvm/ADT/Triple.h	(revision 129634)
+--- include/llvm/ADT/Triple.h	(revision 129685)
 +++ include/llvm/ADT/Triple.h	(working copy)
 @@ -48,6 +48,7 @@
  
@@ -28,7 +28,7 @@ Index: include/llvm/ADT/Triple.h
      MinGW32,    // i*86-pc-mingw32, *-w64-mingw32
 Index: lib/Support/Triple.cpp
 ===================================================================
---- lib/Support/Triple.cpp	(revision 129634)
+--- lib/Support/Triple.cpp	(revision 129685)
 +++ lib/Support/Triple.cpp	(working copy)
 @@ -25,6 +25,7 @@
  
@@ -72,3 +72,39 @@ Index: lib/Support/Triple.cpp
    if (Name == "bfin")
      return bfin;
    if (Name == "cellspu")
+@@ -225,6 +232,8 @@
+     return "ppc64";
+   if (Str == "mblaze" || Str == "microblaze")
+     return "mblaze";
++  if (Str == "avr")
++    return "avr";
+   if (Str == "arm")
+     return "arm";
+   if (Str == "armv4t" || Str == "thumbv4t")
+@@ -258,6 +267,8 @@
+     return ppc64;
+   else if (ArchName == "mblaze")
+     return mblaze;
++  else if (ArchName == "avr")
++    return avr;
+   else if (ArchName == "arm" ||
+            ArchName.startswith("armv") ||
+            ArchName == "xscale")
+@@ -295,6 +306,8 @@
+ Triple::VendorType Triple::ParseVendor(StringRef VendorName) {
+   if (VendorName == "apple")
+     return Apple;
++  if (VendorName == "atmel")
++    return Atmel;
+   else if (VendorName == "pc")
+     return PC;
+   else if (VendorName == "scei")
+@@ -312,6 +325,8 @@
+     return Darwin;
+   else if (OSName.startswith("dragonfly"))
+     return DragonFly;
++  else if (OSName.startswith("freertos"))
++    return FreeRTOS;
+   else if (OSName.startswith("freebsd"))
+     return FreeBSD;
+   else if (OSName.startswith("linux"))
