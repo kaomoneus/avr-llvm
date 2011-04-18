@@ -1,0 +1,20 @@
+Index: lib/CodeGen/SelectionDAG/SelectionDAGBuilder.cpp
+===================================================================
+--- lib/CodeGen/SelectionDAG/SelectionDAGBuilder.cpp	(revision 129685)
++++ lib/CodeGen/SelectionDAG/SelectionDAGBuilder.cpp	(working copy)
+@@ -6114,6 +6114,7 @@
+         // if it isn't first piece, alignment must be 1
+         ISD::OutputArg MyFlags(Flags, Parts[j].getValueType(),
+                                i < NumFixedArgs);
++        MyFlags.Flags.setSplitPiece(j);
+         if (NumParts > 1 && j == 0)
+           MyFlags.Flags.setSplit();
+         else if (j != 0)
+@@ -6307,6 +6308,7 @@
+       unsigned NumRegs = TLI.getNumRegisters(*CurDAG->getContext(), VT);
+       for (unsigned i = 0; i != NumRegs; ++i) {
+         ISD::InputArg MyFlags(Flags, RegisterVT, isArgValueUsed);
++        MyFlags.Flags.setSplitPiece(i);
+         if (NumRegs > 1 && i == 0)
+           MyFlags.Flags.setSplit();
+         // if it isn't first piece, alignment must be 1
