@@ -1,0 +1,13 @@
+- fix calling conventions - DONE
+- allocate i16 or wider data in even registers (optimization) - DONE
+- optimize shifts (optim)
+- clear __zero_reg__ after doing a multiplication
+- expand movw inserter to be more clever (optim) - DONE
+- expand adiw/sbiw (optim) - DONE
+- Canonicalize (add x, imm) into (sub x, -imm) - DONE
+
+------------------------------------------------------------------------
+LLVM trunk patches that need to get diffed:
+- Make the register coalescer handle reg classes smaller than 4 regs.
+- Add the ArgTy flag to get the number of fragments for each splitted arguments.
+  This is needed to reverse incoming argument parts to match the AVR ABI.

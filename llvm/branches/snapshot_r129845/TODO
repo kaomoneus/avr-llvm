@@ -1,0 +1,10 @@
+===========================
+          TODO
+===========================
+
+- Code cleanups: remove copy-paste relicts (PIC16, X86 code)
+- Add asserts to all methodes not implemented yet to prevent llvm from crashing...
+- finish the Instruction definition
+- implement the DAG2DAG and TargetLowering stuff
+
+

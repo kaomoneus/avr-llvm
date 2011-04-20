@@ -1,0 +1,40 @@
+Index: autoconf/configure.ac
+===================================================================
+--- autoconf/configure.ac	(revision 129634)
++++ autoconf/configure.ac	(working copy)
+@@ -339,6 +339,7 @@
+ dnl the OS.
+ AC_CACHE_CHECK([target architecture],[llvm_cv_target_arch],
+ [case $target in
++  avr-*)                  llvm_cv_target_arch="AVR" ;;
+   i?86-*)                 llvm_cv_target_arch="x86" ;;
+   amd64-* | x86_64-*)     llvm_cv_target_arch="x86_64" ;;
+   sparc*-*)               llvm_cv_target_arch="Sparc" ;;
+@@ -476,6 +477,7 @@
+   AC_SUBST(JIT,[[]])
+ else
+   case "$llvm_cv_target_arch" in
++    AVR)         AC_SUBST(TARGET_HAS_JIT,0) ;;
+     x86)         AC_SUBST(TARGET_HAS_JIT,1) ;;
+     Sparc)       AC_SUBST(TARGET_HAS_JIT,0) ;;
+     PowerPC)     AC_SUBST(TARGET_HAS_JIT,1) ;;
+@@ -605,9 +607,10 @@
+   enableval=host
+ fi
+ case "$enableval" in
+-  all) TARGETS_TO_BUILD="X86 Sparc PowerPC Alpha ARM Mips CellSPU XCore MSP430 SystemZ Blackfin CBackend CppBackend MBlaze PTX" ;;
++  all) TARGETS_TO_BUILD="AVR X86 Sparc PowerPC Alpha ARM Mips CellSPU XCore MSP430 SystemZ Blackfin CBackend CppBackend MBlaze PTX" ;;
+   *)for a_target in `echo $enableval|sed -e 's/,/ /g' ` ; do
+       case "$a_target" in
++        avr)      TARGETS_TO_BUILD="AVR $TARGETS_TO_BUILD" ;;
+         x86)      TARGETS_TO_BUILD="X86 $TARGETS_TO_BUILD" ;;
+         x86_64)   TARGETS_TO_BUILD="X86 $TARGETS_TO_BUILD" ;;
+         sparc)    TARGETS_TO_BUILD="Sparc $TARGETS_TO_BUILD" ;;
+@@ -625,6 +628,7 @@
+         mblaze)   TARGETS_TO_BUILD="MBlaze $TARGETS_TO_BUILD" ;;
+         ptx)      TARGETS_TO_BUILD="PTX $TARGETS_TO_BUILD" ;;
+         host) case "$llvm_cv_target_arch" in
++            AVR)         TARGETS_TO_BUILD="AVR $TARGETS_TO_BUILD" ;;
+             x86)         TARGETS_TO_BUILD="X86 $TARGETS_TO_BUILD" ;;
+             x86_64)      TARGETS_TO_BUILD="X86 $TARGETS_TO_BUILD" ;;
+             Sparc)       TARGETS_TO_BUILD="Sparc $TARGETS_TO_BUILD" ;;
