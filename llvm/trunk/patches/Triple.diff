@@ -1,6 +1,6 @@
 Index: include/llvm/ADT/Triple.h
 ===================================================================
---- include/llvm/ADT/Triple.h	(revision 129685)
+--- include/llvm/ADT/Triple.h	(revision 130077)
 +++ include/llvm/ADT/Triple.h	(working copy)
 @@ -48,6 +48,7 @@
  
@@ -10,7 +10,7 @@ Index: include/llvm/ADT/Triple.h
      bfin,    // Blackfin: bfin
      cellspu, // CellSPU: spu, cellspu
      mips,    // MIPS: mips, mipsallegrex
-@@ -71,6 +72,7 @@
+@@ -72,6 +73,7 @@
    enum VendorType {
      UnknownVendor,
  
@@ -18,17 +18,17 @@ Index: include/llvm/ADT/Triple.h
      Apple,
      PC,
      SCEI
-@@ -83,6 +85,7 @@
+@@ -84,6 +86,7 @@
      Darwin,
      DragonFly,
      FreeBSD,
 +    FreeRTOS,
+     IOS,
      Linux,
      Lv2,        // PS3
-     MinGW32,    // i*86-pc-mingw32, *-w64-mingw32
 Index: lib/Support/Triple.cpp
 ===================================================================
---- lib/Support/Triple.cpp	(revision 129685)
+--- lib/Support/Triple.cpp	(revision 130077)
 +++ lib/Support/Triple.cpp	(working copy)
 @@ -25,6 +25,7 @@
  
@@ -38,7 +38,7 @@ Index: lib/Support/Triple.cpp
    case bfin:    return "bfin";
    case cellspu: return "cellspu";
    case mips:    return "mips";
-@@ -57,6 +58,8 @@
+@@ -58,6 +59,8 @@
    case arm:
    case thumb:   return "arm";
  
@@ -47,7 +47,7 @@ Index: lib/Support/Triple.cpp
    case bfin:    return "bfin";
  
    case cellspu: return "spu";
-@@ -83,6 +86,7 @@
+@@ -85,6 +88,7 @@
    case UnknownVendor: return "unknown";
  
    case Apple: return "apple";
@@ -55,15 +55,15 @@ Index: lib/Support/Triple.cpp
    case PC: return "pc";
    case SCEI: return "scei";
    }
-@@ -99,6 +103,7 @@
+@@ -101,6 +105,7 @@
    case Darwin: return "darwin";
    case DragonFly: return "dragonfly";
    case FreeBSD: return "freebsd";
 +  case FreeRTOS: return "freertos";
+   case IOS: return "ios";
    case Linux: return "linux";
    case Lv2: return "lv2";
-   case MinGW32: return "mingw32";
-@@ -131,6 +136,8 @@
+@@ -135,6 +140,8 @@
      return alpha;
    if (Name == "arm")
      return arm;
@@ -72,7 +72,7 @@ Index: lib/Support/Triple.cpp
    if (Name == "bfin")
      return bfin;
    if (Name == "cellspu")
-@@ -225,6 +232,8 @@
+@@ -233,6 +240,8 @@
      return "ppc64";
    if (Str == "mblaze" || Str == "microblaze")
      return "mblaze";
@@ -81,7 +81,7 @@ Index: lib/Support/Triple.cpp
    if (Str == "arm")
      return "arm";
    if (Str == "armv4t" || Str == "thumbv4t")
-@@ -258,6 +267,8 @@
+@@ -268,6 +277,8 @@
      return ppc64;
    else if (ArchName == "mblaze")
      return mblaze;
@@ -90,7 +90,7 @@ Index: lib/Support/Triple.cpp
    else if (ArchName == "arm" ||
             ArchName.startswith("armv") ||
             ArchName == "xscale")
-@@ -295,6 +306,8 @@
+@@ -307,6 +318,8 @@
  Triple::VendorType Triple::ParseVendor(StringRef VendorName) {
    if (VendorName == "apple")
      return Apple;
@@ -99,7 +99,7 @@ Index: lib/Support/Triple.cpp
    else if (VendorName == "pc")
      return PC;
    else if (VendorName == "scei")
-@@ -312,6 +325,8 @@
+@@ -324,6 +337,8 @@
      return Darwin;
    else if (OSName.startswith("dragonfly"))
      return DragonFly;
@@ -107,4 +107,4 @@ Index: lib/Support/Triple.cpp
 +    return FreeRTOS;
    else if (OSName.startswith("freebsd"))
      return FreeBSD;
-   else if (OSName.startswith("linux"))
+   else if (OSName.startswith("ios"))
