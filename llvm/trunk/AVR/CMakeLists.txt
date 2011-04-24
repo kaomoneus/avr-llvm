@@ -25,4 +25,5 @@ add_llvm_target(AVRCodeGen
   AVRTargetMachine.cpp
   )
 
-target_link_libraries (LLVMAVRCodeGen LLVMSelectionDAG)
+add_subdirectory(InstPrinter)
+add_subdirectory(TargetInfo)
