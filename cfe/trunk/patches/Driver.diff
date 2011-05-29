@@ -1,0 +1,13 @@
+Index: lib/Driver/Driver.cpp
+===================================================================
+--- lib/Driver/Driver.cpp	(revision 132269)
++++ lib/Driver/Driver.cpp	(working copy)
+@@ -60,7 +60,7 @@
+     CCLogDiagnosticsFilename(0), CCCIsCXX(false),
+     CCCIsCPP(false),CCCEcho(false), CCCPrintBindings(false),
+     CCPrintOptions(false), CCPrintHeaders(false), CCLogDiagnostics(false),
+-    CCCGenericGCCName(""), CheckInputsExist(true), CCCUseClang(true),
++    CCCGenericGCCName("avr-gcc"), CheckInputsExist(true), CCCUseClang(true),
+     CCCUseClangCXX(true), CCCUseClangCPP(true), CCCUsePCH(true),
+     SuppressMissingInputWarning(false) {
+   if (IsProduction) {
