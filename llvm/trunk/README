@@ -1,69 +1,60 @@
-==========================
-         AVR LLVM
-==========================
+================================================================================
+                                AVR LLVM
+================================================================================
 $Id$
-===========================
-
+================================================================================
 
 Setup
 =====
 
 1. Check out the LLVM trunk (LLVM_SRC_ROOT)
 2. Copy the AVR subfolder to LLVM_SRC_ROOT/lib/Target
-3. Setup configuration tool using 3.a or alternatively 3.b
-   <3.a> Patch LLVM_SRC_ROOT/configure or the LLVM_SRC_ROOT/autoconf/configure.ac 
-      using diff files located in the patches subfolder
-      (Note: Don't forget to run LLVM_SRC_ROOT/autoconf/AutoRegen.sh if the 
-      configure.ac file was modified)
-   <3.b> Patch CMakesList.txt in LLVM_SRC_ROOT with 'trunk/patches/CMakeLists.diff'
+3. Patch the build system and source files. See patches/README
 
 
 
 Build
 =====
 
-configure and build LLVM in an empty folder with avr enabled (currently the 
+configure and build LLVM in an empty folder with avr enabled (currently the
 avr target is NOT enabled by default):
 
   % LLVM_SRC_ROOT/configure --prefix=$HOME/usr/avr-llvm/ --disable-optimized --enable-assertions --enable-targets=avr
   % make
 
- Alt:
-  % ./configure --with-built-clang --enable-targets=avr --program-prefix=avr- --with-as=/usr/local/avr/bin/avr-as --with-ld=/usr/local/avr/bin/avr-ld --with-local-prefix=/usr/local/avr/avr/include --enable-assertions --disable-optimized
- Alt2:
-  % ./configure --with-built-clang --enable-targets=avr --program-prefix=avr- --program-suffix=-2.8 --with-as=/usr/local/avr/bin/avr-as --with-ld=/usr/local/avr/bin/avr-ld --with-local-prefix=/usr/local/avr/avr/include
-
-configure and build the GCC front end:
-
-  % LLVM_GCC_SRC_DIR/configure   --prefix=$HOME/usr/avr-llvm/ --enable-llvm=LLVM_OBJ_DIR --program-prefix=avr-llvm- --enable-languages=c
-  % make LLVM_VERSION_INFO=avr-llvm (svn)
-
 
 Build (CMake)
 =====
-  Run cmake in the directory you want to use as the built directory (LLVM_OBJ_DIR)
 
-    <example:linux> 
-    This creates the built scripts in the directory LLVM_OBJ_DIR based on files in 'llvm' and also makes an Eclipse project file
+Run cmake in the directory you want to use as the built directory (LLVM_OBJ_DIR)
 
-% cmake -G"Eclipse CDT4 - Unix Makefiles" -DLLVM_TARGETS_TO_BUILD="AVR" \
-                       -DCMAKE_BUILD_TYPE=Debug -DLLVM_BUILD_TOOLS=ON -DLLVM_BUILD_EXAMPLES=OFF -DLLVM_ENABLE_THREADS=OFF ../llvm
+    <example:linux>
+  This creates the built scripts in the directory LLVM_OBJ_DIR based on
+  files in 'llvm' and also makes an Eclipse project file. You can then run
+  make from the command line to build or open Eclipse to edit/build.
 
-    <example:linux> 
-    This creates the built scripts in the directory LLVM_OBJ_DIR based on files in 'llvm' and also makes an CodeBlocks project file
+  % cmake -G"Eclipse CDT4 - Unix Makefiles" -DLLVM_TARGETS_TO_BUILD="AVR"     \
+                         -DCMAKE_BUILD_TYPE=Debug -DLLVM_BUILD_TOOLS=ON       \
+                         -DLLVM_BUILD_EXAMPLES=OFF -DLLVM_ENABLE_THREADS=OFF  \
+                         ../llvm
 
-% cmake -G"CodeBlocks - Unix Makefiles" -DLLVM_TARGETS_TO_BUILD="AVR" \
-                       -DCMAKE_BUILD_TYPE=Debug -DLLVM_BUILD_TOOLS=ON -DLLVM_BUILD_EXAMPLES=OFF -DLLVM_ENABLE_THREADS=OFF ../llvm
 
     <example:windows>
-    This creates the built scripts in the directory LLVM_OBJ_DIR based on files in 'llvm' and also creates a Visual Studio 9 2008 project
+  This creates the built scripts in the directory LLVM_OBJ_DIR based on
+  files in 'llvm' and also creates a Visual Studio 9 2008 project.
 
-<drive>:\LLVM_OBJ_DIR>cmake -G "Visual Studio 9 2008" -DLLVM_TARGETS_TO_BUILD="AVR" -DLLVM_ENABLE_THREADS=OFF ..\llvm
-  
+  > cmake -G "Visual Studio 9 2008" -DLLVM_TARGETS_TO_BUILD="AVR" ..\llvm
+
+
+    <example:windows:msys>
+  This creates, from the msys shell, the built scripts in the directory
+  LLVM_OBJ_DIR based on files in 'llvm' and also creates an Eclipse project.
+
+  $ cmake -G"Eclipse CDT4 - Unix Makefiles" -DLLVM_TARGETS_TO_BUILD=all -DCMAKE_BUILD_TYPE=Debug -DLLVM_BUILD_TOOLS=ON -DLLVM_BUILD_EXAMPLES=OFF
 
 
 Checkin Rules
 =============
 
 - Always perform an svn update in the LLVM_SRC_ROOT __and__ in the avr-llvm target directory before checking in changes
-- Ensure that LLVM compiles with the commands above (llvm-gcc is not yet working)
+- Ensure that LLVM compiles with the commands above
