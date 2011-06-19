@@ -380,8 +380,8 @@ AVRTargetLowering::LowerCall(SDValue Chain, SDValue Callee,
 
   // Analyze operands of the call, assigning locations to each operand.
   SmallVector<CCValAssign, 16> ArgLocs;
-  CCState CCInfo(CallConv, isVarArg, DAG.getTarget(), ArgLocs,
-                 *DAG.getContext());
+  CCState CCInfo(CallConv, isVarArg, DAG.getMachineFunction(),
+		  DAG.getTarget(), ArgLocs, *DAG.getContext());
 
   SmallVector<unsigned, 8> ArgSizes;
 
@@ -515,8 +515,8 @@ AVRTargetLowering::LowerCallResult(SDValue Chain, SDValue InFlag,
 {
   // Assign locations to each value returned by this call.
   SmallVector<CCValAssign, 16> RVLocs;
-  CCState CCInfo(CallConv, isVarArg, DAG.getTarget(), RVLocs,
-                 *DAG.getContext());
+  CCState CCInfo(CallConv, isVarArg, DAG.getMachineFunction(),
+		  DAG.getTarget(), RVLocs, *DAG.getContext());
 
   AnalyzeCallResult(CCInfo, Ins);
 
@@ -547,8 +547,8 @@ AVRTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
   SmallVector<CCValAssign, 16> RVLocs;
 
   // CCState - Info about the registers and stack slot.
-  CCState CCInfo(CallConv, isVarArg, DAG.getTarget(), RVLocs,
-                 *DAG.getContext());
+  CCState CCInfo(CallConv, isVarArg, DAG.getMachineFunction(),
+		  DAG.getTarget(), RVLocs, *DAG.getContext());
 
   AnalyzeReturn(CCInfo, Outs);
 
@@ -605,8 +605,8 @@ AVRTargetLowering::LowerFormalArguments(SDValue Chain, CallingConv::ID CallConv,
 
   // Assign locations to all of the incoming arguments.
   SmallVector<CCValAssign, 16> ArgLocs;
-  CCState CCInfo(CallConv, isVarArg, DAG.getTarget(), ArgLocs,
-                 *DAG.getContext());
+  CCState CCInfo(CallConv, isVarArg, DAG.getMachineFunction(),
+		  DAG.getTarget(), ArgLocs, *DAG.getContext());
 
   unsigned ArgRegEnd;
   unsigned LastVal = ~0U;

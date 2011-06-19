@@ -31,7 +31,7 @@ GetGlobalAddressSymbol(const MachineOperand &MO) const
 {
   switch (MO.getTargetFlags())
   {
-    default: llvm_unreachable(0 && "Unknown target flag on GV operand");
+    default: assert(0 && "Unknown target flag on GV operand");
     case 0: break;
   }
 

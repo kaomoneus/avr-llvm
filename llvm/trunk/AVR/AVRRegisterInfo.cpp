@@ -109,4 +109,13 @@ unsigned AVRRegisterInfo::getRARegister() const
   return 0;
 }
 
+/// getLLVMRegNum - This function maps DWARF register numbers to LLVM register.
+int AVRRegisterInfo::getLLVMRegNum(unsigned DwarfRegNo, bool isEH) const {
+  //const AVRSubtarget *Subtarget = &TM.getSubtarget<AVRSubtarget>();
+  //unsigned Flavour = getFlavour(Subtarget, isEH);
+
+  return AVRGenRegisterInfo::getLLVMRegNumFull(DwarfRegNo, 0);
+}
+
+
 #include "AVRGenRegisterInfo.inc"

@@ -129,7 +129,7 @@ def : SubRegSet<2, [R31R30, R29R28, R27R26, R25R24, R23R22, R21R20, R19R18,
 //===----------------------------------------------------------------------===//
 //:TODO: R0 and R1 should be skipped by the custom iterators
 def GPR8 : RegisterClass<"AVR", [i8], 8,
-                         [
+                         (add
                           // return value and arguments
                           R24, R25, R18, R19, R20, R21, R22, R23,
                           // scratch registers
@@ -137,10 +137,10 @@ def GPR8 : RegisterClass<"AVR", [i8], 8,
                           // callee saved registers
                           R28, R29, R17, R16, R15, R14, R13, R12, R11, R10,
                           R9, R8, R7, R6, R5, R4, R3, R2, R0, R1
-                         ]>;
+                         )>;
 
 def GPR8_E : RegisterClass<"AVR", [i8], 8,
-                           [
+                           (add
                             // return value and arguments
                             R24, R18, R20, R22,
                             // scratch registers
@@ -148,13 +148,13 @@ def GPR8_E : RegisterClass<"AVR", [i8], 8,
                             // callee saved registers
                             R28, R16, R14, R12, R10,
                             R8, R6, R4, R2, R0
-                           ]>
+                           )>
 {
   //let SubRegClassList = [GPR8];
 }
 
 def GPR8_O : RegisterClass<"AVR", [i8], 8,
-                           [
+                           (add
                             // return value and arguments
                             R25, R19, R21, R22,
                             // scratch registers
@@ -162,14 +162,14 @@ def GPR8_O : RegisterClass<"AVR", [i8], 8,
                             // callee saved registers
                             R28, R16, R14, R12, R10,
                             R8, R6, R4, R2, R1
-                           ]>
+                           )>
 {
   //let SubRegClassList = [GPR8];
 }
 
 /*
 def WDREGS : RegisterClass<"AVR", [v2i8, i16], 16,
-                           [
+                           (add
                             // return value and arguments
                             R25R24, R19R18, R21R20, R23R22,
                             // scratch registers
@@ -177,7 +177,7 @@ def WDREGS : RegisterClass<"AVR", [v2i8, i16], 16,
                             // callee saved registers
                             R29R28, R17R16, R15R14, R13R12, R11R10,
                             R9R8, R7R6, R5R4, R3R2, R1R0
-                           ]>
+                           )>
 {
   //let SubRegClassList = [GPR8, GPR8];
 }
@@ -187,14 +187,14 @@ def WDREGS : RegisterClass<"AVR", [v2i8, i16], 16,
 //def QWREGS : RegisterClass<"AVR", [i64], 64, [R25R18, R17R10]>;
 
 def LDREGS : RegisterClass<"AVR", [i8], 8,
-                           [
+                           (add
                             // return value and arguments
                             R24, R25, R18, R19, R20, R21, R22, R23,
                             // scratch registers
                             R30, R31, R26, R27,
                             // callee saved registers
                             R28, R29, R17
-                           ]>;
+                           )>;
 
 /*
 def SREG : RegisterClass<"AVR", [i1], 1, [C, Z, N, V, S, H, T, I]>
@@ -204,7 +204,7 @@ def SREG : RegisterClass<"AVR", [i1], 1, [C, Z, N, V, S, H, T, I]>
 */
 //:TODO: this is just a hack, remove it once add16 works!
 def SREG : AVRReg<14, "FLAGS">, DwarfRegNum<[88]>;
-def CCR : RegisterClass<"AVR", [i8], 8, [SREG]>
+def CCR : RegisterClass<"AVR", [i8], 8, (add SREG)>
 {
   let CopyCost = -1;      // Don't allow copying of status registers
 }

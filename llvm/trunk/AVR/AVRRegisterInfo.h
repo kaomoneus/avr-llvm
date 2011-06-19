@@ -36,6 +36,7 @@ public: // TargetRegisterInfo
                            int SPAdj,
                            RegScavenger *RS = NULL) const;
   int getDwarfRegNum(unsigned RegNum, bool isEH) const;
+  int getLLVMRegNum(unsigned RegNum, bool isEH) const;
   unsigned getFrameRegister(const MachineFunction &MF) const;
   unsigned getRARegister() const;
 private:
