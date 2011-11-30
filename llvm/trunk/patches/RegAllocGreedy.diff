@@ -1,0 +1,95 @@
+Index: lib/CodeGen/RegAllocGreedy.cpp
+===================================================================
+--- lib/CodeGen/RegAllocGreedy.cpp	(revisión: 145494)
++++ lib/CodeGen/RegAllocGreedy.cpp	(copia de trabajo)
+@@ -85,6 +85,9 @@
+   std::priority_queue<std::pair<unsigned, unsigned> > Queue;
+   unsigned NextCascade;
+ 
++  // AVR specific: have we already unallocated REG_Y after a spill was done?
++  bool IsYUnallocated;
++
+   // Live ranges pass through a number of stages as we try to allocate them.
+   // Some of the stages may also create new live ranges:
+   //
+@@ -277,6 +280,8 @@
+     SmallVectorImpl<LiveInterval*>&);
+   unsigned trySplit(LiveInterval&, AllocationOrder&,
+                     SmallVectorImpl<LiveInterval*>&);
++
++  void UndoRegYAllocation();
+ };
+ } // end anonymous namespace
+ 
+@@ -302,7 +307,7 @@
+   return new RAGreedy();
+ }
+ 
+-RAGreedy::RAGreedy(): MachineFunctionPass(ID) {
++RAGreedy::RAGreedy(): MachineFunctionPass(ID), IsYUnallocated(false) {
+   initializeLiveDebugVariablesPass(*PassRegistry::getPassRegistry());
+   initializeSlotIndexesPass(*PassRegistry::getPassRegistry());
+   initializeLiveIntervalsPass(*PassRegistry::getPassRegistry());
+@@ -1542,6 +1547,30 @@
+   return tryBlockSplit(VirtReg, Order, NewVRegs);
+ }
+ 
++// AVR specific code to handle the REG_Y reservation in the regalloc if
++// any other reg is spilled.
++// :NOTE: KEEP THIS UPDATED with the backend!
++//   This has to be a define because of linkage problems between libraries
++#define REG_Y   (45U)
++bool ReserveREG_Y = false;
++void RAGreedy::UndoRegYAllocation()
++{
++  // search for all live intervals where REG_Y has been allocated and send them
++  // back to the work list for reallocation
++  for (LiveIntervals::const_iterator I = LIS->begin(), E = LIS->end(); I != E;
++       ++I)
++  {
++    unsigned VirtReg = I->first;
++    if ((TargetRegisterInfo::isVirtualRegister(VirtReg))
++        && (VRM->getPhys(VirtReg) == REG_Y))
++    {
++      LiveInterval &LI = LIS->getInterval(VirtReg);
++      unassign(LI, REG_Y);
++      enqueue(&LI);
++    }
++  }
++}
++#undef REG_Y
+ 
+ //===----------------------------------------------------------------------===//
+ //                            Main Entry Point
+@@ -1593,6 +1622,21 @@
+   spiller().spill(LRE);
+   setStage(NewVRegs.begin(), NewVRegs.end(), RS_Done);
+ 
++  // AVR specific: If we have reached this point it means an spill has been
++  // generated. Search for any allocation of REG_Y in the live intervals
++  // and undo them.
++  if (!IsYUnallocated)
++  {
++    // do all this work only once
++    IsYUnallocated = true;
++    // reserve REG_Y
++    ReserveREG_Y = true;
++    // update the reserved reg list
++    RegClassInfo.runOnMachineFunction(VRM->getMachineFunction());
++    // finally perform the real work
++    UndoRegYAllocation();
++  }
++
+   if (VerifyEnabled)
+     MF->verify(this, "After spilling");
+ 
+@@ -1631,6 +1675,9 @@
+   addMBBLiveIns(MF);
+   LIS->addKillFlags();
+ 
++  IsYUnallocated = false;
++  ReserveREG_Y = false;
++
+   // Run rewriter
+   {
+     NamedRegionTimer T("Rewriter", TimerGroupName, TimePassesIsEnabled);
