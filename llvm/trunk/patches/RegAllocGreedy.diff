@@ -1,4 +1,4 @@
-Index: lib/CodeGen/RegAllocGreedy.cpp
+﻿Index: lib/CodeGen/RegAllocGreedy.cpp
 ===================================================================
 --- lib/CodeGen/RegAllocGreedy.cpp	(revisión: 145494)
 +++ lib/CodeGen/RegAllocGreedy.cpp	(copia de trabajo)
@@ -30,7 +30,7 @@ Index: lib/CodeGen/RegAllocGreedy.cpp
    initializeLiveDebugVariablesPass(*PassRegistry::getPassRegistry());
    initializeSlotIndexesPass(*PassRegistry::getPassRegistry());
    initializeLiveIntervalsPass(*PassRegistry::getPassRegistry());
-@@ -1542,6 +1547,30 @@
+@@ -1542,7 +1547,33 @@
    return tryBlockSplit(VirtReg, Order, NewVRegs);
  }
  
@@ -40,36 +40,38 @@ Index: lib/CodeGen/RegAllocGreedy.cpp
 +//   This has to be a define because of linkage problems between libraries
 +#define REG_Y   (45U)
 +bool ReserveREG_Y = false;
-+void RAGreedy::UndoRegYAllocation()
-+{
+ 
++void RAGreedy::UndoRegYAllocation() {
 +  // search for all live intervals where REG_Y has been allocated and send them
 +  // back to the work list for reallocation
 +  for (LiveIntervals::const_iterator I = LIS->begin(), E = LIS->end(); I != E;
-+       ++I)
-+  {
++       ++I) {
 +    unsigned VirtReg = I->first;
-+    if ((TargetRegisterInfo::isVirtualRegister(VirtReg))
-+        && (VRM->getPhys(VirtReg) == REG_Y))
-+    {
-+      LiveInterval &LI = LIS->getInterval(VirtReg);
-+      unassign(LI, REG_Y);
-+      enqueue(&LI);
++    if (!TargetRegisterInfo::isVirtualRegister(VirtReg))
++      continue;
++
++    for (const unsigned *AliasI = TRI->getOverlaps(REG_Y); *AliasI; ++AliasI) {
++      if (VRM->getPhys(VirtReg) == *AliasI) {
++        LiveInterval &LI = *I->second;
++        unassign(LI, *AliasI);
++        enqueue(&LI);
++      }
 +    }
 +  }
 +}
 +#undef REG_Y
- 
++
  //===----------------------------------------------------------------------===//
  //                            Main Entry Point
-@@ -1593,6 +1622,21 @@
+ //===----------------------------------------------------------------------===//
+@@ -1593,6 +1624,20 @@
    spiller().spill(LRE);
    setStage(NewVRegs.begin(), NewVRegs.end(), RS_Done);
  
 +  // AVR specific: If we have reached this point it means an spill has been
 +  // generated. Search for any allocation of REG_Y in the live intervals
 +  // and undo them.
-+  if (!IsYUnallocated)
-+  {
++  if (!IsYUnallocated) {
 +    // do all this work only once
 +    IsYUnallocated = true;
 +    // reserve REG_Y
@@ -83,7 +85,7 @@ Index: lib/CodeGen/RegAllocGreedy.cpp
    if (VerifyEnabled)
      MF->verify(this, "After spilling");
  
-@@ -1631,6 +1675,9 @@
+@@ -1631,6 +1676,9 @@
    addMBBLiveIns(MF);
    LIS->addKillFlags();
  
