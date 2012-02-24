@@ -1,4 +1,4 @@
-//===-- AVRSubtarget.h - Define Subtarget for the AVR ----------*- C++ -*--===//
+//===-- AVRSubtarget.h - Define Subtarget for the AVR -----------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //

@@ -1,4 +1,4 @@
-//===-- AVRMCAsmInfo.cpp - AVR asm properties -------------------*- C++ -*-===//
+//===-- AVRMCAsmInfo.cpp - AVR asm properties -----------------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //

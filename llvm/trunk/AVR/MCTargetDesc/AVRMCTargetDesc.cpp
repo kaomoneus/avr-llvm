@@ -1,4 +1,4 @@
-//===-- AVRMCTargetDesc.cpp - AVR Target Descriptions -----------*- C++ -*-===//
+//===-- AVRMCTargetDesc.cpp - AVR Target Descriptions ---------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //

@@ -1,4 +1,4 @@
-//===-- AVRInstPrinter.h - Convert AVR MCInst to assembly syntax ----------===//
+//===- AVRInstPrinter.h - Convert AVR MCInst to assembly syntax -*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //

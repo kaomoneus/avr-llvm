@@ -1,4 +1,4 @@
-//===---- AVRMachineFuctionInfo.h - AVR machine function info ----*- C++ -*-==//
+//===-- AVRMachineFuctionInfo.h - AVR machine function info -----*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //

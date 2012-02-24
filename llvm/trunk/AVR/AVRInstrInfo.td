@@ -1,4 +1,4 @@
-//===-- AVRInstrInfo.td - AVR Instruction defs ----------------*- tblgen-*-===//
+//===-- AVRInstrInfo.td - AVR Instruction defs -------------*- tablegen -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //

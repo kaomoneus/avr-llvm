@@ -1,4 +1,4 @@
-//===-- AVRRegisterInfo.cpp - AVR Register Information ----------*- C++ -*-===//
+//===-- AVRRegisterInfo.cpp - AVR Register Information --------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //

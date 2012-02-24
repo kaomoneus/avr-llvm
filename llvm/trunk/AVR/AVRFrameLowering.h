@@ -1,4 +1,4 @@
-//===-- AVRFrameLowering.h - Define frame lowering for AVR -----*- C++ -*--===//
+//===-- AVRFrameLowering.h - Define frame lowering for AVR ------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //

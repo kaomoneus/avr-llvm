@@ -1,4 +1,4 @@
-//===-- AVRFrameLowering.cpp - AVR Frame Information ------------*- C++ -*-===//
+//===-- AVRFrameLowering.cpp - AVR Frame Information ----------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //

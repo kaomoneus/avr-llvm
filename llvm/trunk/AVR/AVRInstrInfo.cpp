@@ -1,4 +1,4 @@
-//===-- AVRInstrInfo.cpp - AVR Instruction Information ----------*- C++ -*-===//
+//===-- AVRInstrInfo.cpp - AVR Instruction Information --------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //

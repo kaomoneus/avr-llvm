@@ -1,4 +1,4 @@
-//===-- AVRMCInstLower.h - Lower MachineInstr to MCInst -------------------===//
+//===-- AVRMCInstLower.h - Lower MachineInstr to MCInst ---------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //

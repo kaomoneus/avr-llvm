@@ -1,4 +1,4 @@
-//===-- AVRSubtarget.cpp - AVR Subtarget Information ------------*- C++ -*-===//
+//===-- AVRSubtarget.cpp - AVR Subtarget Information ----------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //

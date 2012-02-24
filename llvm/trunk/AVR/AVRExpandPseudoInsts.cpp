@@ -1,4 +1,4 @@
-//===-- AVRExpandPseudoInsts.cpp - Expand pseudo instructions ---*- C++ -*-===//
+//===-- AVRExpandPseudoInsts.cpp - Expand pseudo instructions -------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //

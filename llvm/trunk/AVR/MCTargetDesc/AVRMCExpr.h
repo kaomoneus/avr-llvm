@@ -1,4 +1,4 @@
-//===-- AVRMCExpr.h - AVR specific MC expression classes ------------------===//
+//===-- AVRMCExpr.h - AVR specific MC expression classes --------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
