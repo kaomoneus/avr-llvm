@@ -87,6 +87,7 @@ public: // TargetInstrInfo
                             MachineBasicBlock::iterator MI, unsigned DestReg,
                             int FrameIndex, const TargetRegisterClass *RC,
                             const TargetRegisterInfo *TRI) const;
+  unsigned isLoadFromStackSlot(const MachineInstr *MI, int &FrameIndex) const;
   unsigned isStoreToStackSlot(const MachineInstr *MI, int &FrameIndex) const;
 
   // Branch analysis.

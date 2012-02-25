@@ -59,11 +59,51 @@ void AVRInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
                                                  getKillRegState(KillSrc));
 }
 
+unsigned AVRInstrInfo::isLoadFromStackSlot(const MachineInstr *MI,
+                                           int &FrameIndex) const
+{
+  switch (MI->getOpcode())
+  {
+  case AVR::LDDRdPtrQ:
+  case AVR::LDDWRdPtrQ:
+    {
+      if ((MI->getOperand(1).isFI())
+          && (MI->getOperand(2).isImm())
+          && (MI->getOperand(2).getImm() == 0))
+      {
+        FrameIndex = MI->getOperand(1).getIndex();
+        return MI->getOperand(0).getReg();
+      }
+      break;
+    }
+  default:
+    break;
+  }
+
+  return 0;
+}
+
 unsigned AVRInstrInfo::isStoreToStackSlot(const MachineInstr *MI,
                                           int &FrameIndex) const
 {
-  //:TODO: IMPLEMENT me
-  // we get duplicated spills if this isn't implemented
+  switch (MI->getOpcode())
+  {
+  case AVR::STDPtrQRr:
+  case AVR::STDWPtrQRr:
+    {
+      if ((MI->getOperand(0).isFI())
+          && (MI->getOperand(1).isImm())
+          && (MI->getOperand(1).getImm() == 0))
+      {
+        FrameIndex = MI->getOperand(0).getIndex();
+        return MI->getOperand(2).getReg();
+      }
+      break;
+    }
+  default:
+    break;
+  }
+
   return 0;
 }
 
