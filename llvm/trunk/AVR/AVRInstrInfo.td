@@ -339,7 +339,7 @@ def NOP             0000 0000 0000 0000
 // pointer before prolog-epilog rewriting occurs.
 // Pessimistically assume ADJCALLSTACKDOWN / ADJCALLSTACKUP will become
 // sub / add which can clobber SREG.
-let Defs = [SP], // :TODO: add EFLAGS once we implement branching
+let Defs = [SP, SREG],
 Uses = [SP] in
 {
 def ADJCALLSTACKDOWN : Pseudo<(outs),
@@ -356,120 +356,156 @@ def ADJCALLSTACKUP : Pseudo<(outs),
 // Arithmetic
 
 let isCommutable = 1,
-Constraints = "$src = $dst" in
+Constraints = "$src = $dst",
+Defs = [SREG] in
 def ADDRdRr : FRdRr<0b0000,
                     0b11,
                     (outs GPR8:$dst),
                     (ins GPR8:$src, GPR8:$src2),
                     "add\t$dst, $src2",
-                    [(set GPR8:$dst, (add GPR8:$src, GPR8:$src2))]>;
+                    [(set GPR8:$dst, (add GPR8:$src, GPR8:$src2)),
+                     (implicit SREG)]>;
 
 let isCommutable = 1,
-Constraints = "$src = $dst" in
+Constraints = "$src = $dst",
+Defs = [SREG] in
 def ADDWRdRr : Pseudo<(outs DREGS:$dst),
                       (ins DREGS:$src, DREGS:$src2),
                       "addw\t$dst, $src2",
-                      [(set DREGS:$dst, (add DREGS:$src, DREGS:$src2))]>;
+                      [(set DREGS:$dst, (add DREGS:$src, DREGS:$src2)),
+                       (implicit SREG)]>;
 
 let isCommutable = 1,
-Constraints = "$src = $dst" in
+Constraints = "$src = $dst",
+Uses = [SREG],
+Defs = [SREG] in
 def ADCRdRr : FRdRr<0b0001,
                     0b11,
                     (outs GPR8:$dst),
                     (ins GPR8:$src, GPR8:$src2),
                     "adc\t$dst, $src2",
-                    [(set GPR8:$dst, (adde GPR8:$src, GPR8:$src2))]>;
+                    [(set GPR8:$dst, (adde GPR8:$src, GPR8:$src2)),
+                     (implicit SREG)]>;
 
 let isCommutable = 1,
-Constraints = "$src = $dst" in
+Constraints = "$src = $dst",
+Uses = [SREG],
+Defs = [SREG] in
 def ADCWRdRr : Pseudo<(outs DREGS:$dst),
                       (ins DREGS:$src, DREGS:$src2),
                       "adcw\t$dst, $src2",
-                      [(set DREGS:$dst, (adde DREGS:$src, DREGS:$src2))]>;
+                      [(set DREGS:$dst, (adde DREGS:$src, DREGS:$src2)),
+                       (implicit SREG)]>;
 
-let Constraints = "$src = $dst" in
+let Constraints = "$src = $dst",
+Defs = [SREG] in
 def ADIWRdK : FWRdK<0b0,
                     (outs IWREGS:$dst),
                     (ins IWREGS:$src, i16imm:$src2),
                     "adiw\t$dst, $src2",
-                    [(set IWREGS:$dst, (add IWREGS:$src, uimm6:$src2))]>;
+                    [(set IWREGS:$dst, (add IWREGS:$src, uimm6:$src2)),
+                     (implicit SREG)]>;
 
-let Constraints = "$src = $dst" in
+let Constraints = "$src = $dst",
+Defs = [SREG] in
 def SUBRdRr : FRdRr<0b0001,
                     0b10,
                     (outs GPR8:$dst),
                     (ins GPR8:$src, GPR8:$src2),
                     "sub\t$dst, $src2",
-                    [(set GPR8:$dst, (sub GPR8:$src, GPR8:$src2))]>;
+                    [(set GPR8:$dst, (sub GPR8:$src, GPR8:$src2)),
+                     (implicit SREG)]>;
 
-let Constraints = "$src = $dst" in
+let Constraints = "$src = $dst",
+Defs = [SREG] in
 def SUBWRdRr : Pseudo<(outs DREGS:$dst),
                       (ins DREGS:$src, DREGS:$src2),
                       "subw\t$dst, $src2",
-                      [(set DREGS:$dst, (sub DREGS:$src, DREGS:$src2))]>;
+                      [(set DREGS:$dst, (sub DREGS:$src, DREGS:$src2)),
+                       (implicit SREG)]>;
 
-let Constraints = "$src = $dst" in
+let Constraints = "$src = $dst",
+Defs = [SREG] in
 def SUBIRdK : FRdK<0b0101,
                    (outs LD8:$dst),
                    (ins LD8:$src, i8imm:$src2),
                    "subi\t$dst, $src2",
-                   [(set LD8:$dst, (sub LD8:$src, imm:$src2))]>;
+                   [(set LD8:$dst, (sub LD8:$src, imm:$src2)),
+                    (implicit SREG)]>;
 
-let Constraints = "$src = $dst" in
+let Constraints = "$src = $dst",
+Defs = [SREG] in
 def SUBIWRdK : Pseudo<(outs DLDREGS:$dst),
                       (ins DLDREGS:$src, i16imm:$src2),
                       "subiw\t$dst, $src2",
-                      [(set DLDREGS:$dst, (sub DLDREGS:$src, imm:$src2))]>;
+                      [(set DLDREGS:$dst, (sub DLDREGS:$src, imm:$src2)),
+                       (implicit SREG)]>;
 
-let Constraints = "$src = $dst" in
+let Constraints = "$src = $dst",
+Uses = [SREG],
+Defs = [SREG] in
 def SBCRdRr : FRdRr<0b0000,
                     0b10,
                     (outs GPR8:$dst),
                     (ins GPR8:$src, GPR8:$src2),
                     "sbc\t$dst, $src2",
-                    [(set GPR8:$dst, (sube GPR8:$src, GPR8:$src2))]>;
+                    [(set GPR8:$dst, (sube GPR8:$src, GPR8:$src2)),
+                     (implicit SREG)]>;
 
-let Constraints = "$src = $dst" in
+let Constraints = "$src = $dst",
+Uses = [SREG],
+Defs = [SREG] in
 def SBCWRdRr : Pseudo<(outs DREGS:$dst),
                       (ins DREGS:$src, DREGS:$src2),
                       "sbcw\t$dst, $src2",
-                      [(set DREGS:$dst, (sube DREGS:$src, DREGS:$src2))]>;
+                      [(set DREGS:$dst, (sube DREGS:$src, DREGS:$src2)),
+                       (implicit SREG)]>;
 
-let Constraints = "$src = $dst" in
+let Constraints = "$src = $dst",
+Uses = [SREG],
+Defs = [SREG] in
 def SBCIRdK : FRdK<0b0100,
                    (outs LD8:$dst),
                    (ins LD8:$src, i8imm:$src2),
                    "sbci\t$dst, $src2",
-                   [(set LD8:$dst, (sube LD8:$src, imm:$src2))]>;
+                   [(set LD8:$dst, (sube LD8:$src, imm:$src2)),
+                    (implicit SREG)]>;
 
-let Constraints = "$src = $dst" in
+let Constraints = "$src = $dst",
+Uses = [SREG],
+Defs = [SREG] in
 def SBCIWRdK : Pseudo<(outs DLDREGS:$dst),
                       (ins DLDREGS:$src, i16imm:$src2),
                       "sbciw\t$dst, $src2",
-                      [(set DLDREGS:$dst, (sube DLDREGS:$src, imm:$src2))]>;
+                      [(set DLDREGS:$dst, (sube DLDREGS:$src, imm:$src2)),
+                       (implicit SREG)]>;
 
-let Constraints = "$src = $dst" in
+let Constraints = "$src = $dst",
+Defs = [SREG] in
 def SBIWRdK : FWRdK<0b1,
                     (outs IWREGS:$dst),
                     (ins IWREGS:$src, i16imm:$src2),
                     "sbiw\t$dst, $src2",
-                    [(set IWREGS:$dst, (sub IWREGS:$src, uimm6:$src2))]>;
+                    [(set IWREGS:$dst, (sub IWREGS:$src, uimm6:$src2)),
+                     (implicit SREG)]>;
 
-let Constraints = "$src = $dst" in
+let Constraints = "$src = $dst",
+Defs = [SREG] in
 def INCRd : FRd<0b1001,
                 0b0100011,
                 (outs GPR8:$dst),
                 (ins GPR8:$src),
                 "inc\t$dst",
-                [(set GPR8:$dst, (add GPR8:$src, 1))]>;
+                [(set GPR8:$dst, (add GPR8:$src, 1)), (implicit SREG)]>;
 
-let Constraints = "$src = $dst" in
+let Constraints = "$src = $dst",
+Defs = [SREG] in
 def DECRd : FRd<0b1001,
                 0b0101010,
                 (outs GPR8:$dst),
                 (ins GPR8:$src),
                 "dec\t$dst",
-                [(set GPR8:$dst, (add GPR8:$src, -1))]>;
+                [(set GPR8:$dst, (add GPR8:$src, -1)), (implicit SREG)]>;
 
 /*
 def MULrr       1001 11rd dddd rrrr ok
@@ -485,101 +521,124 @@ def FMULSUrr    0000 0011 1ddd 1rrr ok
 // logic instructions
 
 let isCommutable = 1,
-Constraints = "$src = $dst" in
+Constraints = "$src = $dst",
+Defs = [SREG] in
 def ANDRdRr : FRdRr<0b0010,
                     0b00,
                     (outs GPR8:$dst),
                     (ins GPR8:$src, GPR8:$src2),
                     "and\t$dst, $src2",
-                    [(set GPR8:$dst, (and GPR8:$src, GPR8:$src2))]>;
+                    [(set GPR8:$dst, (and GPR8:$src, GPR8:$src2)),
+                     (implicit SREG)]>;
 
 let isCommutable = 1,
-Constraints = "$src = $dst" in
+Constraints = "$src = $dst",
+Defs = [SREG] in
 def ANDWRdRr : Pseudo<(outs DREGS:$dst),
                       (ins DREGS:$src, DREGS:$src2),
                       "andw\t$dst, $src2",
-                      [(set DREGS:$dst, (and DREGS:$src, DREGS:$src2))]>;
+                      [(set DREGS:$dst, (and DREGS:$src, DREGS:$src2)),
+                       (implicit SREG)]>;
 
-let Constraints = "$src = $dst" in
+let Constraints = "$src = $dst",
+Defs = [SREG] in
 def ANDIRdK : FRdK<0b0111,
                    (outs LD8:$dst),
                    (ins LD8:$src, i8imm:$src2),
                    "andi\t$dst, $src2",
-                   [(set LD8:$dst, (and LD8:$src, imm:$src2))]>;
+                   [(set LD8:$dst, (and LD8:$src, imm:$src2)),
+                    (implicit SREG)]>;
 
-let Constraints = "$src = $dst" in
+let Constraints = "$src = $dst",
+Defs = [SREG] in
 def ANDIWRdK : Pseudo<(outs DLDREGS:$dst),
                       (ins DLDREGS:$src, i16imm:$src2),
                       "andiw\t$dst, $src2",
-                      [(set DLDREGS:$dst, (and DLDREGS:$src, imm:$src2))]>;
+                      [(set DLDREGS:$dst, (and DLDREGS:$src, imm:$src2)),
+                       (implicit SREG)]>;
 
 let isCommutable = 1,
-Constraints = "$src = $dst" in
+Constraints = "$src = $dst",
+Defs = [SREG] in
 def ORRdRr : FRdRr<0b0010,
                    0b10,
                    (outs GPR8:$dst),
                    (ins GPR8:$src, GPR8:$src2),
                    "or\t$dst, $src2",
-                   [(set GPR8:$dst, (or GPR8:$src, GPR8:$src2))]>;
+                   [(set GPR8:$dst, (or GPR8:$src, GPR8:$src2)),
+                    (implicit SREG)]>;
 
 let isCommutable = 1,
-Constraints = "$src = $dst" in
+Constraints = "$src = $dst",
+Defs = [SREG] in
 def ORWRdRr : Pseudo<(outs DREGS:$dst),
                      (ins DREGS:$src, DREGS:$src2),
                      "orw\t$dst, $src2",
-                     [(set DREGS:$dst, (or DREGS:$src, DREGS:$src2))]>;
+                     [(set DREGS:$dst, (or DREGS:$src, DREGS:$src2)),
+                      (implicit SREG)]>;
 
-let Constraints = "$src = $dst" in
+let Constraints = "$src = $dst",
+Defs = [SREG] in
 def ORIRdK : FRdK<0b0110,
                   (outs LD8:$dst),
                   (ins LD8:$src, i8imm:$src2),
                   "ori\t$dst, $src2",
-                  [(set LD8:$dst, (or LD8:$src, imm:$src2))]>;
+                  [(set LD8:$dst, (or LD8:$src, imm:$src2)),
+                   (implicit SREG)]>;
 
-let Constraints = "$src = $dst" in
+let Constraints = "$src = $dst",
+Defs = [SREG] in
 def ORIWRdK : Pseudo<(outs DLDREGS:$dst),
                      (ins DLDREGS:$src, i16imm:$src2),
                      "oriw\t$dst, $src2",
-                     [(set DLDREGS:$dst, (or DLDREGS:$src, imm:$src2))]>;
+                     [(set DLDREGS:$dst, (or DLDREGS:$src, imm:$src2)),
+                      (implicit SREG)]>;
 
 let isCommutable = 1,
-Constraints = "$src = $dst" in
+Constraints = "$src = $dst",
+Defs = [SREG] in
 def EORRdRr : FRdRr<0b0010,
                     0b01,
                     (outs GPR8:$dst),
                     (ins GPR8:$src, GPR8:$src2),
                     "eor\t$dst, $src2",
-                    [(set GPR8:$dst, (xor GPR8:$src, GPR8:$src2))]>;
+                    [(set GPR8:$dst, (xor GPR8:$src, GPR8:$src2)),
+                     (implicit SREG)]>;
 
 let isCommutable = 1,
-Constraints = "$src = $dst" in
+Constraints = "$src = $dst",
+Defs = [SREG] in
 def EORWRdRr : Pseudo<(outs DREGS:$dst),
                       (ins DREGS:$src, DREGS:$src2),
                       "eorw\t$dst, $src2",
-                      [(set DREGS:$dst, (xor DREGS:$src, DREGS:$src2))]>;
+                      [(set DREGS:$dst, (xor DREGS:$src, DREGS:$src2)),
+                       (implicit SREG)]>;
 
-let Constraints = "$src = $dst" in
+let Constraints = "$src = $dst",
+Defs = [SREG] in
 def COMRd : FRd<0b1001,
                 0b0100000,
                 (outs GPR8:$dst),
                 (ins GPR8:$src),
                 "com\t$dst",
-                [(set GPR8:$dst, (not GPR8:$src))]>;
+                [(set GPR8:$dst, (not GPR8:$src)), (implicit SREG)]>;
 
-let Constraints = "$src = $dst" in
+let Constraints = "$src = $dst",
+Defs = [SREG] in
 def COMWRd : Pseudo<(outs DREGS:$dst),
                     (ins DREGS:$src),
                     "comw\t$dst",
-                    [(set DREGS:$dst, (not DREGS:$src))]>;
+                    [(set DREGS:$dst, (not DREGS:$src)), (implicit SREG)]>;
 
 //:TODO: optimize NEG for wider types
-let Constraints = "$src = $dst" in
+let Constraints = "$src = $dst",
+Defs = [SREG] in
 def NEGRd : FRd<0b1001,
                 0b0100001,
                 (outs GPR8:$dst),
                 (ins GPR8:$src),
                 "neg\t$dst",
-                [(set GPR8:$dst, (ineg GPR8:$src))]>;
+                [(set GPR8:$dst, (ineg GPR8:$src)), (implicit SREG)]>;
 
 /*
 def SBRri           0110 KKKK dddd KKKK ok
