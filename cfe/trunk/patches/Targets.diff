@@ -1,11 +1,12 @@
 Index: lib/Basic/Targets.cpp
 ===================================================================
---- clang/lib/Basic/Targets.cpp	(revision 94389)
-+++ clang/lib/Basic/Targets.cpp	(working copy)
-@@ -1472,6 +1472,88 @@
+--- lib/Basic/Targets.cpp	(revision 151472)
++++ lib/Basic/Targets.cpp	(working copy)
+@@ -2975,6 +2975,66 @@
+ };
  } // end anonymous namespace.
  
- namespace {
++namespace {
 +  class AVRTargetInfo : public TargetInfo{
 +  public:
 +  	AVRTargetInfo(const std::string& triple) : TargetInfo(triple) {
@@ -32,14 +33,6 @@ Index: lib/Basic/Targets.cpp
 +      LongDoubleFormat = &llvm::APFloat::IEEEsingle;
 +      DescriptionString = "e-p:16:8:8-i8:8:8-i16:8:8-i32:8:8-f32:32:32";
 +    }
-+    virtual uint64_t getPointerWidthV(unsigned AddrSpace) const {
-+      if (AddrSpace == 1)
-+        return 24;
-+      else
-+        return 16;
-+    }
-+    
-+    virtual uint64_t getPointerAlignV(unsigned AddrSpace) const { return 8; }
 +    
 +    virtual void getTargetDefines(const LangOptions &Opts,
 +                                  MacroBuilder &Builder) const {
@@ -48,10 +41,10 @@ Index: lib/Basic/Targets.cpp
 +      Builder.defineMacro("FUSEMEM", "__attribute__((section(\".fuse\")))");
 +      
 +      Builder.defineMacro("PROGMEM", "__attribute__((section(\".progmem\")))");
-+      Builder.defineMacro("__flash__", "__attribute__((address_space(1)))");
++      Builder.defineMacro("__flash", "__attribute__((address_space(1)))");
 +      
 +      Builder.defineMacro("EEMEM", "__attribute__((section(\".eeprom\")))");
-+      Builder.defineMacro("__eeprom__", "__attribute__((address_space(2)))");
++      Builder.defineMacro("__eeprom", "__attribute__((address_space(2)))");
 +    }
 +    
 +    virtual void getTargetBuiltins(const Builtin::Info *&Records,
@@ -70,36 +63,9 @@ Index: lib/Basic/Targets.cpp
 +    }
 +    virtual void getGCCRegAliases(const GCCRegAlias *&Aliases,
 +                                  unsigned &NumAliases) const {}
-+#if 0                                  
-+  const char * const MSP430TargetInfo::GCCRegNames[] = {
-+    "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7",
-+    "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"
-+  };
-+
-+  void MSP430TargetInfo::getGCCRegNames(const char * const *&Names,
-+                                        unsigned &NumNames) const {
-+    Names = GCCRegNames;
-+    NumNames = llvm::array_lengthof(GCCRegNames);
-+  }                                  
-+                                
-+  virtual bool useGlobalsForAutomaticVariables() const {return true;}
-+#endif  
++ 
 +  };
 +} // end anonymous namespace.
-+
-+namespace {
- class SparcV8TargetInfo : public TargetInfo {
-   static const TargetInfo::GCCRegAlias GCCRegAliases[];
-   static const char * const GCCRegNames[];
-@@ -2068,7 +2150,10 @@
-     default:
-       return new ARMTargetInfo(T);
-     }
--
-+    
-+  case llvm::Triple::avr:
-+    return new AVRTargetInfo(T);
-+    
-   case llvm::Triple::bfin:
-     return new BlackfinTargetInfo(T);
  
+ namespace {
+ // Hexagon abstract base class

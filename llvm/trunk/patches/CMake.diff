@@ -1,21 +1,21 @@
 Index: CMakeLists.txt
 ===================================================================
---- CMakeLists.txt	(revision 129634)
+--- CMakeLists.txt	(revision 151472)
 +++ CMakeLists.txt	(working copy)
-@@ -66,6 +66,7 @@
+@@ -72,6 +72,7 @@
+ 
  set(LLVM_ALL_TARGETS
-   Alpha
    ARM
 +  AVR
-   Blackfin
    CBackend
    CellSPU
+   CppBackend
 Index: cmake/config-ix.cmake
 ===================================================================
---- cmake/config-ix.cmake	(revision 129634)
+--- cmake/config-ix.cmake	(revision 151472)
 +++ cmake/config-ix.cmake	(working copy)
-@@ -318,6 +318,8 @@
-   set(LLVM_NATIVE_ARCH Alpha)
+@@ -315,6 +315,8 @@
+   set(LLVM_NATIVE_ARCH PowerPC)
  elseif (LLVM_NATIVE_ARCH MATCHES "arm")
    set(LLVM_NATIVE_ARCH ARM)
 +elseif (LLVM_NATIVE_ARCH MATCHES "avr")

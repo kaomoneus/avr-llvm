@@ -1,110 +1,81 @@
 Index: include/llvm/ADT/Triple.h
 ===================================================================
---- include/llvm/ADT/Triple.h	(revision 130077)
+--- include/llvm/ADT/Triple.h	(revision 151472)
 +++ include/llvm/ADT/Triple.h	(working copy)
-@@ -48,6 +48,7 @@
+@@ -44,6 +44,7 @@
+     UnknownArch,
  
-     alpha,   // Alpha: alpha
      arm,     // ARM; arm, armv.*, xscale
-+    avr,     // AVR: avr
-     bfin,    // Blackfin: bfin
++    avr,     //
      cellspu, // CellSPU: spu, cellspu
+     hexagon, // Hexagon: hexagon
      mips,    // MIPS: mips, mipsallegrex
-@@ -72,6 +73,7 @@
-   enum VendorType {
-     UnknownVendor,
- 
-+    Atmel,
-     Apple,
-     PC,
-     SCEI
-@@ -84,6 +86,7 @@
-     Darwin,
-     DragonFly,
-     FreeBSD,
-+    FreeRTOS,
-     IOS,
-     Linux,
-     Lv2,        // PS3
 Index: lib/Support/Triple.cpp
 ===================================================================
---- lib/Support/Triple.cpp	(revision 130077)
+--- lib/Support/Triple.cpp	(revision 151472)
 +++ lib/Support/Triple.cpp	(working copy)
-@@ -25,6 +25,7 @@
+@@ -20,6 +20,7 @@
+   case UnknownArch: return "unknown";
  
-   case alpha:   return "alpha";
    case arm:     return "arm";
 +  case avr:     return "avr";
-   case bfin:    return "bfin";
    case cellspu: return "cellspu";
+   case hexagon: return "hexagon";
    case mips:    return "mips";
-@@ -58,6 +59,8 @@
+@@ -54,6 +55,8 @@
    case arm:
    case thumb:   return "arm";
  
-+  case avr:     return "avr";
++  case avr:   return "avr";
 +
-   case bfin:    return "bfin";
- 
    case cellspu: return "spu";
-@@ -85,6 +88,7 @@
-   case UnknownVendor: return "unknown";
  
-   case Apple: return "apple";
-+  case Atmel: return "atmel";
-   case PC: return "pc";
-   case SCEI: return "scei";
-   }
-@@ -101,6 +105,7 @@
-   case Darwin: return "darwin";
-   case DragonFly: return "dragonfly";
-   case FreeBSD: return "freebsd";
-+  case FreeRTOS: return "freertos";
-   case IOS: return "ios";
-   case Linux: return "linux";
-   case Lv2: return "lv2";
-@@ -135,6 +140,8 @@
-     return alpha;
-   if (Name == "arm")
-     return arm;
-+  if (Name == "avr")
-+    return avr;
-   if (Name == "bfin")
-     return bfin;
-   if (Name == "cellspu")
-@@ -233,6 +240,8 @@
-     return "ppc64";
-   if (Str == "mblaze" || Str == "microblaze")
-     return "mblaze";
-+  if (Str == "avr")
-+    return "avr";
-   if (Str == "arm")
-     return "arm";
-   if (Str == "armv4t" || Str == "thumbv4t")
-@@ -268,6 +277,8 @@
-     return ppc64;
-   else if (ArchName == "mblaze")
-     return mblaze;
-+  else if (ArchName == "avr")
-+    return avr;
-   else if (ArchName == "arm" ||
-            ArchName.startswith("armv") ||
-            ArchName == "xscale")
-@@ -307,6 +318,8 @@
- Triple::VendorType Triple::ParseVendor(StringRef VendorName) {
-   if (VendorName == "apple")
-     return Apple;
-+  if (VendorName == "atmel")
-+    return Atmel;
-   else if (VendorName == "pc")
-     return PC;
-   else if (VendorName == "scei")
-@@ -324,6 +337,8 @@
-     return Darwin;
-   else if (OSName.startswith("dragonfly"))
-     return DragonFly;
-+  else if (OSName.startswith("freertos"))
-+    return FreeRTOS;
-   else if (OSName.startswith("freebsd"))
-     return FreeBSD;
-   else if (OSName.startswith("ios"))
+   case ppc64:
+@@ -135,6 +138,7 @@
+ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
+   return StringSwitch<Triple::ArchType>(Name)
+     .Case("arm", arm)
++    .Case("avr", avr)
+     .Case("cellspu", cellspu)
+     .Case("mips", mips)
+     .Case("mipsel", mipsel)
+@@ -201,6 +205,7 @@
+     .Case("powerpc", "ppc")
+     .Case("powerpc64", "ppc64")
+     .Cases("mblaze", "microblaze", "mblaze")
++    .Case("avr", "avr")
+     .Case("arm", "arm")
+     .Cases("armv4t", "thumbv4t", "armv4t")
+     .Cases("armv5", "armv5e", "thumbv5", "thumbv5e", "armv5")
+@@ -243,6 +248,7 @@
+     .Case("ptx64", Triple::ptx64)
+     .Case("le32", Triple::le32)
+     .Case("amdil", Triple::amdil)
++    .Case("avr", Triple::avr)
+     .Default(Triple::UnknownArch);
+ }
+ 
+@@ -629,6 +635,7 @@
+     return 0;
+ 
+   case llvm::Triple::msp430:
++  case llvm::Triple::avr:
+     return 16;
+ 
+   case llvm::Triple::amdil:
+@@ -676,6 +683,7 @@
+   switch (getArch()) {
+   case Triple::UnknownArch:
+   case Triple::msp430:
++  case Triple::avr:
+     T.setArch(UnknownArch);
+     break;
+ 
+@@ -713,6 +721,7 @@
+   case Triple::UnknownArch:
+   case Triple::amdil:
+   case Triple::arm:
++  case Triple::avr:
+   case Triple::cellspu:
+   case Triple::hexagon:
+   case Triple::le32:
