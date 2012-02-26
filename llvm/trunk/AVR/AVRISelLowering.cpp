@@ -755,7 +755,7 @@ LowerFormalArguments(SDValue Chain, CallingConv::ID CallConv, bool isVarArg,
     if (VA.isRegLoc())
     {
       EVT RegVT = VA.getLocVT();
-      TargetRegisterClass *RC = NULL;
+      const TargetRegisterClass *RC;
 
       if (RegVT == MVT::i8)
       {
