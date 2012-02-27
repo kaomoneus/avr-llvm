@@ -77,9 +77,8 @@ void AVRFrameLowering::emitPrologue(MachineFunction &MF) const
     MachineInstr *MI = BuildMI(MBB, MBBI, dl, TII.get(Opcode), AVR::R29R28)
       .addReg(AVR::R29R28).addImm(FrameSize)
       .setMIFlag(MachineInstr::FrameSetup);
-    // The SRW implicit def is dead.
-    //MI->getOperand(3).setIsDead(); :TODO:
-    (void)MI;
+    // The SREG implicit def is dead.
+    MI->getOperand(3).setIsDead();
   }
 }
 
@@ -141,9 +140,8 @@ void AVRFrameLowering::emitEpilogue(MachineFunction &MF,
   // Restore the frame pointer by doing FP += <size>.
   MachineInstr *MI = BuildMI(MBB, MBBI, dl, TII.get(Opcode), AVR::R29R28)
     .addReg(AVR::R29R28).addImm(FrameSize);
-  // The SRW implicit def is dead.
-  //MI->getOperand(3).setIsDead(); :TODO:
-  (void)MI;
+  // The SREG implicit def is dead.
+  MI->getOperand(3).setIsDead();
 }
 
 // hasFP - Return true if the specified function should have a dedicated frame

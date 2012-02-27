@@ -695,9 +695,9 @@ let isCall = 1 in
   // a use to prevent stack-pointer assignments that appear immediately
   // before calls from potentially appearing dead. Uses for argument
   // registers are added manually.
-  let Defs = [R31R30, R27R26, R25R24, R23R22, R21R20, R19R18],
-  Uses = [SP] in   //:TODO: add the stack ptr here
-  //{
+  let Defs = [R31R30, R27R26, R25R24, R23R22, R21R20, R19R18, SREG],
+  Uses = [SP] in
+  {
     def CALLk : F32BRk<0b111,
                        (outs),
       //:TODO: the imm field can be either 16 or 22 bits in devices with more
@@ -705,6 +705,7 @@ let isCall = 1 in
                        (ins i16imm:$dst, variable_ops),
                        "call\t$dst",
                        [(AVRcall imm:$dst)]>;
+  }
 
 let isTerminator = 1,
 isReturn = 1,
@@ -1023,9 +1024,9 @@ def INra            1011 0AAd dddd AAAA ok
 def OUTar           1011 1AAd dddd AAAA ok
 */
 
-//let Defs = [SP], //:TODO: readd this
-//Uses = [SP],
-let neverHasSideEffects = 1,
+let Defs = [SP],
+Uses = [SP],
+neverHasSideEffects = 1,
 mayStore = 1 in
 def PUSHRr : FRd<0b1001,
                  0b0011111,
@@ -1034,18 +1035,18 @@ def PUSHRr : FRd<0b1001,
                  "push\t$reg",
                  []>;
 
-//let Defs = [SP], //:TODO: readd this
-//Uses = [SP],
-let neverHasSideEffects = 1,
+let Defs = [SP],
+Uses = [SP],
+neverHasSideEffects = 1,
 mayStore = 1 in
 def PUSHWRr : Pseudo<(outs),
                      (ins DREGS:$reg),
                      "pushw\t$reg",
                      []>;
 
-//let Defs = [SP],
-//Uses = [SP], //:TODO: readd this
-let neverHasSideEffects = 1,
+let Defs = [SP],
+Uses = [SP],
+neverHasSideEffects = 1,
 mayLoad = 1 in
 def POPRd : FRd<0b1001,
                 0b0001111,
@@ -1054,9 +1055,9 @@ def POPRd : FRd<0b1001,
                 "pop\t$reg",
                 []>;
 
-//let Defs = [SP],
-//Uses = [SP], //:TODO: readd this
-let neverHasSideEffects = 1,
+let Defs = [SP],
+Uses = [SP],
+neverHasSideEffects = 1,
 mayLoad = 1 in
 def POPWRd : Pseudo<(outs DREGS:$reg),
                     (ins),
@@ -1067,75 +1068,85 @@ def POPWRd : Pseudo<(outs DREGS:$reg),
 bit and bit-test instructions
 */
 
-let Constraints = "$src = $dst"  in
+let Constraints = "$src = $dst",
+Defs = [SREG] in
 def LSLRd : FRdRr<0b0000,
                   0b11,
                   (outs GPR8:$dst),
                   (ins GPR8:$src),
                   "lsl\t$dst",
-                  [(set GPR8:$dst, (AVRlsl GPR8:$src))]>;
+                  [(set GPR8:$dst, (AVRlsl GPR8:$src)), (implicit SREG)]>;
 
-let Constraints = "$src = $dst"  in
+let Constraints = "$src = $dst",
+Defs = [SREG] in
 def LSLWRd : Pseudo<(outs DREGS:$dst),
                     (ins DREGS:$src),
                     "lslw\t$dst",
-                    [(set DREGS:$dst, (AVRlsl DREGS:$src))]>;
+                    [(set DREGS:$dst, (AVRlsl DREGS:$src)), (implicit SREG)]>;
 
-let Constraints = "$src = $dst" in
+let Constraints = "$src = $dst",
+Defs = [SREG] in
 def LSRRd : FRd<0b1001,
                 0b0100110,
                 (outs GPR8:$dst),
                 (ins GPR8:$src),
                 "lsr\t$dst",
-                [(set GPR8:$dst, (AVRlsr GPR8:$src))]>;
+                [(set GPR8:$dst, (AVRlsr GPR8:$src)), (implicit SREG)]>;
 
-let Constraints = "$src = $dst"  in
+let Constraints = "$src = $dst",
+Defs = [SREG] in
 def LSRWRd : Pseudo<(outs DREGS:$dst),
                     (ins DREGS:$src),
                     "lsrw\t$dst",
-                    [(set DREGS:$dst, (AVRlsr DREGS:$src))]>;
+                    [(set DREGS:$dst, (AVRlsr DREGS:$src)), (implicit SREG)]>;
 
-let Constraints = "$src = $dst" in
+let Constraints = "$src = $dst",
+Defs = [SREG] in
 def ROLRd : FRdRr<0b0001,
                   0b11,
                   (outs GPR8:$dst),
                   (ins GPR8:$src),
                   "rol\t$dst",
-                  [(set GPR8:$dst, (AVRrol GPR8:$src))]>;
+                  [(set GPR8:$dst, (AVRrol GPR8:$src)), (implicit SREG)]>;
 
-let Constraints = "$src = $dst"  in
+let Constraints = "$src = $dst",
+Defs = [SREG] in
 def ROLWRd : Pseudo<(outs DREGS:$dst),
                     (ins DREGS:$src),
                     "rolw\t$dst",
-                    [(set DREGS:$dst, (AVRrol DREGS:$src))]>;
+                    [(set DREGS:$dst, (AVRrol DREGS:$src)), (implicit SREG)]>;
 
-let Constraints = "$src = $dst" in
+let Constraints = "$src = $dst",
+Defs = [SREG] in
 def RORRd : FRd<0b1001,
                 0b0100111,
                 (outs GPR8:$dst),
                 (ins GPR8:$src),
                 "ror\t$dst",
-                [(set GPR8:$dst, (AVRror GPR8:$src))]>;
+                [(set GPR8:$dst, (AVRror GPR8:$src)), (implicit SREG)]>;
 
-let Constraints = "$src = $dst"  in
+let Constraints = "$src = $dst",
+Defs = [SREG] in
 def RORWRd : Pseudo<(outs DREGS:$dst),
                     (ins DREGS:$src),
                     "rorw\t$dst",
-                    [(set DREGS:$dst, (AVRror DREGS:$src))]>;
+                    [(set DREGS:$dst, (AVRror DREGS:$src)), (implicit SREG)]>;
 
-let Constraints = "$src = $dst" in
+let Constraints = "$src = $dst",
+Defs = [SREG] in
 def ASRRd : FRd<0b1001,
                 0b0100101,
                 (outs GPR8:$dst),
                 (ins GPR8:$src),
                 "asr\t$dst",
-                [(set GPR8:$dst, (AVRasr GPR8:$src))]>;
+                [(set GPR8:$dst, (AVRasr GPR8:$src)), (implicit SREG)]>;
 
-let Constraints = "$src = $dst"  in
+let Constraints = "$src = $dst",
+Defs = [SREG] in
 def ASRWRd : Pseudo<(outs DREGS:$dst),
                     (ins DREGS:$src),
                     "asrw\t$dst",
-                    [(set DREGS:$dst, (AVRasr DREGS:$src))]>;
+                    [(set DREGS:$dst, (AVRasr DREGS:$src)), (implicit SREG)]>;
 
 //:TODO: add 16 bit and wider version of this
 let Constraints = "$src = $dst" in
@@ -1167,15 +1178,17 @@ def NOP             0000 0000 0000 0000
 //:TODO: optimize this for wider types AND optimize the following code
 //   compile int foo(char a, char b, char c, char d) {return d+b;}
 //   looks like a missed sext_inreg opportunity
+let Defs = [SREG] in
 def SEXT : Pseudo<(outs DREGS:$dst),
                   (ins GPR8:$src),
                   "sext\t$dst, $src",
-                  [(set DREGS:$dst, (sext GPR8:$src))]>;
+                  [(set DREGS:$dst, (sext GPR8:$src)), (implicit SREG)]>;
 
+let Defs = [SREG] in
 def ZEXT : Pseudo<(outs DREGS:$dst),
                   (ins GPR8:$src),
                   "zext\t$dst, $src",
-                  [(set DREGS:$dst, (zext GPR8:$src))]>;
+                  [(set DREGS:$dst, (zext GPR8:$src)), (implicit SREG)]>;
 
 let neverHasSideEffects = 1 in
 def FRMIDX : Pseudo<(outs DLDREGS:$dst),
