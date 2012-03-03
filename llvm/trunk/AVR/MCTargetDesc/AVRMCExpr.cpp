@@ -49,7 +49,6 @@ static void AddValueSymbols_(const MCExpr *Value, MCAssembler *Asm)
   {
   case MCExpr::Target:
     llvm_unreachable("Can't handle nested target expr!");
-    break;
   case MCExpr::Constant:
     break;
   case MCExpr::Binary:

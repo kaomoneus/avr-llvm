@@ -429,7 +429,6 @@ SDValue AVRTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const
   {
   default:
     llvm_unreachable("Don't know how to custom lower this!");
-    break;
   case ISD::SHL:
   case ISD::SRA:
   case ISD::SRL:
@@ -459,7 +458,6 @@ void AVRTargetLowering::ReplaceNodeResults(SDNode *N,
   {
   default:
     llvm_unreachable("Don't know how to custom expand this!");
-    break;
   case ISD::ADD:
     {
       // convert add (x, imm) into sub (x, -imm)
@@ -783,7 +781,6 @@ LowerFormalArguments(SDValue Chain, CallingConv::ID CallConv, bool isVarArg,
       {
       default:
         llvm_unreachable("Unknown loc info!");
-        break;
       case CCValAssign::Full:
         break;
       case CCValAssign::BCvt:
@@ -899,7 +896,6 @@ AVRTargetLowering::LowerCall(SDValue Chain, SDValue Callee,
     {
     default:
       llvm_unreachable("Unknown loc info!");
-      break;
     case CCValAssign::Full:
       break;
     case CCValAssign::SExt:
