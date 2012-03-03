@@ -867,12 +867,16 @@ def LDIWRdK : Pseudo<(outs DLDREGS:$dst),
                      "ldiw\t$dst, $src",
                      [(set DLDREGS:$dst, imm:$src)]>;
 
+let canFoldAsLoad = 1,
+isReMaterializable = 1 in
 def LDSRdK : F32DM<0b0,
                    (outs GPR8:$dst),
                    (ins i16imm:$src),
                    "lds\t$dst, $src",
                    [(set GPR8:$dst, (load imm:$src))]>;
 
+let canFoldAsLoad = 1,
+isReMaterializable = 1 in
 def LDSWRdK : Pseudo<(outs DREGS:$dst),
                      (ins i16imm:$src),
                      "ldsw\t$dst, $src",
@@ -1005,7 +1009,7 @@ def STDPtrQRr : Pseudo<(outs),
 
 def STDWPtrQRr : Pseudo<(outs),
                         (ins memri:$dst, DREGS:$src),
-                        "stwd\t$dst, $src",
+                        "stdw\t$dst, $src",
                         [(store DREGS:$src, addr:$dst)]>;
 
 /*
@@ -1101,7 +1105,8 @@ def LSRWRd : Pseudo<(outs DREGS:$dst),
                     [(set DREGS:$dst, (AVRlsr DREGS:$src)), (implicit SREG)]>;
 
 let Constraints = "$src = $dst",
-Defs = [SREG] in
+Defs = [SREG],
+Uses = [SREG] in
 def ROLRd : FRdRr<0b0001,
                   0b11,
                   (outs GPR8:$dst),
@@ -1110,14 +1115,16 @@ def ROLRd : FRdRr<0b0001,
                   [(set GPR8:$dst, (AVRrol GPR8:$src)), (implicit SREG)]>;
 
 let Constraints = "$src = $dst",
-Defs = [SREG] in
+Defs = [SREG],
+Uses = [SREG] in
 def ROLWRd : Pseudo<(outs DREGS:$dst),
                     (ins DREGS:$src),
                     "rolw\t$dst",
                     [(set DREGS:$dst, (AVRrol DREGS:$src)), (implicit SREG)]>;
 
 let Constraints = "$src = $dst",
-Defs = [SREG] in
+Defs = [SREG],
+Uses = [SREG] in
 def RORRd : FRd<0b1001,
                 0b0100111,
                 (outs GPR8:$dst),
@@ -1126,7 +1133,8 @@ def RORRd : FRd<0b1001,
                 [(set GPR8:$dst, (AVRror GPR8:$src)), (implicit SREG)]>;
 
 let Constraints = "$src = $dst",
-Defs = [SREG] in
+Defs = [SREG],
+Uses = [SREG] in
 def RORWRd : Pseudo<(outs DREGS:$dst),
                     (ins DREGS:$src),
                     "rorw\t$dst",
