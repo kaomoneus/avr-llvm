@@ -1,7 +1,7 @@
-﻿Index: lib/CodeGen/RegAllocGreedy.cpp
+Index: lib/CodeGen/RegAllocGreedy.cpp
 ===================================================================
---- lib/CodeGen/RegAllocGreedy.cpp	(revisión: 145494)
-+++ lib/CodeGen/RegAllocGreedy.cpp	(copia de trabajo)
+--- lib/CodeGen/RegAllocGreedy.cpp	(revision 152006)
++++ lib/CodeGen/RegAllocGreedy.cpp	(working copy)
 @@ -85,6 +85,9 @@
    std::priority_queue<std::pair<unsigned, unsigned> > Queue;
    unsigned NextCascade;
@@ -12,7 +12,7 @@
    // Live ranges pass through a number of stages as we try to allocate them.
    // Some of the stages may also create new live ranges:
    //
-@@ -277,6 +280,8 @@
+@@ -290,6 +293,8 @@
      SmallVectorImpl<LiveInterval*>&);
    unsigned trySplit(LiveInterval&, AllocationOrder&,
                      SmallVectorImpl<LiveInterval*>&);
@@ -21,7 +21,7 @@
  };
  } // end anonymous namespace
  
-@@ -302,7 +307,7 @@
+@@ -315,7 +320,7 @@
    return new RAGreedy();
  }
  
@@ -30,7 +30,7 @@
    initializeLiveDebugVariablesPass(*PassRegistry::getPassRegistry());
    initializeSlotIndexesPass(*PassRegistry::getPassRegistry());
    initializeLiveIntervalsPass(*PassRegistry::getPassRegistry());
-@@ -1542,7 +1547,33 @@
+@@ -1592,7 +1597,33 @@
    return tryBlockSplit(VirtReg, Order, NewVRegs);
  }
  
@@ -51,7 +51,7 @@
 +    if (!TargetRegisterInfo::isVirtualRegister(VirtReg))
 +      continue;
 +
-+    for (const unsigned *AliasI = TRI->getOverlaps(REG_Y); *AliasI; ++AliasI)
++    for (const uint16_t *AliasI = TRI->getOverlaps(REG_Y); *AliasI; ++AliasI)
 +      if (VRM->getPhys(VirtReg) == *AliasI) {
 +        LiveInterval &LI = *I->second;
 +        unassign(LI, *AliasI);
@@ -64,7 +64,7 @@
  //===----------------------------------------------------------------------===//
  //                            Main Entry Point
  //===----------------------------------------------------------------------===//
-@@ -1588,11 +1619,25 @@
+@@ -1643,11 +1674,25 @@
      return PhysReg;
  
    // Finally spill VirtReg itself.
@@ -90,7 +90,7 @@
    if (VerifyEnabled)
      MF->verify(this, "After spilling");
  
-@@ -1631,6 +1676,9 @@
+@@ -1686,6 +1731,9 @@
    addMBBLiveIns(MF);
    LIS->addKillFlags();
  
