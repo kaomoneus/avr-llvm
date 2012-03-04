@@ -92,6 +92,7 @@ const char *AVRTargetLowering::getTargetNodeName(unsigned Opcode) const
   {
   default:                                    return NULL;
   case AVRISD::RET_FLAG:                      return "AVRISD::RET_FLAG";
+  case AVRISD::RETI_FLAG:                     return "AVRISD::RETI_FLAG";
   case AVRISD::CALL:                          return "AVRISD::CALL";
   case AVRISD::Wrapper:                       return "AVRISD::Wrapper";
   case AVRISD::LSL:                           return "AVRISD::LSL";

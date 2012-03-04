@@ -39,6 +39,8 @@ def SDT_AVRSelectCC : SDTypeProfile<1, 3, [SDTCisSameAs<0, 1>,
 
 def AVRretflag : SDNode<"AVRISD::RET_FLAG", SDTNone,
                         [SDNPHasChain, SDNPOptInGlue]>;
+def AVRretiflag : SDNode<"AVRISD::RETI_FLAG", SDTNone,
+                         [SDNPHasChain, SDNPOptInGlue]>;
 
 def AVRcallseq_start : SDNode<"ISD::CALLSEQ_START", SDT_AVRCallSeqStart,
                               [SDNPHasChain, SDNPOutGlue]>;
@@ -716,9 +718,15 @@ def RET : FBR<0b1001010100001000,
               "ret",
               [(AVRretflag)]>;
 
+let isTerminator = 1,
+isReturn = 1,
+isBarrier = 1 in
+def RETI : FBR<0b1001010100011000,
+               (outs),
+               (ins),
+               "reti",
+               [(AVRretiflag)]>;
 /*
-def RETI            1001 0101 0001 1000 ok
-
 def CPSErr          0001 00rd dddd rrrr ok
 */
 let Defs = [SREG] in

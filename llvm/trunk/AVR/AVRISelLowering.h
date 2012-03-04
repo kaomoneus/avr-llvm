@@ -29,6 +29,8 @@ namespace AVRISD
     FIRST_NUMBER = ISD::BUILTIN_OP_END,
     /// Return from subroutine.
     RET_FLAG,
+    /// Return from ISR.
+    RETI_FLAG,
     /// CALL - These operations represent an abstract call
     /// instruction, which includes a bunch of information.
     CALL,
