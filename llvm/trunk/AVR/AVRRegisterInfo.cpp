@@ -29,13 +29,13 @@ AVRRegisterInfo::AVRRegisterInfo(const TargetInstrInfo &tii) :
   AVRGenRegisterInfo(0),
   TII(tii) {}
 
-const unsigned *
+const uint16_t *
 AVRRegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const
 {
   //:TODO: test if adding the 8bit regs here, makes 8bit pushes in
   // prologue code instead of pushing the whole pair
   // IT WORKS! so add all the 8bit regs here!
-  static const unsigned CalleeSavedRegs[] =
+  static const uint16_t CalleeSavedRegs[] =
   {
     AVR::R29R28, AVR::R17R16, AVR::R15R14, AVR::R13R12, AVR::R11R10,
     AVR::R9R8, AVR::R7R6, AVR::R5R4, AVR::R3R2, AVR::R1R0, 0
