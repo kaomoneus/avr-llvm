@@ -1,0 +1,11 @@
+Index: LLLexer.cpp
+===================================================================
+--- LLLexer.cpp (revisión: 152005)
++++ LLLexer.cpp (copia de trabajo)
+@@ -518,6 +518,7 @@
+   KEYWORD(arm_aapcscc);
+   KEYWORD(arm_aapcs_vfpcc);
+   KEYWORD(msp430_intrcc);
++  KEYWORD(avr_intrcc);
+   KEYWORD(ptx_kernel);
+   KEYWORD(ptx_device);

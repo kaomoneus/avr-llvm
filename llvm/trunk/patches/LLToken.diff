@@ -1,0 +1,12 @@
+Index: LLToken.h
+===================================================================
+--- LLToken.h	(revisión: 152005)
++++ LLToken.h	(copia de trabajo)
+@@ -76,6 +76,7 @@
+     kw_x86_stdcallcc, kw_x86_fastcallcc, kw_x86_thiscallcc,
+     kw_arm_apcscc, kw_arm_aapcscc, kw_arm_aapcs_vfpcc,
+     kw_msp430_intrcc,
++    kw_avr_intrcc,
+     kw_ptx_kernel, kw_ptx_device,
+ 
+     kw_signext,
