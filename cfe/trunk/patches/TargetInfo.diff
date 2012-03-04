@@ -1,0 +1,97 @@
+Index: lib/CodeGen/TargetInfo.cpp
+===================================================================
+--- lib/CodeGen/TargetInfo.cpp	(revisión: 151992)
++++ lib/CodeGen/TargetInfo.cpp	(copia de trabajo)
+@@ -3000,6 +3000,82 @@
+ 
+ 
+ //===----------------------------------------------------------------------===//
++// AVR ABI Implementation
++//===----------------------------------------------------------------------===//
++namespace {
++
++class AVRABIInfo : public ABIInfo
++{
++public:
++  AVRABIInfo(CodeGenTypes &CGT) : ABIInfo(CGT) {}
++
++  ABIArgInfo classifyReturnType(QualType RetTy) const;
++  ABIArgInfo classifyArgumentType(QualType RetTy) const;
++
++  virtual void computeInfo(CGFunctionInfo &FI) const {
++    FI.getReturnInfo() = classifyReturnType(FI.getReturnType());
++    for (CGFunctionInfo::arg_iterator it = FI.arg_begin(), ie = FI.arg_end();
++         it != ie; ++it)
++      it->info = classifyArgumentType(it->type);
++  }
++
++  virtual llvm::Value *EmitVAArg(llvm::Value *VAListAddr, QualType Ty,
++                                 CodeGenFunction &CGF) const;
++};
++
++class AVRTargetCodeGenInfo : public TargetCodeGenInfo
++{
++public:
++  AVRTargetCodeGenInfo(CodeGenTypes &CGT)
++    : TargetCodeGenInfo(new AVRABIInfo(CGT)) {}
++  void SetTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
++                           CodeGen::CodeGenModule &M) const;
++};
++
++}
++
++llvm::Value *AVRABIInfo::EmitVAArg(llvm::Value *VAListAddr, QualType Ty,
++                                   CodeGenFunction &CGF) const {
++  // FIXME: Implement
++  return 0;
++}
++
++
++ABIArgInfo AVRABIInfo::classifyReturnType(QualType RetTy) const {
++  if (RetTy->isVoidType())
++    return ABIArgInfo::getIgnore();
++  if (isAggregateTypeForABI(RetTy))
++    return ABIArgInfo::getIndirect(0);
++
++  return ABIArgInfo::getDirect();
++}
++
++ABIArgInfo AVRABIInfo::classifyArgumentType(QualType Ty) const {
++  if (isAggregateTypeForABI(Ty))
++    return ABIArgInfo::getIndirect(0);
++
++  return ABIArgInfo::getDirect();
++}
++
++void AVRTargetCodeGenInfo::SetTargetAttributes(const Decl *D,
++                                               llvm::GlobalValue *GV,
++                                               CodeGen::CodeGenModule &M) const{
++  if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(D)) {
++    if (FD->hasAttr<AVRInterruptHandlerAttr>()) {
++      // Handle 'signal' attribute:
++      llvm::Function *F = dyn_cast<llvm::Function>(GV);
++      if (!F) return;
++
++      // Step 1: Set ISR calling convention.
++      F->setCallingConv(llvm::CallingConv::AVR_INTR);
++
++      // Step 2: Add attributes goodness.
++      F->addFnAttr(llvm::Attribute::NoInline);
++    }
++  }
++}
++
++//===----------------------------------------------------------------------===//
+ // MSP430 ABI Implementation
+ //===----------------------------------------------------------------------===//
+ 
+@@ -3591,6 +3667,9 @@
+   case llvm::Triple::mblaze:
+     return *(TheTargetCodeGenInfo = new MBlazeTargetCodeGenInfo(Types));
+ 
++  case llvm::Triple::avr:
++    return *(TheTargetCodeGenInfo = new AVRTargetCodeGenInfo(Types));
++
+   case llvm::Triple::msp430:
+     return *(TheTargetCodeGenInfo = new MSP430TargetCodeGenInfo(Types));
+ 
