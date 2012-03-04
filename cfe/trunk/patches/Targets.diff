@@ -1,13 +1,14 @@
 Index: lib/Basic/Targets.cpp
 ===================================================================
---- lib/Basic/Targets.cpp	(revision 151472)
+--- lib/Basic/Targets.cpp	(revision 151986)
 +++ lib/Basic/Targets.cpp	(working copy)
-@@ -2975,6 +2975,66 @@
+@@ -2987,7 +2987,126 @@
  };
  } // end anonymous namespace.
  
 +namespace {
 +  class AVRTargetInfo : public TargetInfo{
++    static const char * const GCCRegNames[];
 +  public:
 +  	AVRTargetInfo(const std::string& triple) : TargetInfo(triple) {
 +      TLSSupported = false;
@@ -46,26 +47,95 @@ Index: lib/Basic/Targets.cpp
 +      Builder.defineMacro("EEMEM", "__attribute__((section(\".eeprom\")))");
 +      Builder.defineMacro("__eeprom", "__attribute__((address_space(2)))");
 +    }
-+    
++  
++    virtual uint64_t getPointerWidthV(unsigned AddrSpace) const {
++      return PointerWidth;
++    }
++    virtual uint64_t getPointerAlignV(unsigned AddrSpace) const {
++      return PointerAlign;
++    }
++    virtual enum IntType getPtrDiffTypeV(unsigned AddrSpace) const {
++      return PtrDiffType;
++    }
+ 
++    virtual void getGCCRegNames(const char * const *&Names,
++                              unsigned &NumNames) const;
 +    virtual void getTargetBuiltins(const Builtin::Info *&Records,
 +                                   unsigned &NumRecords) const {}
 +    virtual const char *getVAListDeclaration() const {
-+      return "";
++      return "typedef void* __builtin_va_list;";
 +    }
 +    virtual const char *getClobbers() const {
 +      return "";
 +    }
-+    virtual void getGCCRegNames(const char * const *&Names,
-+                                unsigned &NumNames) const {}
++
 +    virtual bool validateAsmConstraint(const char *&Name,
-+                                       TargetInfo::ConstraintInfo &info) const {
-+      return true;
++                                       TargetInfo::ConstraintInfo &Info) const {
++      switch (*Name) {
++      default: 
++        return false;
++      case 'a': // Simple upper registers r16-r23
++      case 'b': // Base register y,z
++      case 'd': // Upper register r16-r31
++      case 'e': // Pointer register pairs	x, y, z
++      case 'q': // Stack pointer register	SPH:SPL 
++      case 'r': // Any register	r0 to r31
++      case 't': // Temporary register	r0 
++      case 'w': // Special upper register pairs	r24, r26, r28, r30 
++      case 'x': // Pointer register pair X	x (r27:r26) 
++      case 'y': // Pointer register pair Y	y (r29:r28) 
++      case 'z': // Pointer register pair Z	z (r31:r30) 
++      case 'G': // Floating point constant	0.0 
++      case 'I': // 6-bit positive integer constant	0 to 63 
++      case 'J': // 6-bit negative integer constant	-63 to 0 
++      case 'K': // Integer constant	2 
++      case 'L': // Integer constant	0 
++      case 'l': // Lower registers	r0 to r15 
++      case 'M': // 8-bit integer constant	0 to 255 
++      case 'N': // Integer constant	-1 
++      case 'O': // Integer constant	8, 16, 24 
++      case 'P': // Integer constant	1 
++      case 'Q': // (GCC >= 4.2.x) 
++                // A memory address based on Y or Z pointer with displacement.	
++      case 'R': // (GCC >= 4.3.x) Integer constant.	-6 to 5 
++        Info.setAllowsRegister();
++        return true;
++      }
 +    }
++
++
 +    virtual void getGCCRegAliases(const GCCRegAlias *&Aliases,
 +                                  unsigned &NumAliases) const {}
 + 
 +  };
++
++  const char * const AVRTargetInfo::GCCRegNames[] = {
++    "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7",
++    "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
++    "r16", "r17", "r18", "r19", "r20", "r21", "r22", "r23",
++    "r24", "r25", "r26", "r27", "r28", "r29", "r30", "r31"
++  };
++
++  void AVRTargetInfo::getGCCRegNames(const char * const *&Names,
++                                        unsigned &NumNames) const {
++    Names = GCCRegNames;
++    NumNames = llvm::array_lengthof(GCCRegNames);
++  }
++
++
++
 +} // end anonymous namespace.
- 
++
  namespace {
  // Hexagon abstract base class
+ class HexagonTargetInfo : public TargetInfo {
+@@ -3848,6 +3967,9 @@
+       return new ARMTargetInfo(T);
+     }
+ 
++  case llvm::Triple::avr:
++    return new AVRTargetInfo(T);
++
+   case llvm::Triple::msp430:
+     return new MSP430TargetInfo(T);
+ 
