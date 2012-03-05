@@ -1,7 +1,79 @@
+Index: include/clang/Basic/Attr.td
+===================================================================
+--- include/clang/Basic/Attr.td	(revision 152010)
++++ include/clang/Basic/Attr.td	(working copy)
+@@ -336,6 +336,14 @@
+   let Spellings = [];
+ }
+ 
++def AVRInterruptHandler : InheritableAttr {
++  let Spellings = [];
++}
++
++def AVRInterrupt : InheritableAttr {
++  let Spellings = ["interrupt"];
++}
++
+ def Naked : InheritableAttr {
+   let Spellings = ["naked"];
+ }
+Index: lib/Sema/TargetAttributesSema.cpp
+===================================================================
+--- lib/Sema/TargetAttributesSema.cpp	(revision 152010)
++++ lib/Sema/TargetAttributesSema.cpp	(working copy)
+@@ -120,6 +120,39 @@
+   };
+ }
+ 
++static void HandleAVRInterruptHandlerAttr(Decl *d, const AttributeList &Attr,
++                                          Sema &S) {
++  // Check the attribute arguments.
++  if (Attr.getNumArgs() != 0) {
++    S.Diag(Attr.getLoc(), diag::err_attribute_wrong_number_arguments) << 0;
++    return;
++  }
++
++  // FIXME: Check for decl - it should be void ()(void).
++
++  d->addAttr(::new (S.Context) AVRInterruptHandlerAttr(Attr.getLoc(),
++                                                       S.Context));
++  d->addAttr(::new (S.Context) UsedAttr(Attr.getLoc(), S.Context));
++}
++
++namespace {
++  class AVRAttributesSema : public TargetAttributesSema {
++  public:
++    AVRAttributesSema() { }
++    bool ProcessDeclAttribute(Scope *scope, Decl *D, const AttributeList &Attr,
++                              Sema &S) const {
++      if (Attr.getName()->getName() == "signal") {
++        HandleAVRInterruptHandlerAttr(D, Attr, S);
++        return true;
++      } /*else if (Attr.getName()->getName() == "interrupt") {
++        //:TODO:
++        return true;
++      }*/
++      return false;
++    }
++  };
++}
++
+ static void HandleX86ForceAlignArgPointerAttr(Decl *D,
+                                               const AttributeList& Attr,
+                                               Sema &S) {
+@@ -272,6 +305,8 @@
+   case llvm::Triple::x86:
+   case llvm::Triple::x86_64:
+     return *(TheTargetAttributesSema = new X86AttributesSema);
++  case llvm::Triple::avr:
++    return *(TheTargetAttributesSema = new AVRAttributesSema);
+   default:
+     return *(TheTargetAttributesSema = new TargetAttributesSema);
+   }
 Index: lib/CodeGen/TargetInfo.cpp
 ===================================================================
---- lib/CodeGen/TargetInfo.cpp	(revisión: 151992)
-+++ lib/CodeGen/TargetInfo.cpp	(copia de trabajo)
+--- lib/CodeGen/TargetInfo.cpp	(revision 152010)
++++ lib/CodeGen/TargetInfo.cpp	(working copy)
 @@ -3000,6 +3000,82 @@
  
  
