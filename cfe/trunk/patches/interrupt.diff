@@ -1,42 +1,82 @@
 Index: include/clang/Basic/Attr.td
 ===================================================================
---- include/clang/Basic/Attr.td	(revision 152010)
-+++ include/clang/Basic/Attr.td	(working copy)
+--- include/clang/Basic/Attr.td	(revisión: 152164)
++++ include/clang/Basic/Attr.td	(copia de trabajo)
 @@ -336,6 +336,14 @@
    let Spellings = [];
  }
  
-+def AVRInterruptHandler : InheritableAttr {
++def AVRSignalHandler : InheritableAttr {
 +  let Spellings = [];
 +}
 +
-+def AVRInterrupt : InheritableAttr {
-+  let Spellings = ["interrupt"];
++def AVRInterruptHandler : InheritableAttr {
++  let Spellings = [];
 +}
 +
  def Naked : InheritableAttr {
    let Spellings = ["naked"];
  }
+Index: include/clang/Basic/DiagnosticSemaKinds.td
+===================================================================
+--- include/clang/Basic/DiagnosticSemaKinds.td	(revisión: 152164)
++++ include/clang/Basic/DiagnosticSemaKinds.td	(copia de trabajo)
+@@ -4440,6 +4440,10 @@
+   "reference to %select{__device__|__global__|__host__|__host__ __device__}0 "
+   "function %1 in %select{__device__|__global__|__host__|__host__ __device__}2 function">;
+ 
++def err_isr_has_arguments : Error<
++  "'%0' attribute only applies to functions with no arguments">;
++def err_isr_not_void_return : Error<
++  "'%0' attribute only applies to functions with a void return type">;
+ 
+ def err_cannot_pass_objc_interface_to_vararg : Error<
+   "cannot pass object with interface type %0 by-value through variadic "
 Index: lib/Sema/TargetAttributesSema.cpp
 ===================================================================
---- lib/Sema/TargetAttributesSema.cpp	(revision 152010)
-+++ lib/Sema/TargetAttributesSema.cpp	(working copy)
-@@ -120,6 +120,39 @@
+--- lib/Sema/TargetAttributesSema.cpp	(revisión: 152164)
++++ lib/Sema/TargetAttributesSema.cpp	(copia de trabajo)
+@@ -120,6 +120,64 @@
    };
  }
  
-+static void HandleAVRInterruptHandlerAttr(Decl *d, const AttributeList &Attr,
-+                                          Sema &S) {
++static void HandleAVRIsrAttr(Decl *d, const AttributeList &Attr, Sema &S,
++                             bool isSignal) {
 +  // Check the attribute arguments.
 +  if (Attr.getNumArgs() != 0) {
 +    S.Diag(Attr.getLoc(), diag::err_attribute_wrong_number_arguments) << 0;
 +    return;
 +  }
 +
-+  // FIXME: Check for decl - it should be void ()(void).
++  // Attribute can only be applied to function types.
++  if (!isa<FunctionDecl>(d)) {
++    S.Diag(Attr.getLoc(), diag::err_attribute_wrong_decl_type)
++      << Attr.getName() << 0;
++    return;
++  }
 +
-+  d->addAttr(::new (S.Context) AVRInterruptHandlerAttr(Attr.getLoc(),
-+                                                       S.Context));
++  FunctionDecl *FD = dyn_cast<FunctionDecl>(d);
++  // Attribute not allowed when the function declaration has arguments
++  if (FD->getNumParams() != 0) {
++    S.Diag(Attr.getLoc(), diag::err_isr_has_arguments)
++      << Attr.getName()->getName();
++    return;
++  }
++
++  // Attribute not allowed when the function declaration has a return type
++  if (!FD->getResultType()->isVoidType()) {
++    S.Diag(Attr.getLoc(), diag::err_isr_not_void_return)
++      << Attr.getName()->getName();
++    return;
++  }
++
++  if (isSignal)
++    d->addAttr(::new (S.Context) AVRSignalHandlerAttr(Attr.getLoc(),
++                                                      S.Context));
++  else
++    d->addAttr(::new (S.Context) AVRInterruptHandlerAttr(Attr.getLoc(),
++                                                         S.Context));
++
 +  d->addAttr(::new (S.Context) UsedAttr(Attr.getLoc(), S.Context));
 +}
 +
@@ -47,12 +87,12 @@ Index: lib/Sema/TargetAttributesSema.cpp
 +    bool ProcessDeclAttribute(Scope *scope, Decl *D, const AttributeList &Attr,
 +                              Sema &S) const {
 +      if (Attr.getName()->getName() == "signal") {
-+        HandleAVRInterruptHandlerAttr(D, Attr, S);
++        HandleAVRIsrAttr(D, Attr, S, true);
 +        return true;
-+      } /*else if (Attr.getName()->getName() == "interrupt") {
-+        //:TODO:
++      } else if (Attr.getName()->getName() == "interrupt") {
++        HandleAVRIsrAttr(D, Attr, S, false);
 +        return true;
-+      }*/
++      }
 +      return false;
 +    }
 +  };
@@ -61,7 +101,7 @@ Index: lib/Sema/TargetAttributesSema.cpp
  static void HandleX86ForceAlignArgPointerAttr(Decl *D,
                                                const AttributeList& Attr,
                                                Sema &S) {
-@@ -272,6 +305,8 @@
+@@ -272,6 +330,8 @@
    case llvm::Triple::x86:
    case llvm::Triple::x86_64:
      return *(TheTargetAttributesSema = new X86AttributesSema);
@@ -72,14 +112,15 @@ Index: lib/Sema/TargetAttributesSema.cpp
    }
 Index: lib/CodeGen/TargetInfo.cpp
 ===================================================================
---- lib/CodeGen/TargetInfo.cpp	(revision 152010)
-+++ lib/CodeGen/TargetInfo.cpp	(working copy)
-@@ -3000,6 +3000,82 @@
+--- lib/CodeGen/TargetInfo.cpp	(revisión: 152164)
++++ lib/CodeGen/TargetInfo.cpp	(copia de trabajo)
+@@ -3000,6 +3000,92 @@
  
  
  //===----------------------------------------------------------------------===//
 +// AVR ABI Implementation
 +//===----------------------------------------------------------------------===//
++
 +namespace {
 +
 +class AVRABIInfo : public ABIInfo
@@ -139,13 +180,22 @@ Index: lib/CodeGen/TargetInfo.cpp
 +                                               llvm::GlobalValue *GV,
 +                                               CodeGen::CodeGenModule &M) const{
 +  if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(D)) {
-+    if (FD->hasAttr<AVRInterruptHandlerAttr>()) {
-+      // Handle 'signal' attribute:
-+      llvm::Function *F = dyn_cast<llvm::Function>(GV);
-+      if (!F) return;
++    if (llvm::Function *F = dyn_cast<llvm::Function>(GV)) {
++      if (FD->hasAttr<AVRSignalHandlerAttr>()) {
++        // Handle 'signal' attribute:
 +
-+      // Step 1: Set ISR calling convention.
-+      F->setCallingConv(llvm::CallingConv::AVR_INTR);
++        // Step 1: Set ISR calling convention.
++        // The 'interrupt' attribute overrides the 'signal' attribute
++        if (FD->hasAttr<AVRInterruptHandlerAttr>())
++          F->setCallingConv(llvm::CallingConv::AVR_INTR);
++        else
++          F->setCallingConv(llvm::CallingConv::AVR_SIGNAL);
++      } else if (FD->hasAttr<AVRInterruptHandlerAttr>()) {
++        // Handle 'interrupt' attribute:
++
++        // Step 1: Set ISR calling convention.
++        F->setCallingConv(llvm::CallingConv::AVR_INTR);
++      }
 +
 +      // Step 2: Add attributes goodness.
 +      F->addFnAttr(llvm::Attribute::NoInline);
@@ -157,7 +207,7 @@ Index: lib/CodeGen/TargetInfo.cpp
  // MSP430 ABI Implementation
  //===----------------------------------------------------------------------===//
  
-@@ -3591,6 +3667,9 @@
+@@ -3591,6 +3677,9 @@
    case llvm::Triple::mblaze:
      return *(TheTargetCodeGenInfo = new MBlazeTargetCodeGenInfo(Types));
  
