@@ -14,6 +14,7 @@
 #include "AVR.h"
 #include "AVRInstrInfo.h"
 #include "AVRRegisterInfo.h"
+#include "llvm/Function.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
@@ -32,6 +33,8 @@ AVRRegisterInfo::AVRRegisterInfo(const TargetInstrInfo &tii) :
 const uint16_t *
 AVRRegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const
 {
+  const Function *F = MF->getFunction();
+
   //:TODO: test if adding the 8bit regs here, makes 8bit pushes in
   // prologue code instead of pushing the whole pair
   // IT WORKS! so add all the 8bit regs here!
@@ -40,8 +43,16 @@ AVRRegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const
     AVR::R29R28, AVR::R17R16, AVR::R15R14, AVR::R13R12, AVR::R11R10,
     AVR::R9R8, AVR::R7R6, AVR::R5R4, AVR::R3R2, AVR::R1R0, 0
   };
+  static const uint16_t IntCalleeSavedRegs[] =
+  {
+    AVR::R31R30, AVR::R29R28, AVR::R27R26, AVR::R25R24, AVR::R23R22,
+    AVR::R21R20, AVR::R19R18, AVR::R17R16, AVR::R15R14, AVR::R13R12,
+    AVR::R11R10, AVR::R9R8, AVR::R7R6, AVR::R5R4, AVR::R3R2, AVR::R1R0, 0
+  };
 
-  return CalleeSavedRegs;
+  return ((F->getCallingConv() == CallingConv::AVR_INTR
+           || F->getCallingConv() == CallingConv::AVR_SIGNAL) ?
+          IntCalleeSavedRegs : CalleeSavedRegs);
 }
 
 BitVector AVRRegisterInfo::getReservedRegs(const MachineFunction &MF) const

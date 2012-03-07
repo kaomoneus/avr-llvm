@@ -69,11 +69,12 @@ static MCCodeGenInfo *createAVRMCCodeGenInfo(StringRef TT, Reloc::Model RM,
 static MCInstPrinter *createAVRMCInstPrinter(const Target &T,
                                              unsigned SyntaxVariant,
                                              const MCAsmInfo &MAI,
+                                             const MCRegisterInfo &MRI,
                                              const MCSubtargetInfo &STI)
 {
   if (SyntaxVariant == 0)
   {
-    return new AVRInstPrinter(MAI);
+    return new AVRInstPrinter(MAI, MRI);
   }
 
   return 0;

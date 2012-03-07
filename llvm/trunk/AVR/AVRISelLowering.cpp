@@ -1061,7 +1061,8 @@ AVRTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
 
   // If this is the first return lowered for this function, add the regs to
   // the liveout set for the function.
-  MachineRegisterInfo &MRI = DAG.getMachineFunction().getRegInfo();
+  MachineFunction &MF = DAG.getMachineFunction();
+  MachineRegisterInfo &MRI = MF.getRegInfo();
   unsigned e = RVLocs.size();
 
   // Reverse splitted return values to get the "big endian" format required
@@ -1095,12 +1096,22 @@ AVRTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
     Flag = Chain.getValue(1);
   }
 
-  if (Flag.getNode())
+  // Don't emit the ret/reti instruction when the naked attribute is present in
+  // the function being compiled.
+  if (MF.getFunction()->hasFnAttr(Attribute::Naked))
   {
-    return DAG.getNode(AVRISD::RET_FLAG, dl, MVT::Other, Chain, Flag);
+    return Chain;
   }
 
-  return DAG.getNode(AVRISD::RET_FLAG, dl, MVT::Other, Chain);
+  unsigned retOpc = (CallConv == CallingConv::AVR_INTR
+                     || CallConv == CallingConv::AVR_SIGNAL) ?
+                    AVRISD::RETI_FLAG : AVRISD::RET_FLAG;
+  if (Flag.getNode())
+  {
+    return DAG.getNode(retOpc, dl, MVT::Other, Chain, Flag);
+  }
+
+  return DAG.getNode(retOpc, dl, MVT::Other, Chain);
 }
 
 //===----------------------------------------------------------------------===//

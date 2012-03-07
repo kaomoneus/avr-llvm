@@ -22,8 +22,8 @@ namespace llvm
 class AVRInstPrinter : public MCInstPrinter
 {
 public:
-  AVRInstPrinter(const MCAsmInfo &MAI) :
-    MCInstPrinter(MAI) {}
+  AVRInstPrinter(const MCAsmInfo &MAI, const MCRegisterInfo &MRI) :
+    MCInstPrinter(MAI, MRI) {}
 public: // MCInstPrinter
   void printInst(const MCInst *MI, raw_ostream &O, StringRef Annot);
 public:
