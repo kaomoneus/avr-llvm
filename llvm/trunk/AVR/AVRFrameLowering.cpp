@@ -15,6 +15,7 @@
 #include "AVRFrameLowering.h"
 #include "AVRInstrInfo.h"
 #include "AVRMachineFunctionInfo.h"
+#include "llvm/Function.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
@@ -35,20 +36,43 @@ bool AVRFrameLowering::hasReservedCallFrame(const MachineFunction &MF) const
 
 void AVRFrameLowering::emitPrologue(MachineFunction &MF) const
 {
+  MachineBasicBlock &MBB = MF.front();
+  MachineBasicBlock::iterator MBBI = MBB.begin();
+  const Function *F = MF.getFunction();
+  CallingConv::ID CallConv = F->getCallingConv();
+  DebugLoc dl = (MBBI != MBB.end()) ? MBBI->getDebugLoc() : DebugLoc();
+  const AVRInstrInfo &TII =
+    *static_cast<const AVRInstrInfo *>(MF.getTarget().getInstrInfo());
+
+  // Interrupt handlers re-enable interrupts in function entry.
+  if (CallConv == CallingConv::AVR_INTR)
+  {
+    //:TODO: emit sei here
+  }
+
+  // Emit special prologue code to save R1, R0 and SREG in interrupt/signal
+  // handlers before saving any other registers.
+  if (CallConv == CallingConv::AVR_INTR || CallConv == CallingConv::AVR_SIGNAL)
+  {
+    BuildMI(MBB, MBBI, dl, TII.get(AVR::PUSHWRr))
+      .addReg(AVR::R1R0, RegState::Kill)
+      .setMIFlag(MachineInstr::FrameSetup);
+    //:TODO: in r0, __SREG__
+    BuildMI(MBB, MBBI, dl, TII.get(AVR::PUSHRr))
+      .addReg(AVR::R0, RegState::Kill)
+      .setMIFlag(MachineInstr::FrameSetup);
+    //:TODO: clr __zero_reg__
+  }
+
   // Early exit if the frame pointer is not needed in this function.
   if (!hasFP(MF))
   {
     return;
   }
 
-  MachineBasicBlock &MBB = MF.front();
-  MachineBasicBlock::iterator MBBI = MBB.begin();
   const MachineFrameInfo *MFI = MF.getFrameInfo();
-  DebugLoc dl = (MBBI != MBB.end()) ? MBBI->getDebugLoc() : DebugLoc();
   const AVRMachineFunctionInfo *AFI = MF.getInfo<AVRMachineFunctionInfo>();
   uint64_t FrameSize = MFI->getStackSize() - AFI->getCalleeSavedFrameSize();
-  const AVRInstrInfo &TII =
-    *static_cast<const AVRInstrInfo *>(MF.getTarget().getInstrInfo());
 
   // Skip the callee-saved push instructions.
   while ((MBBI != MBB.end())
@@ -207,7 +231,12 @@ restoreCalleeSavedRegisters(MachineBasicBlock &MBB,
                             const std::vector<CalleeSavedInfo> &CSI,
                             const TargetRegisterInfo *TRI) const
 {
-  if (CSI.empty())
+  CallingConv::ID CallConv = MBB.getParent()->getFunction()->getCallingConv();
+  bool isHandler = (CallConv == CallingConv::AVR_INTR
+                    || CallConv == CallingConv::AVR_SIGNAL);
+
+  // Don't early exit for interrupt/signal handlers.
+  if (CSI.empty() && !isHandler)
   {
     return false;
   }
@@ -223,6 +252,15 @@ restoreCalleeSavedRegisters(MachineBasicBlock &MBB,
     assert(TRI->getMinimalPhysRegClass(Reg)->getSize() == 2
            && "Popping from the stack an 8 bit regiter");
     BuildMI(MBB, MI, DL, TII.get(AVR::POPWRd), Reg);
+  }
+
+  // Emit special epilogue code to restore R1, R0 and SREG in interrupt/signal
+  // handlers at the very end of the function, just before reti.
+  if (isHandler)
+  {
+    BuildMI(MBB, MI, DL, TII.get(AVR::POPRd), AVR::R0);
+    //:TODO: out __SREG__, r0
+    BuildMI(MBB, MI, DL, TII.get(AVR::POPWRd), AVR::R1R0);
   }
 
   return true;
