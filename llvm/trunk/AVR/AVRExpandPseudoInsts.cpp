@@ -713,11 +713,13 @@ bool AVRExpandPseudo::expandMI(MachineBasicBlock &MBB,
       OpHi = AVR::STSKRr;
       splitRegs(TRI, SrcReg, SrcLoReg, SrcHiReg);
 
-      MachineInstrBuilder MIBLO =
-        BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(OpLo));
-
+      // Write the high byte first in case this address belongs to a special
+      // I/O address with a special temporary register.
       MachineInstrBuilder MIBHI =
         BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(OpHi));
+
+      MachineInstrBuilder MIBLO =
+        BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(OpLo));
 
       if (MI.getOperand(0).isGlobal())
       {
@@ -753,6 +755,7 @@ bool AVRExpandPseudo::expandMI(MachineBasicBlock &MBB,
       OpHi = AVR::STDPtrQRr;
       splitRegs(TRI, SrcReg, SrcLoReg, SrcHiReg);
 
+      //:TODO: need to reverse this order like inw and stsw?
       MachineInstrBuilder MIBLO =
         BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(OpLo))
           .addReg(DstReg)
@@ -855,6 +858,57 @@ bool AVRExpandPseudo::expandMI(MachineBasicBlock &MBB,
           .addReg(DstReg, getKillRegState(DstIsKill))
           .addImm(Imm + 1)
           .addReg(SrcHiReg, getKillRegState(SrcIsKill));
+
+      MIBLO->setMemRefs(MI.memoperands_begin(), MI.memoperands_end());
+      MIBHI->setMemRefs(MI.memoperands_begin(), MI.memoperands_end());
+
+      MI.eraseFromParent();
+      return true;
+    }
+  case AVR::INWRdA:
+    {
+      unsigned Imm = MI.getOperand(1).getImm();
+      unsigned DstReg = MI.getOperand(0).getReg();
+      bool DstIsDead = MI.getOperand(0).isDead();
+      OpLo = AVR::INRdA;
+      OpHi = AVR::INRdA;
+      splitRegs(TRI, DstReg, DstLoReg, DstHiReg);
+
+      MachineInstrBuilder MIBLO =
+        BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(OpLo))
+          .addReg(DstLoReg, RegState::Define | getDeadRegState(DstIsDead))
+          .addImm(Imm);
+
+      MachineInstrBuilder MIBHI =
+        BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(OpHi))
+          .addReg(DstHiReg, RegState::Define | getDeadRegState(DstIsDead))
+          .addImm(Imm + 1);
+
+      MIBLO->setMemRefs(MI.memoperands_begin(), MI.memoperands_end());
+      MIBHI->setMemRefs(MI.memoperands_begin(), MI.memoperands_end());
+
+      MI.eraseFromParent();
+      return true;
+    }
+  case AVR::OUTWARr:
+    {
+      unsigned Imm = MI.getOperand(0).getImm();
+      unsigned SrcReg = MI.getOperand(1).getReg();
+      bool SrcIsKill = MI.getOperand(1).isKill();
+      OpLo = AVR::OUTARr;
+      OpHi = AVR::OUTARr;
+      splitRegs(TRI, SrcReg, SrcLoReg, SrcHiReg);
+
+      // 16 bit I/O writes need the high byte first
+      MachineInstrBuilder MIBHI =
+        BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(OpHi))
+          .addImm(Imm + 1)
+          .addReg(SrcHiReg, getKillRegState(SrcIsKill));
+
+      MachineInstrBuilder MIBLO =
+        BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(OpLo))
+          .addImm(Imm)
+          .addReg(SrcLoReg, getKillRegState(SrcIsKill));
 
       MIBLO->setMemRefs(MI.memoperands_begin(), MI.memoperands_end());
       MIBHI->setMemRefs(MI.memoperands_begin(), MI.memoperands_end());
@@ -1071,6 +1125,27 @@ bool AVRExpandPseudo::expandMI(MachineBasicBlock &MBB,
           .addReg(DstHiReg, RegState::Kill);
 
       if (ImpIsDead) EOR->getOperand(3).setIsDead();
+
+      MI.eraseFromParent();
+      return true;
+    }
+  case AVR::SPLOAD:
+    {
+      unsigned DstReg = MI.getOperand(0).getReg();
+      bool DstIsDead = MI.getOperand(0).isDead();
+      OpLo = AVR::INRdA;
+      OpHi = AVR::INRdA;
+      splitRegs(TRI, DstReg, DstLoReg, DstHiReg);
+
+      MachineInstrBuilder MIBLO =
+        BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(OpLo))
+          .addReg(DstLoReg, RegState::Define | getDeadRegState(DstIsDead))
+          .addImm(0x3d);
+
+      MachineInstrBuilder MIBHI =
+        BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(OpHi))
+          .addReg(DstHiReg, RegState::Define | getDeadRegState(DstIsDead))
+          .addImm(0x3e);
 
       MI.eraseFromParent();
       return true;

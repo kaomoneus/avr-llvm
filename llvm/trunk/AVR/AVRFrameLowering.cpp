@@ -47,7 +47,8 @@ void AVRFrameLowering::emitPrologue(MachineFunction &MF) const
   // Interrupt handlers re-enable interrupts in function entry.
   if (CallConv == CallingConv::AVR_INTR)
   {
-    //:TODO: emit sei here
+    BuildMI(MBB, MBBI, dl, TII.get(AVR::SEI))
+      .setMIFlag(MachineInstr::FrameSetup);
   }
 
   // Emit special prologue code to save R1, R0 and SREG in interrupt/signal
@@ -57,7 +58,9 @@ void AVRFrameLowering::emitPrologue(MachineFunction &MF) const
     BuildMI(MBB, MBBI, dl, TII.get(AVR::PUSHWRr))
       .addReg(AVR::R1R0, RegState::Kill)
       .setMIFlag(MachineInstr::FrameSetup);
-    //:TODO: in r0, __SREG__
+    BuildMI(MBB, MBBI, dl, TII.get(AVR::INRdA), AVR::R0)
+      .addImm(0x3f)
+      .setMIFlag(MachineInstr::FrameSetup);
     BuildMI(MBB, MBBI, dl, TII.get(AVR::PUSHRr))
       .addReg(AVR::R0, RegState::Kill)
       .setMIFlag(MachineInstr::FrameSetup);
@@ -103,6 +106,25 @@ void AVRFrameLowering::emitPrologue(MachineFunction &MF) const
       .setMIFlag(MachineInstr::FrameSetup);
     // The SREG implicit def is dead.
     MI->getOperand(3).setIsDead();
+
+    // Write back R29R28 to SP and temporarily disable interrupts.
+    BuildMI(MBB, MBBI, dl, TII.get(AVR::INRdA), AVR::R0)
+      .addImm(0x3f)
+      .setMIFlag(MachineInstr::FrameSetup);
+    BuildMI(MBB, MBBI, dl, TII.get(AVR::CLI))
+      .setMIFlag(MachineInstr::FrameSetup);
+    BuildMI(MBB, MBBI, dl, TII.get(AVR::OUTARr))
+      .addImm(0x3e)
+      .addReg(AVR::R29)
+      .setMIFlag(MachineInstr::FrameSetup);
+    BuildMI(MBB, MBBI, dl, TII.get(AVR::OUTARr))
+      .addImm(0x3f)
+      .addReg(AVR::R0, RegState::Kill)
+      .setMIFlag(MachineInstr::FrameSetup);
+    BuildMI(MBB, MBBI, dl, TII.get(AVR::OUTARr))
+      .addImm(0x3d)
+      .addReg(AVR::R28)
+      .setMIFlag(MachineInstr::FrameSetup);
   }
 }
 
@@ -158,14 +180,25 @@ void AVRFrameLowering::emitEpilogue(MachineFunction &MF,
     FrameSize = -FrameSize;
   }
 
-  // Update Y with the new base value.
-  BuildMI(MBB, MBBI, dl, TII.get(AVR::SPLOAD), AVR::R29R28).addReg(AVR::SP);
-
   // Restore the frame pointer by doing FP += <size>.
   MachineInstr *MI = BuildMI(MBB, MBBI, dl, TII.get(Opcode), AVR::R29R28)
     .addReg(AVR::R29R28).addImm(FrameSize);
   // The SREG implicit def is dead.
   MI->getOperand(3).setIsDead();
+
+  // Write back R29R28 to SP and temporarily disable interrupts.
+  BuildMI(MBB, MBBI, dl, TII.get(AVR::INRdA), AVR::R0)
+    .addImm(0x3f);
+  BuildMI(MBB, MBBI, dl, TII.get(AVR::CLI));
+  BuildMI(MBB, MBBI, dl, TII.get(AVR::OUTARr))
+    .addImm(0x3e)
+    .addReg(AVR::R29);
+  BuildMI(MBB, MBBI, dl, TII.get(AVR::OUTARr))
+    .addImm(0x3f)
+    .addReg(AVR::R0, RegState::Kill);
+  BuildMI(MBB, MBBI, dl, TII.get(AVR::OUTARr))
+    .addImm(0x3d)
+    .addReg(AVR::R28);
 }
 
 // hasFP - Return true if the specified function should have a dedicated frame
@@ -259,7 +292,9 @@ restoreCalleeSavedRegisters(MachineBasicBlock &MBB,
   if (isHandler)
   {
     BuildMI(MBB, MI, DL, TII.get(AVR::POPRd), AVR::R0);
-    //:TODO: out __SREG__, r0
+    BuildMI(MBB, MI, DL, TII.get(AVR::OUTARr))
+      .addImm(0x3f)
+      .addReg(AVR::R0, RegState::Kill);
     BuildMI(MBB, MI, DL, TII.get(AVR::POPWRd), AVR::R1R0);
   }
 

@@ -89,6 +89,23 @@ def imm0_63_neg : PatLeaf<(imm),
 
 def uimm6 : PatLeaf<(imm), [{ return isUInt<6>(N->getZExtValue()); }]>;
 
+def ioaddr_XFORM : SDNodeXForm<imm,
+[{
+  return CurDAG->getTargetConstant((uint8_t)N->getZExtValue() - 0x20, MVT::i8);
+}]>;
+
+def ioaddr8 : PatLeaf<(imm),
+[{
+  uint64_t val = N->getZExtValue();
+  return val >= 0x20 && val < 0x60;
+}], ioaddr_XFORM>;
+
+def ioaddr16 : PatLeaf<(imm),
+[{
+  uint64_t val = N->getZExtValue();
+  return val >= 0x20 && val < 0x5f;
+}], ioaddr_XFORM>;
+
 // Address operand for reg+imm
 def memri : Operand<iPTR>
 {
@@ -344,11 +361,13 @@ def NOP             0000 0000 0000 0000
 let Defs = [SP, SREG],
 Uses = [SP] in
 {
+let mayStore = 1 in
 def ADJCALLSTACKDOWN : Pseudo<(outs),
                               (ins i32imm:$amt),
                               "#ADJCALLSTACKDOWN",
                               [(AVRcallseq_start timm:$amt)]>;
 
+let mayStore = 1 in
 def ADJCALLSTACKUP : Pseudo<(outs),
                             (ins i32imm:$amt1, DLDREGS:$src),
                             "#ADJCALLSTACKUP",
@@ -1031,10 +1050,27 @@ def ELPMrZpi        1001 000d dddd 0111
 
 def SPM             //:TODO:
 def SPMZpi
-
-def INra            1011 0AAd dddd AAAA ok
-def OUTar           1011 1AAd dddd AAAA ok
 */
+
+def INRdA : FIORdA<(outs GPR8:$dst),
+                   (ins i16imm:$src),
+                   "in\t$dst, $src",
+                   [(set GPR8:$dst, (load ioaddr8:$src))]>;
+
+def INWRdA : Pseudo<(outs DREGS:$dst),
+                    (ins i16imm:$src),
+                    "inw\t$dst, $src",
+                    [(set DREGS:$dst, (load ioaddr16:$src))]>;
+
+def OUTARr : FIOARr<(outs),
+                    (ins i16imm:$dst, GPR8:$src),
+                    "out\t$dst, $src",
+                    [(store GPR8:$src, ioaddr8:$dst)]>;
+
+def OUTWARr : Pseudo<(outs),
+                     (ins i16imm:$dst, DREGS:$src),
+                     "outw\t$dst, $src",
+                     [(store DREGS:$src, ioaddr16:$dst)]>;
 
 let Defs = [SP],
 Uses = [SP],
@@ -1181,9 +1217,40 @@ def BLDrb           1111 100d dddd 0bbb
 
 def BSETs           1001 0100 0sss 1000
 def BCLRs           1001 0100 1sss 1000 // probably all the todo below comes from here
+*/
 //:TODO: all SREG instr manipulation (SEC, CLC, SEN, etc...)
+/*
+  SEC
+  CLC
+  SEN
+  CLN
+  SEZ
+  CLZ
+ */
+
+def SEI : Pseudo<(outs),
+                 (ins),
+                 "sei",
+                 []>;
+
+def CLI : Pseudo<(outs),
+                 (ins),
+                 "cli",
+                 []>;
+
+/*
+  SES
+  CLS
+  SEV
+  CLV
+  SET
+  CLT
+  SEH
+  CLH
+ */
 
 // MCU control instructions
+/*
 def NOP             0000 0000 0000 0000
 */
 
@@ -1212,6 +1279,7 @@ def FRMIDX : Pseudo<(outs DLDREGS:$dst),
                     "frmidx\t$dst, $src, $src2",
                     []>;
 
+let mayLoad = 1 in
 def SPLOAD : Pseudo<(outs DLDREGS:$dst),
                     (ins DLDREGS:$src),
                     "spload\t$dst, $src",

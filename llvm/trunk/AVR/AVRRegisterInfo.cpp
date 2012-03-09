@@ -50,6 +50,7 @@ AVRRegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const
     AVR::R11R10, AVR::R9R8, AVR::R7R6, AVR::R5R4, AVR::R3R2, AVR::R1R0, 0
   };
 
+  //:TODO: someday convert this to use regmasks
   return ((F->getCallingConv() == CallingConv::AVR_INTR
            || F->getCallingConv() == CallingConv::AVR_SIGNAL) ?
           IntCalleeSavedRegs : CalleeSavedRegs);
@@ -78,29 +79,126 @@ void AVRRegisterInfo::
 eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBasicBlock &MBB,
                               MachineBasicBlock::iterator MI) const
 {
-  //:TODO: implement proper stack manipulation when we get IO and interrupt
-  // instrs. This code is just a place holder.
-    MachineInstr *Old = MI;
-  MachineInstr *New = 0;
-  uint64_t Amount = Old->getOperand(0).getImm();
-  if (!Amount) { MBB.erase(MI); return;}
+  const TargetFrameLowering *TFI = MF.getTarget().getFrameLowering();
+  const TargetRegisterInfo *TRI = MF.getTarget().getRegisterInfo();
+  DebugLoc dl = MI->getDebugLoc();
+  int Opcode = MI->getOpcode();
+  uint64_t Amount = MI->getOperand(0).getImm();
 
-      if (Old->getOpcode() == TII.getCallFrameSetupOpcode()) {
-        New = BuildMI(MF, Old->getDebugLoc(),
-                      TII.get(AVR::SBIWRdK), AVR::R29R28)
-          .addReg(AVR::R29R28).addImm(Amount);
-      } else {
-         New = BuildMI(MF, Old->getDebugLoc(),
-                        TII.get(AVR::ADIWRdK), AVR::R29R28)
-            .addReg(AVR::R29R28).addImm(Amount);
-      }
-      if (New) {
-        // The SRW implicit def is dead.
-        //New->getOperand(3).setIsDead();
+  // Turn the adjcallstackup instruction into a 'sbiw reg, <amt>' and the
+  // adjcallstackdown instruction into 'adiw reg, <amt>' also handle reading
+  // and writing SP from I/O space.
+  if (Amount != 0)
+  {
+    // We need to keep the stack aligned properly.  To do this, we round the
+    // amount of space needed for the outgoing arguments up to the next
+    // alignment boundary.
+    unsigned Align = TFI->getStackAlignment();
+    Amount = (Amount + Align - 1) / Align * Align;
 
-        // Replace the pseudo instruction with a new instruction...
-        MBB.insert(MI, New);
+    if (Opcode == TII.getCallFrameSetupOpcode())
+    {
+      // The next instruction after adjcallstackdown is a SPLOAD, first get the
+      // register it defines and then move the instruction to the start of
+      // sequence we are about to generate.
+      MachineBasicBlock::iterator SPLOAD = llvm::next(MI);
+      assert(SPLOAD->getOpcode() == AVR::SPLOAD
+             && "Expected a SPLOAD instruction");
+      unsigned DstReg = SPLOAD->getOperand(0).getReg();
+      MBB.erase(SPLOAD);
+      BuildMI(MBB, MI, dl, TII.get(AVR::SPLOAD), DstReg).addReg(AVR::SP);
+
+      // Select optimal opcode to adjust SP based on DstReg and the offset size
+      unsigned subOpcode;
+      switch (DstReg)
+      {
+      case AVR::R25R24:
+      case AVR::R27R26:
+      case AVR::R29R28:
+      case AVR::R31R30:
+        {
+          if (Amount < 64)
+          {
+            subOpcode = AVR::SBIWRdK;
+            break;
+          }
+          // Fallthru
+        }
+      default:
+        {
+          subOpcode = AVR::SUBIWRdK;
+          break;
+        }
       }
+
+      // Generate the real code that reads, modifies and then writes SP back
+      // to I/O space disabling temporarily interrupts.
+      MachineInstr *New = BuildMI(MBB, MI, dl, TII.get(subOpcode), DstReg)
+                            .addReg(DstReg, RegState::Kill)
+                            .addImm(Amount);
+      New->getOperand(3).setIsDead();
+      BuildMI(MBB, MI, dl, TII.get(AVR::INRdA), AVR::R0)
+        .addImm(0x3f);
+      BuildMI(MBB, MI, dl, TII.get(AVR::CLI));
+      BuildMI(MBB, MI, dl, TII.get(AVR::OUTARr))
+        .addImm(0x3e)
+        .addReg(TRI->getSubReg(DstReg, AVR::sub_hi));
+      BuildMI(MBB, MI, dl, TII.get(AVR::OUTARr))
+        .addImm(0x3f)
+        .addReg(AVR::R0, RegState::Kill);
+      BuildMI(MBB, MI, dl, TII.get(AVR::OUTARr))
+        .addImm(0x3d)
+        .addReg(TRI->getSubReg(DstReg, AVR::sub_lo));
+    }
+    else
+    {
+      assert(Opcode == TII.getCallFrameDestroyOpcode());
+      // Select optimal opcode to adjust SP based on DstReg and the offset size
+      unsigned addOpcode;
+      unsigned DstReg = MI->getOperand(1).getReg();
+      bool DstIsKill = MI->getOperand(1).isKill();
+      switch (DstReg)
+      {
+      case AVR::R25R24:
+      case AVR::R27R26:
+      case AVR::R29R28:
+      case AVR::R31R30:
+        {
+          if (Amount < 64)
+          {
+            addOpcode = AVR::ADIWRdK;
+            break;
+          }
+          // Fallthru
+        }
+      default:
+        {
+          addOpcode = AVR::SUBIWRdK;
+          Amount = -Amount;
+          break;
+        }
+      }
+
+      MachineInstr *New = BuildMI(MBB, MI, dl, TII.get(addOpcode), DstReg)
+                            .addReg(DstReg, RegState::Kill)
+                            .addImm(Amount);
+      New->getOperand(3).setIsDead();
+      BuildMI(MBB, MI, dl, TII.get(AVR::INRdA), AVR::R0)
+        .addImm(0x3f);
+      BuildMI(MBB, MI, dl, TII.get(AVR::CLI));
+      BuildMI(MBB, MI, dl, TII.get(AVR::OUTARr))
+        .addImm(0x3e)
+        .addReg(TRI->getSubReg(DstReg, AVR::sub_hi),
+                getKillRegState(DstIsKill));
+      BuildMI(MBB, MI, dl, TII.get(AVR::OUTARr))
+        .addImm(0x3f)
+        .addReg(AVR::R0, RegState::Kill);
+      BuildMI(MBB, MI, dl, TII.get(AVR::OUTARr))
+        .addImm(0x3d)
+        .addReg(TRI->getSubReg(DstReg, AVR::sub_lo),
+                getKillRegState(DstIsKill));
+      }
+  }
 
   MBB.erase(MI);
 }
@@ -169,6 +267,7 @@ void AVRRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
         // but check if it's the best thing to do.
         Opcode = AVR::SUBIWRdK;
         Offset = -Offset;
+        break;
       }
     }
 
