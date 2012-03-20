@@ -1,0 +1,202 @@
+Index: include/clang/Basic/DiagnosticSemaKinds.td
+===================================================================
+--- include/clang/Basic/DiagnosticSemaKinds.td	(revisión: 153046)
++++ include/clang/Basic/DiagnosticSemaKinds.td	(copia de trabajo)
+@@ -4454,6 +4454,16 @@
+   "reference to %select{__device__|__global__|__host__|__host__ __device__}0 "
+   "function %1 in %select{__device__|__global__|__host__|__host__ __device__}2 function">;
+ 
++def err_isr_has_arguments : Error<
++  "'%0' attribute only applies to functions with no arguments">;
++def err_isr_not_void_return : Error<
++  "'%0' attribute only applies to functions with a void return type">;
++def err_flash_variable_not_assignable : Error<
++  "flash variable is not assignable">;
++def err_flash_variable_requires_const : Error<
++  "flash variable requires const qualifier">;
++def err_flash_pointer_requires_const : Error<
++  "flash pointer datum requires a const qualifier">;
+ 
+ def err_cannot_pass_objc_interface_to_vararg : Error<
+   "cannot pass object with interface type %0 by-value through variadic "
+
+Index: lib/Sema/SemaDecl.cpp
+===================================================================
+--- lib/Sema/SemaDecl.cpp	(revisión: 153046)
++++ lib/Sema/SemaDecl.cpp	(copia de trabajo)
+@@ -4297,6 +4297,23 @@
+     return false;
+   }
+ 
++  // Emit an error when the variable being declared is stored in flash memory
++  // and it is not const qualified.
++  if (T.getAddressSpace() == 1 && !T.isConstQualified()) {
++    Diag(NewVD->getLocation(), diag::err_flash_variable_requires_const);
++    NewVD->setInvalidDecl();
++    return false;
++  }
++
++  // Emit an error when the pointee type of a pointer is not const qualified
++  // and points to flash memory.
++  if (T->isPointerType() && !T->getPointeeType().isConstQualified()
++      && T->getPointeeType().getAddressSpace() == 1) {
++    Diag(NewVD->getLocation(), diag::err_flash_pointer_requires_const);
++    NewVD->setInvalidDecl();
++    return false;
++  }
++
+   if (NewVD->hasLocalStorage() && T.isObjCGCWeak()
+       && !NewVD->hasAttr<BlocksAttr>()) {
+     if (getLangOpts().getGC() != LangOptions::NonGC)
+@@ -7100,8 +7117,16 @@
+   if (T.getAddressSpace() != 0) {
+     Diag(NameLoc, diag::err_arg_with_address_space);
+     New->setInvalidDecl();
+-  }   
++  }
+ 
++  // Emit an error when the pointee type of a pointer is not const qualified
++  // and points to flash memory.
++  if (T->isPointerType() && !T->getPointeeType().isConstQualified()
++      && T->getPointeeType().getAddressSpace() == 1) {
++    Diag(NameLoc, diag::err_flash_pointer_requires_const);
++    New->setInvalidDecl();
++  }
++
+   return New;
+ }
+ 
+===================================================================
+--- lib/Sema/SemaExpr.cpp	(revisión: 153046)
++++ lib/Sema/SemaExpr.cpp	(copia de trabajo)
+@@ -7165,8 +7165,17 @@
+     IsLV = Expr::MLV_Valid;
+   else if (IsLV == Expr::MLV_ClassTemporary && IsReadonlyMessage(E, S))
+     IsLV = Expr::MLV_InvalidMessageExpression;
+-  if (IsLV == Expr::MLV_Valid)
++  if (IsLV == Expr::MLV_Valid) {
++    // If everything is valid then check if the variable being assigned is
++    // stored in flash memory and emit an error if that is the case.
++    if (E->getType().getAddressSpace() == 1) {
++      SourceRange Assign;
++      S.Diag(Loc, diag::err_flash_variable_not_assignable)
++        << E->getSourceRange() << Assign;
++      return true;
++    }
+     return false;
++  }
+ 
+   unsigned Diag = 0;
+   bool NeedType = false;
+Index: lib/CodeGen/TargetInfo.cpp
+===================================================================
+--- lib/CodeGen/TargetInfo.cpp	(revisión: 153046)
++++ lib/CodeGen/TargetInfo.cpp	(copia de trabajo)
+@@ -3047,6 +3047,97 @@
+ 
+ 
+ //===----------------------------------------------------------------------===//
++// AVR ABI Implementation
++//===----------------------------------------------------------------------===//
++
++namespace {
++
++class AVRABIInfo : public ABIInfo
++{
++public:
++  AVRABIInfo(CodeGenTypes &CGT) : ABIInfo(CGT) {}
++
++  ABIArgInfo classifyReturnType(QualType RetTy) const;
++  ABIArgInfo classifyArgumentType(QualType RetTy) const;
++
++  virtual void computeInfo(CGFunctionInfo &FI) const {
++    FI.getReturnInfo() = classifyReturnType(FI.getReturnType());
++    for (CGFunctionInfo::arg_iterator it = FI.arg_begin(), ie = FI.arg_end();
++         it != ie; ++it)
++      it->info = classifyArgumentType(it->type);
++  }
++
++  virtual llvm::Value *EmitVAArg(llvm::Value *VAListAddr, QualType Ty,
++                                 CodeGenFunction &CGF) const;
++};
++
++class AVRTargetCodeGenInfo : public TargetCodeGenInfo
++{
++public:
++  AVRTargetCodeGenInfo(CodeGenTypes &CGT)
++    : TargetCodeGenInfo(new AVRABIInfo(CGT)) {}
++  void SetTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
++                           CodeGen::CodeGenModule &M) const;
++};
++
++}
++
++llvm::Value *AVRABIInfo::EmitVAArg(llvm::Value *VAListAddr, QualType Ty,
++                                   CodeGenFunction &CGF) const {
++  // FIXME: Implement
++  return 0;
++}
++
++
++ABIArgInfo AVRABIInfo::classifyReturnType(QualType RetTy) const {
++  if (RetTy->isVoidType())
++    return ABIArgInfo::getIgnore();
++  if (isAggregateTypeForABI(RetTy))
++    return ABIArgInfo::getIndirect(0);
++
++  return ABIArgInfo::getDirect();
++}
++
++ABIArgInfo AVRABIInfo::classifyArgumentType(QualType Ty) const {
++  if (isAggregateTypeForABI(Ty))
++    return ABIArgInfo::getIndirect(0);
++
++  return ABIArgInfo::getDirect();
++}
++
++void AVRTargetCodeGenInfo::SetTargetAttributes(const Decl *D,
++                                               llvm::GlobalValue *GV,
++                                               CodeGen::CodeGenModule &M) const{
++  if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(D)) {
++    if (llvm::Function *F = dyn_cast<llvm::Function>(GV)) {
++      if (FD->hasAttr<AVRSignalHandlerAttr>()) {
++        // Handle 'signal' attribute:
++
++        // Step 1: Set ISR calling convention.
++        // The 'interrupt' attribute overrides the 'signal' attribute
++        if (FD->hasAttr<AVRInterruptHandlerAttr>())
++          F->setCallingConv(llvm::CallingConv::AVR_INTR);
++        else
++          F->setCallingConv(llvm::CallingConv::AVR_SIGNAL);
++      } else if (FD->hasAttr<AVRInterruptHandlerAttr>()) {
++        // Handle 'interrupt' attribute:
++
++        // Step 1: Set ISR calling convention.
++        F->setCallingConv(llvm::CallingConv::AVR_INTR);
++      }
++
++      // Step 2: Add attributes goodness.
++      F->addFnAttr(llvm::Attribute::NoInline);
++    }
++  } else
++    // Global variables that do not belong to the generic address space and
++    // have common linkage are set to have external linkage.
++    if ((GV->getType()->getAddressSpace() != 0)
++        && (GV->getLinkage() == llvm::GlobalValue::CommonLinkage))
++      GV->setLinkage(llvm::GlobalValue::ExternalLinkage);
++}
++
++//===----------------------------------------------------------------------===//
+ // MSP430 ABI Implementation
+ //===----------------------------------------------------------------------===//
+ 
+@@ -3638,6 +3729,9 @@
+   case llvm::Triple::mblaze:
+     return *(TheTargetCodeGenInfo = new MBlazeTargetCodeGenInfo(Types));
+ 
++  case llvm::Triple::avr:
++    return *(TheTargetCodeGenInfo = new AVRTargetCodeGenInfo(Types));
++
+   case llvm::Triple::msp430:
+     return *(TheTargetCodeGenInfo = new MSP430TargetCodeGenInfo(Types));
+ 
