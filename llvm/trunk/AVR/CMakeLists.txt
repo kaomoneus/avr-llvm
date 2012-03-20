@@ -21,6 +21,7 @@ add_llvm_target(AVRCodeGen
   AVRSelectionDAGInfo.cpp
   AVRSubtarget.cpp
   AVRTargetMachine.cpp
+  AVRTargetObjectFile.cpp
   )
 
 add_subdirectory(InstPrinter)

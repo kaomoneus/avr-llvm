@@ -15,6 +15,7 @@
 #include "AVR.h"
 #include "AVRISelLowering.h"
 #include "AVRTargetMachine.h"
+#include "AVRTargetObjectFile.h"
 #include "llvm/Function.h"
 #include "llvm/CodeGen/CallingConvLower.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
@@ -27,7 +28,7 @@
 using namespace llvm;
 
 AVRTargetLowering::AVRTargetLowering(AVRTargetMachine &tm) :
-  TargetLowering(tm, new TargetLoweringObjectFileELF()), TM(tm)
+  TargetLowering(tm, new AVRTargetObjectFile()), TM(tm)
 {
   TD = getTargetData();
 
@@ -489,6 +490,12 @@ bool AVRTargetLowering::isLegalAddressingMode(const AddrMode &AM,
     return true;
   }
 
+  // flash memory instructions only allow zero offsets
+  if (isa<PointerType>(Ty) && Ty->getPointerAddressSpace() == 1)
+  {
+    return false;
+  }
+
   // allow reg+<6bit> offset.
   if (Offs < 0) Offs = -Offs;
   if (AM.BaseGV == 0 && AM.HasBaseReg && AM.Scale == 0 && isUInt<6>(Offs))
@@ -515,11 +522,19 @@ bool AVRTargetLowering::getPreIndexedAddressParts(SDNode *N, SDValue &Base,
     VT = LD->getMemoryVT();
     Op = LD->getBasePtr().getNode();
     if (LD->getExtensionType() != ISD::NON_EXTLOAD) return false;
+    if (cast<PointerType>(LD->getSrcValue()->getType())->getAddressSpace() == 1)
+    {
+      return false;
+    }
   }
   else if (StoreSDNode *ST = dyn_cast<StoreSDNode>(N))
   {
     VT = ST->getMemoryVT();
     Op = ST->getBasePtr().getNode();
+    if (cast<PointerType>(ST->getSrcValue()->getType())->getAddressSpace() == 1)
+    {
+      return false;
+    }
   }
   else
   {
@@ -568,12 +583,16 @@ bool AVRTargetLowering::getPostIndexedAddressParts(SDNode *N, SDNode *Op,
 
   if (LoadSDNode *LD = dyn_cast<LoadSDNode>(N))
   {
-    VT  = LD->getMemoryVT();
+    VT = LD->getMemoryVT();
     if (LD->getExtensionType() != ISD::NON_EXTLOAD) return false;
   }
   else if (StoreSDNode *ST = dyn_cast<StoreSDNode>(N))
   {
-    VT  = ST->getMemoryVT();
+    VT = ST->getMemoryVT();
+    if (cast<PointerType>(ST->getSrcValue()->getType())->getAddressSpace() == 1)
+    {
+      return false;
+    }
   }
   else
   {
@@ -664,12 +683,12 @@ static void AnalyzeArguments(const Function *F, const TargetData *TD,
                              SmallVectorImpl<CCValAssign> &ArgLocs,
                              CCState &CCInfo, bool IsCall)
 {
-  static const unsigned RegList8[] =
+  static const uint16_t RegList8[] =
   {
     AVR::R24, AVR::R22, AVR::R20, AVR::R18, AVR::R16, AVR::R14, AVR::R12,
     AVR::R10, AVR::R8
   };
-  static const unsigned RegList16[] =
+  static const uint16_t RegList16[] =
   {
     AVR::R25R24, AVR::R23R22, AVR::R21R20, AVR::R19R18, AVR::R17R16,
     AVR::R15R14, AVR::R13R12, AVR::R11R10, AVR::R9R8
@@ -695,7 +714,7 @@ static void AnalyzeArguments(const Function *F, const TargetData *TD,
     // If we have plenty of regs to pass the whole argument do it
     if (!UsesStack && (Size <= RegsLeft))
     {
-      const unsigned *RegList = (LocVT == MVT::i16) ? RegList16 : RegList8;
+      const uint16_t *RegList = (LocVT == MVT::i16) ? RegList16 : RegList8;
 
       for (unsigned j = 0; j != Size; ++j)
       {
