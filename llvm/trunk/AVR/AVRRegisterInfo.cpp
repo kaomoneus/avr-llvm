@@ -11,9 +11,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "AVRRegisterInfo.h"
 #include "AVR.h"
 #include "AVRInstrInfo.h"
-#include "AVRRegisterInfo.h"
 #include "llvm/Function.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"

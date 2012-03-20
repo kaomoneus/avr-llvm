@@ -12,8 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "AVR.h"
 #include "AVRISelLowering.h"
+#include "AVR.h"
 #include "AVRTargetMachine.h"
 #include "AVRTargetObjectFile.h"
 #include "llvm/Function.h"

@@ -14,8 +14,8 @@
 #ifndef __INCLUDE_AVRINSTRINFO_H__
 #define __INCLUDE_AVRINSTRINFO_H__
 
-#include "llvm/Target/TargetInstrInfo.h"
 #include "AVRRegisterInfo.h"
+#include "llvm/Target/TargetInstrInfo.h"
 
 #define GET_INSTRINFO_HEADER
 #include "AVRGenInstrInfo.inc"

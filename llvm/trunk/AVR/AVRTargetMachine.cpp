@@ -11,8 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "AVR.h"
 #include "AVRTargetMachine.h"
+#include "AVR.h"
 #include "llvm/PassManager.h"
 #include "llvm/CodeGen/RegAllocRegistry.h"
 #include "llvm/Support/TargetRegistry.h"

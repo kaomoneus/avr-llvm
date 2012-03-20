@@ -11,8 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "AVR.h"
 #include "AVRFrameLowering.h"
+#include "AVR.h"
 #include "AVRInstrInfo.h"
 #include "AVRMachineFunctionInfo.h"
 #include "llvm/Function.h"
