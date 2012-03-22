@@ -17,9 +17,7 @@
 namespace llvm
 {
 
-class MCSubtargetInfo;
 class Target;
-class StringRef;
 
 extern Target TheAVRTarget;
 
