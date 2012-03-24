@@ -184,19 +184,26 @@ bool AVRExpandPseudo::expandMI(MachineBasicBlock &MBB,
           .addReg(DstHiReg, RegState::Define | getDeadRegState(DstIsDead))
           .addReg(DstHiReg, getKillRegState(SrcIsKill));
 
-      if (MI.getOperand(2).isGlobal())
+      switch (MI.getOperand(2).getType())
       {
-        const GlobalValue *GV = MI.getOperand(2).getGlobal();
-        int64_t Offs = MI.getOperand(2).getOffset();
-        unsigned TF = MI.getOperand(2).getTargetFlags();
-        MIBLO.addGlobalAddress(GV, Offs, TF | AVRII::MO_NEG | AVRII::MO_LO);
-        MIBHI.addGlobalAddress(GV, Offs, TF | AVRII::MO_NEG | AVRII::MO_HI);
-      }
-      else
-      {
-        unsigned Imm = MI.getOperand(2).getImm();
-        MIBLO.addImm(Imm & 0xff);
-        MIBHI.addImm((Imm >> 8) & 0xff);
+      case MachineOperand::MO_GlobalAddress:
+        {
+          const GlobalValue *GV = MI.getOperand(2).getGlobal();
+          int64_t Offs = MI.getOperand(2).getOffset();
+          unsigned TF = MI.getOperand(2).getTargetFlags();
+          MIBLO.addGlobalAddress(GV, Offs, TF | AVRII::MO_NEG | AVRII::MO_LO);
+          MIBHI.addGlobalAddress(GV, Offs, TF | AVRII::MO_NEG | AVRII::MO_HI);
+          break;
+        }
+      case MachineOperand::MO_Immediate:
+        {
+          unsigned Imm = MI.getOperand(2).getImm();
+          MIBLO.addImm(Imm & 0xff);
+          MIBHI.addImm((Imm >> 8) & 0xff);
+          break;
+        }
+      default:
+        llvm_unreachable("Unknown operand type!");
       }
 
       if (ImpIsDead) MIBHI->getOperand(3).setIsDead();
@@ -537,19 +544,34 @@ bool AVRExpandPseudo::expandMI(MachineBasicBlock &MBB,
         BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(OpHi))
           .addReg(DstHiReg, RegState::Define | getDeadRegState(DstIsDead));
 
-      if (MI.getOperand(1).isGlobal())
+      switch (MI.getOperand(1).getType())
       {
-        const GlobalValue *GV = MI.getOperand(1).getGlobal();
-        int64_t Offs = MI.getOperand(1).getOffset();
-        unsigned TF = MI.getOperand(1).getTargetFlags();
-        MIBLO.addGlobalAddress(GV, Offs, TF | AVRII::MO_LO);
-        MIBHI.addGlobalAddress(GV, Offs, TF | AVRII::MO_HI);
-      }
-      else
-      {
-        unsigned Imm = MI.getOperand(1).getImm();
-        MIBLO.addImm(Imm & 0xff);
-        MIBHI.addImm((Imm >> 8) & 0xff);
+      case MachineOperand::MO_GlobalAddress:
+        {
+          const GlobalValue *GV = MI.getOperand(1).getGlobal();
+          int64_t Offs = MI.getOperand(1).getOffset();
+          unsigned TF = MI.getOperand(1).getTargetFlags();
+          MIBLO.addGlobalAddress(GV, Offs, TF | AVRII::MO_LO);
+          MIBHI.addGlobalAddress(GV, Offs, TF | AVRII::MO_HI);
+          break;
+        }
+      case MachineOperand::MO_BlockAddress:
+        {
+          const BlockAddress *BA = MI.getOperand(1).getBlockAddress();
+          unsigned TF = MI.getOperand(1).getTargetFlags();
+          MIBLO.addOperand(MachineOperand::CreateBA(BA, TF | AVRII::MO_LO));
+          MIBHI.addOperand(MachineOperand::CreateBA(BA, TF | AVRII::MO_HI));
+          break;
+        }
+      case MachineOperand::MO_Immediate:
+        {
+          unsigned Imm = MI.getOperand(1).getImm();
+          MIBLO.addImm(Imm & 0xff);
+          MIBHI.addImm((Imm >> 8) & 0xff);
+          break;
+        }
+      default:
+        llvm_unreachable("Unknown operand type!");
       }
 
       MI.eraseFromParent();
@@ -571,19 +593,26 @@ bool AVRExpandPseudo::expandMI(MachineBasicBlock &MBB,
         BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(OpHi))
           .addReg(DstHiReg, RegState::Define | getDeadRegState(DstIsDead));
 
-      if (MI.getOperand(1).isGlobal())
+      switch (MI.getOperand(1).getType())
       {
-        const GlobalValue *GV = MI.getOperand(1).getGlobal();
-        int64_t Offs = MI.getOperand(1).getOffset();
-        unsigned TF = MI.getOperand(1).getTargetFlags();
-        MIBLO.addGlobalAddress(GV, Offs, TF);
-        MIBHI.addGlobalAddress(GV, Offs + 1, TF);
-      }
-      else
-      {
-        unsigned Imm = MI.getOperand(1).getImm();
-        MIBLO.addImm(Imm);
-        MIBHI.addImm(Imm + 1);
+      case MachineOperand::MO_GlobalAddress:
+        {
+          const GlobalValue *GV = MI.getOperand(1).getGlobal();
+          int64_t Offs = MI.getOperand(1).getOffset();
+          unsigned TF = MI.getOperand(1).getTargetFlags();
+          MIBLO.addGlobalAddress(GV, Offs, TF);
+          MIBHI.addGlobalAddress(GV, Offs + 1, TF);
+          break;
+        }
+      case MachineOperand::MO_Immediate:
+        {
+          unsigned Imm = MI.getOperand(1).getImm();
+          MIBLO.addImm(Imm);
+          MIBHI.addImm(Imm + 1);
+          break;
+        }
+      default:
+        llvm_unreachable("Unknown operand type!");
       }
 
       MIBLO->setMemRefs(MI.memoperands_begin(), MI.memoperands_end());
@@ -721,19 +750,26 @@ bool AVRExpandPseudo::expandMI(MachineBasicBlock &MBB,
       MachineInstrBuilder MIBLO =
         BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(OpLo));
 
-      if (MI.getOperand(0).isGlobal())
+      switch (MI.getOperand(0).getType())
       {
-        const GlobalValue *GV = MI.getOperand(0).getGlobal();
-        int64_t Offs = MI.getOperand(0).getOffset();
-        unsigned TF = MI.getOperand(0).getTargetFlags();
-        MIBLO.addGlobalAddress(GV, Offs, TF);
-        MIBHI.addGlobalAddress(GV, Offs + 1, TF);
-      }
-      else
-      {
-        unsigned Imm = MI.getOperand(0).getImm();
-        MIBLO.addImm(Imm);
-        MIBHI.addImm(Imm + 1);
+      case MachineOperand::MO_GlobalAddress:
+        {
+          const GlobalValue *GV = MI.getOperand(0).getGlobal();
+          int64_t Offs = MI.getOperand(0).getOffset();
+          unsigned TF = MI.getOperand(0).getTargetFlags();
+          MIBLO.addGlobalAddress(GV, Offs, TF);
+          MIBHI.addGlobalAddress(GV, Offs + 1, TF);
+          break;
+        }
+      case MachineOperand::MO_Immediate:
+        {
+          unsigned Imm = MI.getOperand(0).getImm();
+          MIBLO.addImm(Imm);
+          MIBHI.addImm(Imm + 1);
+          break;
+        }
+      default:
+        llvm_unreachable("Unknown operand type!");
       }
 
       MIBLO.addReg(SrcLoReg, getKillRegState(SrcIsKill));

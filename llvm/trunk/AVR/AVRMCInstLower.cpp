@@ -92,6 +92,10 @@ void AVRMCInstLower::Lower(const MachineInstr *MI, MCInst &OutMI) const
       break;
     case MachineOperand::MO_RegisterMask:
       continue;
+    case MachineOperand::MO_BlockAddress:
+      MCOp = LowerSymbolOperand(MO,
+               Printer.GetBlockAddressSymbol(MO.getBlockAddress()));
+      break;
       //:FIXME: readd this when needed
       /*
       case MachineOperand::MO_JumpTableIndex:
@@ -99,10 +103,6 @@ void AVRMCInstLower::Lower(const MachineInstr *MI, MCInst &OutMI) const
         break;
       case MachineOperand::MO_ConstantPoolIndex:
         MCOp = LowerSymbolOperand(MO, AsmPrinter.GetCPISymbol(MO.getIndex()));
-        break;
-      case MachineOperand::MO_BlockAddress:
-        MCOp = LowerSymbolOperand(MO,
-                      AsmPrinter.GetBlockAddressSymbol(MO.getBlockAddress()));
         break;*/
     }
 

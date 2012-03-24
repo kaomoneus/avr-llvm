@@ -687,8 +687,18 @@ def RJMPk : Pseudo<(outs),
                    "rjmp\t$target",
                    [(br bb:$target)]>;
 
+let isBranch = 1,
+isTerminator = 1,
+isBarrier = 1,
+isIndirectBranch = 1,
+Uses = [R31R30] in
+def IJMP : FBR<0b1001010000001001,
+               (outs),
+               (ins),
+               "ijmp",
+               []>;
+
 /*
-def IJMP            1001 0100 0000 1001 ok
 def JMPi            1001 010k kkkk 110k kkkk kkkk kkkk kkkk
 def RCALLi          1101 kkkk kkkk kkkk ok
 */
@@ -704,7 +714,8 @@ let isCall = 1 in
     def ICALL : FBR<0b1001010100001001,
                     (outs),
                     (ins variable_ops),
-                    "icall", []>;
+                    "icall",
+                    []>;
   }
 
 /*
@@ -1414,3 +1425,7 @@ def : Pat<(store GPR8:$src, (i16 (AVRWrapper tglobaladdr:$dst))),
           (STSKRr tglobaladdr:$dst, GPR8:$src)>;
 def : Pat<(store DREGS:$src, (i16 (AVRWrapper tglobaladdr:$dst))),
           (STSWKRr tglobaladdr:$dst, DREGS:$src)>;
+
+// BlockAddress
+def : Pat<(i16 (AVRWrapper tblockaddress:$dst)),
+          (LDIWRdK tblockaddress:$dst)>;

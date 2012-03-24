@@ -312,6 +312,19 @@ SDNode *AVRDAGToDAGISel::Select(SDNode *N)
 
       return ResNode;
     }
+  case ISD::BRIND:
+    {
+      // Move the destination address of the indirect branch into R31R30.
+      SDValue Chain = N->getOperand(0);
+      SDValue JmpAddr = N->getOperand(1);
+
+      Chain = CurDAG->getCopyToReg(Chain, dl, AVR::R31R30, JmpAddr);
+      SDNode *ResNode = CurDAG->getMachineNode(AVR::IJMP, dl, MVT::Other,Chain);
+
+      ReplaceUses(SDValue(N, 0), SDValue(ResNode, 0));
+
+      return ResNode;
+    }
   }
 
   SDNode *ResNode = SelectCode(N);

@@ -44,6 +44,7 @@ AVRTargetLowering::AVRTargetLowering(AVRTargetMachine &tm) :
   setSchedulingPreference(Sched::RegPressure);
 
   setOperationAction(ISD::GlobalAddress, getPointerTy(), Custom);
+  setOperationAction(ISD::BlockAddress, getPointerTy(), Custom);
 
   setLoadExtAction(ISD::EXTLOAD, MVT::i8, Expand);
   setLoadExtAction(ISD::SEXTLOAD, MVT::i8, Expand);
@@ -83,6 +84,9 @@ AVRTargetLowering::AVRTargetLowering(AVRTargetMachine &tm) :
   setIndexedStoreAction(ISD::POST_INC, MVT::i16, Legal);
   setIndexedStoreAction(ISD::PRE_DEC, MVT::i8, Legal);
   setIndexedStoreAction(ISD::PRE_DEC, MVT::i16, Legal);
+
+  // :TODO: for now, we don't support jump tables
+  setOperationAction(ISD::BR_JT, MVT::Other, Expand);
 
   setMinFunctionAlignment(1);
 }
@@ -174,6 +178,16 @@ AVRTargetLowering::LowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const
   // Create the TargetGlobalAddress node, folding in the constant offset.
   SDValue Result = DAG.getTargetGlobalAddress(GV, Op.getDebugLoc(),
                                               getPointerTy(), Offset);
+  return DAG.getNode(AVRISD::Wrapper, Op.getDebugLoc(), getPointerTy(), Result);
+}
+
+SDValue
+AVRTargetLowering::LowerBlockAddress(SDValue Op, SelectionDAG &DAG) const
+{
+  const BlockAddress *BA = cast<BlockAddressSDNode>(Op)->getBlockAddress();
+
+  SDValue Result = DAG.getBlockAddress(BA, getPointerTy(), /*isTarget=*/true);
+
   return DAG.getNode(AVRISD::Wrapper, Op.getDebugLoc(), getPointerTy(), Result);
 }
 
@@ -439,6 +453,8 @@ SDValue AVRTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const
     return LowerShifts(Op, DAG);
   case ISD::GlobalAddress:
     return LowerGlobalAddress(Op, DAG);
+  case ISD::BlockAddress:
+    return LowerBlockAddress(Op, DAG);
   case ISD::BR_CC:
     return LowerBR_CC(Op, DAG);
   case ISD::SELECT_CC:
