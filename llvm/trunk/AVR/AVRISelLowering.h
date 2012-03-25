@@ -43,6 +43,10 @@ namespace AVRISD
     ASR,
     ROR,
     ROL,
+    /// Non-constant shifts.
+    LSLLOOP,
+    LSRLOOP,
+    ASRLOOP,
     /// Load SP to a physical reg from I/O space, it is a
     /// normal load but with in and out glue operands.
     SPLOAD,
@@ -109,6 +113,8 @@ public: // TargetLowering
 
   MachineBasicBlock *EmitInstrWithCustomInserter(MachineInstr *MI,
                                                  MachineBasicBlock *MBB) const;
+  MachineBasicBlock *EmitShiftInstr(MachineInstr *MI,
+                                    MachineBasicBlock *BB) const;
 private:
   SDValue getAVRCmp(SDValue LHS, SDValue RHS, ISD::CondCode CC, SDValue &AVRcc,
                     SelectionDAG &DAG, DebugLoc dl) const;

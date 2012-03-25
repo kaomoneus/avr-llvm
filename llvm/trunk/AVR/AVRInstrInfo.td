@@ -61,11 +61,17 @@ def AVRcmpc : SDNode<"AVRISD::CMPC", SDT_AVRCmp, [SDNPInGlue, SDNPOutGlue]>;
 def AVRtst : SDNode<"AVRISD::TST", SDT_AVRTst, [SDNPOutGlue]>;
 def AVRselectcc: SDNode<"AVRISD::SELECT_CC", SDT_AVRSelectCC, [SDNPInGlue]>;
 
+// shift nodes
 def AVRlsl : SDNode<"AVRISD::LSL", SDTIntUnaryOp>;
 def AVRlsr : SDNode<"AVRISD::LSR", SDTIntUnaryOp>;
 def AVRrol : SDNode<"AVRISD::ROL", SDTIntUnaryOp>;
 def AVRror : SDNode<"AVRISD::ROR", SDTIntUnaryOp>;
 def AVRasr : SDNode<"AVRISD::ASR", SDTIntUnaryOp>;
+
+// pseudo shift nodes for non-constant shift amounts
+def AVRlslLoop : SDNode<"AVRISD::LSLLOOP", SDTIntShiftOp>;
+def AVRlsrLoop : SDNode<"AVRISD::LSRLOOP", SDTIntShiftOp>;
+def AVRasrLoop : SDNode<"AVRISD::ASRLOOP", SDTIntShiftOp>;
 
 //===----------------------------------------------------------------------===//
 // AVR Operands, Complex Patterns and Transformations Definitions.
@@ -1339,16 +1345,51 @@ def SPLOAD : Pseudo<(outs DLDREGS:$dst),
 
 let usesCustomInserter = 1 in
 {
+  let Uses = [SREG] in
   def Select8 : Pseudo<(outs GPR8:$dst),
                        (ins GPR8:$src, GPR8:$src2, i8imm:$cc),
                        "# Select8 PSEUDO",
                        [(set GPR8:$dst,
                         (AVRselectcc GPR8:$src, GPR8:$src2, imm:$cc))]>;
+  let Uses = [SREG] in
   def Select16 : Pseudo<(outs DREGS:$dst),
                         (ins DREGS:$src, DREGS:$src2, i8imm:$cc),
                         "# Select16 PSEUDO",
                         [(set DREGS:$dst,
                          (AVRselectcc DREGS:$src, DREGS:$src2, imm:$cc))]>;
+
+  let Defs = [SREG] in
+  def Lsl8 : Pseudo<(outs GPR8:$dst),
+                    (ins GPR8:$src, GPR8:$cnt),
+                    "# Lsl8 PSEUDO",
+                    [(set GPR8:$dst, (AVRlslLoop GPR8:$src, GPR8:$cnt))]>;
+  let Defs = [SREG] in
+  def Lsl16 : Pseudo<(outs DREGS:$dst),
+                     (ins DREGS:$src, GPR8:$cnt),
+                     "# Lsl16 PSEUDO",
+                     [(set DREGS:$dst, (AVRlslLoop DREGS:$src, GPR8:$cnt))]>;
+
+  let Defs = [SREG] in
+  def Lsr8 : Pseudo<(outs GPR8:$dst),
+                    (ins GPR8:$src, GPR8:$cnt),
+                    "# Lsr8 PSEUDO",
+                    [(set GPR8:$dst, (AVRlsrLoop GPR8:$src, GPR8:$cnt))]>;
+  let Defs = [SREG] in
+  def Lsr16 : Pseudo<(outs DREGS:$dst),
+                     (ins DREGS:$src, GPR8:$cnt),
+                     "# Lsr16 PSEUDO",
+                     [(set DREGS:$dst, (AVRlsrLoop DREGS:$src, GPR8:$cnt))]>;
+
+  let Defs = [SREG] in
+  def Asr8 : Pseudo<(outs GPR8:$dst),
+                    (ins GPR8:$src, GPR8:$cnt),
+                    "# Asr8 PSEUDO",
+                    [(set GPR8:$dst, (AVRasrLoop GPR8:$src, GPR8:$cnt))]>;
+  let Defs = [SREG] in
+  def Asr16 : Pseudo<(outs DREGS:$dst),
+                     (ins DREGS:$src, GPR8:$cnt),
+                     "# Asr16 PSEUDO",
+                     [(set DREGS:$dst, (AVRasrLoop DREGS:$src, GPR8:$cnt))]>;
 }
 
 //===----------------------------------------------------------------------===//

@@ -105,6 +105,9 @@ const char *AVRTargetLowering::getTargetNodeName(unsigned Opcode) const
   case AVRISD::ROL:                           return "AVRISD::ROL";
   case AVRISD::ROR:                           return "AVRISD::ROR";
   case AVRISD::ASR:                           return "AVRISD::ASR";
+  case AVRISD::LSLLOOP:                       return "AVRISD::LSLLOOP";
+  case AVRISD::LSRLOOP:                       return "AVRISD::LSRLOOP";
+  case AVRISD::ASRLOOP:                       return "AVRISD::ASRLOOP";
   case AVRISD::SPLOAD:                        return "AVRISD::SPLOAD";
   case AVRISD::BRCOND:                        return "AVRISD::BRCOND";
   case AVRISD::CMP:                           return "AVRISD::CMP";
@@ -137,6 +140,26 @@ SDValue AVRTargetLowering::LowerShifts(SDValue Op, SelectionDAG &DAG) const
   const SDNode *N = Op.getNode();
   EVT VT = Op.getValueType();
   DebugLoc dl = N->getDebugLoc();
+
+  // Expand non-constant shifts to loops.
+  if (!isa<ConstantSDNode>(N->getOperand(1)))
+  {
+    switch (Op.getOpcode())
+    {
+    default:
+      llvm_unreachable("Invalid shift opcode!");
+    case ISD::SHL:
+      return DAG.getNode(AVRISD::LSLLOOP, dl, VT, N->getOperand(0),
+                         N->getOperand(1));
+    case ISD::SRL:
+      return DAG.getNode(AVRISD::LSRLOOP, dl, VT, N->getOperand(0),
+                         N->getOperand(1));
+    case ISD::SRA:
+      return DAG.getNode(AVRISD::ASRLOOP, dl, VT, N->getOperand(0),
+                         N->getOperand(1));
+    }
+  }
+
   uint64_t ShiftAmount = cast<ConstantSDNode>(N->getOperand(1))->getZExtValue();
   SDValue Victim = N->getOperand(0);
 
@@ -1153,11 +1176,133 @@ AVRTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
 //  Other Lowering Code
 //===----------------------------------------------------------------------===//
 
+MachineBasicBlock*
+AVRTargetLowering::EmitShiftInstr(MachineInstr *MI, MachineBasicBlock *BB) const
+{
+  unsigned Opc;
+  const TargetRegisterClass *RC;
+  MachineFunction *F = BB->getParent();
+  MachineRegisterInfo &RI = F->getRegInfo();
+  const TargetInstrInfo &TII = *getTargetMachine().getInstrInfo();
+  DebugLoc dl = MI->getDebugLoc();
+
+  switch (MI->getOpcode())
+  {
+  default:
+    llvm_unreachable("Invalid shift opcode!");
+  case AVR::Lsl8:
+   Opc = AVR::LSLRd;
+   RC = AVR::GPR8RegisterClass;
+   break;
+  case AVR::Lsl16:
+   Opc = AVR::LSLWRd;
+   RC = AVR::DREGSRegisterClass;
+   break;
+  case AVR::Asr8:
+   Opc = AVR::ASRRd;
+   RC = AVR::GPR8RegisterClass;
+   break;
+  case AVR::Asr16:
+   Opc = AVR::ASRWRd;
+   RC = AVR::DREGSRegisterClass;
+   break;
+  case AVR::Lsr8:
+   Opc = AVR::LSRRd;
+   RC = AVR::GPR8RegisterClass;
+   break;
+  case AVR::Lsr16:
+   Opc = AVR::LSRWRd;
+   RC = AVR::DREGSRegisterClass;
+   break;
+  }
+
+  const BasicBlock *LLVM_BB = BB->getBasicBlock();
+  MachineFunction::iterator I = BB;
+  ++I;
+
+  // Create loop block
+  MachineBasicBlock *LoopBB = F->CreateMachineBasicBlock(LLVM_BB);
+  MachineBasicBlock *RemBB  = F->CreateMachineBasicBlock(LLVM_BB);
+
+  F->insert(I, LoopBB);
+  F->insert(I, RemBB);
+
+  // Update machine-CFG edges by transferring all successors of the current
+  // block to the block containing instructions after shift.
+  RemBB->splice(RemBB->begin(), BB,
+                llvm::next(MachineBasicBlock::iterator(MI)),
+                BB->end());
+  RemBB->transferSuccessorsAndUpdatePHIs(BB);
+
+  // Add adges BB => LoopBB => RemBB, BB => RemBB, LoopBB => LoopBB
+  BB->addSuccessor(LoopBB);
+  BB->addSuccessor(RemBB);
+  LoopBB->addSuccessor(RemBB);
+  LoopBB->addSuccessor(LoopBB);
+
+  unsigned ShiftAmtReg = RI.createVirtualRegister(AVR::LD8RegisterClass);
+  unsigned ShiftAmtReg2 = RI.createVirtualRegister(AVR::LD8RegisterClass);
+  unsigned ShiftReg = RI.createVirtualRegister(RC);
+  unsigned ShiftReg2 = RI.createVirtualRegister(RC);
+  unsigned ShiftAmtSrcReg = MI->getOperand(2).getReg();
+  unsigned SrcReg = MI->getOperand(1).getReg();
+  unsigned DstReg = MI->getOperand(0).getReg();
+
+  // BB:
+  // cp 0, N
+  // breq RemBB
+  BuildMI(BB, dl, TII.get(AVR::CPRdRr))
+    .addReg(ShiftAmtSrcReg).addReg(AVR::R0);
+  BuildMI(BB, dl, TII.get(AVR::BREQk))
+    .addMBB(RemBB);
+
+  // LoopBB:
+  // ShiftReg = phi [%SrcReg, BB], [%ShiftReg2, LoopBB]
+  // ShiftAmt = phi [%N, BB],      [%ShiftAmt2, LoopBB]
+  // ShiftReg2 = shift ShiftReg
+  // ShiftAmt2 = ShiftAmt - 1;
+  BuildMI(LoopBB, dl, TII.get(AVR::PHI), ShiftReg)
+    .addReg(SrcReg).addMBB(BB)
+    .addReg(ShiftReg2).addMBB(LoopBB);
+  BuildMI(LoopBB, dl, TII.get(AVR::PHI), ShiftAmtReg)
+    .addReg(ShiftAmtSrcReg).addMBB(BB)
+    .addReg(ShiftAmtReg2).addMBB(LoopBB);
+  BuildMI(LoopBB, dl, TII.get(Opc), ShiftReg2)
+    .addReg(ShiftReg);
+  BuildMI(LoopBB, dl, TII.get(AVR::SUBIRdK), ShiftAmtReg2)
+    .addReg(ShiftAmtReg).addImm(1);
+  BuildMI(LoopBB, dl, TII.get(AVR::BRNEk))
+    .addMBB(LoopBB);
+
+  // RemBB:
+  // DestReg = phi [%SrcReg, BB], [%ShiftReg, LoopBB]
+  BuildMI(*RemBB, RemBB->begin(), dl, TII.get(AVR::PHI), DstReg)
+    .addReg(SrcReg).addMBB(BB)
+    .addReg(ShiftReg2).addMBB(LoopBB);
+
+  MI->eraseFromParent();   // The pseudo instruction is gone now.
+  return RemBB;
+}
+
 MachineBasicBlock *
 AVRTargetLowering::EmitInstrWithCustomInserter(MachineInstr *MI,
                                                MachineBasicBlock *BB) const
 {
   unsigned Opc = MI->getOpcode();
+
+  // Pseudo shift instructions with a non constant shift amount are expanded
+  // into a loop.
+  switch (Opc)
+  {
+  case AVR::Lsl8:
+  case AVR::Lsl16:
+  case AVR::Lsr8:
+  case AVR::Lsr16:
+  case AVR::Asr8:
+  case AVR::Asr16:
+    return EmitShiftInstr(MI, BB);
+  }
+
   assert((Opc == AVR::Select16 || Opc == AVR::Select8)
          && "Unexpected instr type to insert");
 
