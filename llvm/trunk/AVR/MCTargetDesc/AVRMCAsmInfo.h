@@ -15,11 +15,11 @@
 #define __INCLUDE_AVRMCASMINFO_H__
 
 #include "llvm/MC/MCAsmInfo.h"
-#include "llvm/ADT/StringRef.h"
 
 namespace llvm
 {
 
+class StringRef;
 class Target;
 
 class AVRMCAsmInfo : public MCAsmInfo

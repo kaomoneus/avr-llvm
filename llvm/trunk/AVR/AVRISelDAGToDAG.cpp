@@ -348,7 +348,7 @@ SDNode *AVRDAGToDAGISel::Select(SDNode *N)
 /// AVR-specific DAG, ready for instruction scheduling.
 ///
 FunctionPass *llvm::createAVRISelDag(AVRTargetMachine &TM,
-                                     llvm::CodeGenOpt::Level OptLevel)
+                                     CodeGenOpt::Level OptLevel)
 {
   return new AVRDAGToDAGISel(TM, OptLevel);
 }
