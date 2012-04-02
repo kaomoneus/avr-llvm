@@ -24,7 +24,6 @@
 using namespace llvm;
 
 // Include the auto-generated portion of the assembly writer.
-#define GET_INSTRUCTION_NAME
 #include "AVRGenAsmWriter.inc"
 
 //:FIXME: this should be done somewhere else
