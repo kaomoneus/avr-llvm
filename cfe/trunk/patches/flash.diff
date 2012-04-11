@@ -2,14 +2,10 @@ Index: include/clang/Basic/DiagnosticSemaKinds.td
 ===================================================================
 --- include/clang/Basic/DiagnosticSemaKinds.td	(revisión: 153046)
 +++ include/clang/Basic/DiagnosticSemaKinds.td	(copia de trabajo)
-@@ -4454,6 +4454,16 @@
-   "reference to %select{__device__|__global__|__host__|__host__ __device__}0 "
-   "function %1 in %select{__device__|__global__|__host__|__host__ __device__}2 function">;
- 
-+def err_isr_has_arguments : Error<
-+  "'%0' attribute only applies to functions with no arguments">;
-+def err_isr_not_void_return : Error<
-+  "'%0' attribute only applies to functions with a void return type">;
+@@ -4457,6 +4457,12 @@
+   "'%0' attribute only applies to functions with no arguments">;
+ def err_isr_not_void_return : Error<
+   "'%0' attribute only applies to functions with a void return type">;
 +def err_flash_variable_not_assignable : Error<
 +  "flash variable is not assignable">;
 +def err_flash_variable_requires_const : Error<
@@ -88,115 +84,3 @@ Index: lib/Sema/SemaDecl.cpp
  
    unsigned Diag = 0;
    bool NeedType = false;
-Index: lib/CodeGen/TargetInfo.cpp
-===================================================================
---- lib/CodeGen/TargetInfo.cpp	(revisión: 153046)
-+++ lib/CodeGen/TargetInfo.cpp	(copia de trabajo)
-@@ -3047,6 +3047,97 @@
- 
- 
- //===----------------------------------------------------------------------===//
-+// AVR ABI Implementation
-+//===----------------------------------------------------------------------===//
-+
-+namespace {
-+
-+class AVRABIInfo : public ABIInfo
-+{
-+public:
-+  AVRABIInfo(CodeGenTypes &CGT) : ABIInfo(CGT) {}
-+
-+  ABIArgInfo classifyReturnType(QualType RetTy) const;
-+  ABIArgInfo classifyArgumentType(QualType RetTy) const;
-+
-+  virtual void computeInfo(CGFunctionInfo &FI) const {
-+    FI.getReturnInfo() = classifyReturnType(FI.getReturnType());
-+    for (CGFunctionInfo::arg_iterator it = FI.arg_begin(), ie = FI.arg_end();
-+         it != ie; ++it)
-+      it->info = classifyArgumentType(it->type);
-+  }
-+
-+  virtual llvm::Value *EmitVAArg(llvm::Value *VAListAddr, QualType Ty,
-+                                 CodeGenFunction &CGF) const;
-+};
-+
-+class AVRTargetCodeGenInfo : public TargetCodeGenInfo
-+{
-+public:
-+  AVRTargetCodeGenInfo(CodeGenTypes &CGT)
-+    : TargetCodeGenInfo(new AVRABIInfo(CGT)) {}
-+  void SetTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
-+                           CodeGen::CodeGenModule &M) const;
-+};
-+
-+}
-+
-+llvm::Value *AVRABIInfo::EmitVAArg(llvm::Value *VAListAddr, QualType Ty,
-+                                   CodeGenFunction &CGF) const {
-+  // FIXME: Implement
-+  return 0;
-+}
-+
-+
-+ABIArgInfo AVRABIInfo::classifyReturnType(QualType RetTy) const {
-+  if (RetTy->isVoidType())
-+    return ABIArgInfo::getIgnore();
-+  if (isAggregateTypeForABI(RetTy))
-+    return ABIArgInfo::getIndirect(0);
-+
-+  return ABIArgInfo::getDirect();
-+}
-+
-+ABIArgInfo AVRABIInfo::classifyArgumentType(QualType Ty) const {
-+  if (isAggregateTypeForABI(Ty))
-+    return ABIArgInfo::getIndirect(0);
-+
-+  return ABIArgInfo::getDirect();
-+}
-+
-+void AVRTargetCodeGenInfo::SetTargetAttributes(const Decl *D,
-+                                               llvm::GlobalValue *GV,
-+                                               CodeGen::CodeGenModule &M) const{
-+  if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(D)) {
-+    if (llvm::Function *F = dyn_cast<llvm::Function>(GV)) {
-+      if (FD->hasAttr<AVRSignalHandlerAttr>()) {
-+        // Handle 'signal' attribute:
-+
-+        // Step 1: Set ISR calling convention.
-+        // The 'interrupt' attribute overrides the 'signal' attribute
-+        if (FD->hasAttr<AVRInterruptHandlerAttr>())
-+          F->setCallingConv(llvm::CallingConv::AVR_INTR);
-+        else
-+          F->setCallingConv(llvm::CallingConv::AVR_SIGNAL);
-+      } else if (FD->hasAttr<AVRInterruptHandlerAttr>()) {
-+        // Handle 'interrupt' attribute:
-+
-+        // Step 1: Set ISR calling convention.
-+        F->setCallingConv(llvm::CallingConv::AVR_INTR);
-+      }
-+
-+      // Step 2: Add attributes goodness.
-+      F->addFnAttr(llvm::Attribute::NoInline);
-+    }
-+  } else
-+    // Global variables that do not belong to the generic address space and
-+    // have common linkage are set to have external linkage.
-+    if ((GV->getType()->getAddressSpace() != 0)
-+        && (GV->getLinkage() == llvm::GlobalValue::CommonLinkage))
-+      GV->setLinkage(llvm::GlobalValue::ExternalLinkage);
-+}
-+
-+//===----------------------------------------------------------------------===//
- // MSP430 ABI Implementation
- //===----------------------------------------------------------------------===//
- 
-@@ -3638,6 +3729,9 @@
-   case llvm::Triple::mblaze:
-     return *(TheTargetCodeGenInfo = new MBlazeTargetCodeGenInfo(Types));
- 
-+  case llvm::Triple::avr:
-+    return *(TheTargetCodeGenInfo = new AVRTargetCodeGenInfo(Types));
-+
-   case llvm::Triple::msp430:
-     return *(TheTargetCodeGenInfo = new MSP430TargetCodeGenInfo(Types));
- 
