@@ -33,8 +33,8 @@ AVRTargetLowering::AVRTargetLowering(AVRTargetMachine &tm) :
   TD = getTargetData();
 
   // Set up the register classes.
-  addRegisterClass(MVT::i8, AVR::GPR8RegisterClass);
-  addRegisterClass(MVT::i16, AVR::DREGSRegisterClass);
+  addRegisterClass(MVT::i8, &AVR::GPR8RegClass);
+  addRegisterClass(MVT::i16, &AVR::DREGSRegClass);
 
   // Compute derived properties from the register classes
   computeRegisterProperties();
@@ -816,11 +816,11 @@ LowerFormalArguments(SDValue Chain, CallingConv::ID CallConv, bool isVarArg,
 
       if (RegVT == MVT::i8)
       {
-        RC = AVR::GPR8RegisterClass;
+        RC = &AVR::GPR8RegClass;
       }
       else if (RegVT == MVT::i16)
       {
-        RC = AVR::DREGSRegisterClass;
+        RC = &AVR::DREGSRegClass;
       }
       else
       {
@@ -1192,27 +1192,27 @@ AVRTargetLowering::EmitShiftInstr(MachineInstr *MI, MachineBasicBlock *BB) const
     llvm_unreachable("Invalid shift opcode!");
   case AVR::Lsl8:
    Opc = AVR::LSLRd;
-   RC = AVR::GPR8RegisterClass;
+   RC = &AVR::GPR8RegClass;
    break;
   case AVR::Lsl16:
    Opc = AVR::LSLWRd;
-   RC = AVR::DREGSRegisterClass;
+   RC = &AVR::DREGSRegClass;
    break;
   case AVR::Asr8:
    Opc = AVR::ASRRd;
-   RC = AVR::GPR8RegisterClass;
+   RC = &AVR::GPR8RegClass;
    break;
   case AVR::Asr16:
    Opc = AVR::ASRWRd;
-   RC = AVR::DREGSRegisterClass;
+   RC = &AVR::DREGSRegClass;
    break;
   case AVR::Lsr8:
    Opc = AVR::LSRRd;
-   RC = AVR::GPR8RegisterClass;
+   RC = &AVR::GPR8RegClass;
    break;
   case AVR::Lsr16:
    Opc = AVR::LSRWRd;
-   RC = AVR::DREGSRegisterClass;
+   RC = &AVR::DREGSRegClass;
    break;
   }
 
@@ -1240,8 +1240,8 @@ AVRTargetLowering::EmitShiftInstr(MachineInstr *MI, MachineBasicBlock *BB) const
   LoopBB->addSuccessor(RemBB);
   LoopBB->addSuccessor(LoopBB);
 
-  unsigned ShiftAmtReg = RI.createVirtualRegister(AVR::LD8RegisterClass);
-  unsigned ShiftAmtReg2 = RI.createVirtualRegister(AVR::LD8RegisterClass);
+  unsigned ShiftAmtReg = RI.createVirtualRegister(&AVR::LD8RegClass);
+  unsigned ShiftAmtReg2 = RI.createVirtualRegister(&AVR::LD8RegClass);
   unsigned ShiftReg = RI.createVirtualRegister(RC);
   unsigned ShiftReg2 = RI.createVirtualRegister(RC);
   unsigned ShiftAmtSrcReg = MI->getOperand(2).getReg();
