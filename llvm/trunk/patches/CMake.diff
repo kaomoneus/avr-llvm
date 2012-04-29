@@ -1,18 +1,18 @@
 Index: CMakeLists.txt
 ===================================================================
---- CMakeLists.txt	(revision 151472)
+--- CMakeLists.txt	(revision 155781)
 +++ CMakeLists.txt	(working copy)
 @@ -72,6 +72,7 @@
  
  set(LLVM_ALL_TARGETS
    ARM
 +  AVR
-   CBackend
    CellSPU
    CppBackend
+   Hexagon
 Index: cmake/config-ix.cmake
 ===================================================================
---- cmake/config-ix.cmake	(revision 151472)
+--- cmake/config-ix.cmake	(revision 155781)
 +++ cmake/config-ix.cmake	(working copy)
 @@ -315,6 +315,8 @@
    set(LLVM_NATIVE_ARCH PowerPC)
