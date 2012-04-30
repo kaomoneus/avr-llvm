@@ -200,7 +200,12 @@ Index: lib/CodeGen/TargetInfo.cpp
 +      // Step 2: Add attributes goodness.
 +      F->addFnAttr(llvm::Attribute::NoInline);
 +    }
-+  }
++  } else
++    // Global variables that do not belong to the generic address space and
++    // have common linkage are set to have external linkage.
++    if ((GV->getType()->getAddressSpace() != 0)
++        && (GV->getLinkage() == llvm::GlobalValue::CommonLinkage))
++      GV->setLinkage(llvm::GlobalValue::ExternalLinkage);
 +}
 +
 +//===----------------------------------------------------------------------===//
