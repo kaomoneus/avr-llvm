@@ -1,0 +1,85 @@
+; RUN: llc < %s -march=avr | FileCheck %s
+
+define i8 @sub8_reg_reg(i8 %a, i8 %b) {
+; CHECK: sub8_reg_reg:
+; CHECK: sub r24, r22
+    %result = sub i8 %a, %b
+    ret i8 %result
+}
+
+define i8 @sub8_reg_imm(i8 %a) {
+; CHECK: sub8_reg_imm:
+; CHECK: subi r24, 5
+    %result = sub i8 %a, 5
+    ret i8 %result
+}
+
+define i16 @sub16_reg_reg(i16 %a, i16 %b) {
+; CHECK: sub16_reg_reg:
+; CHECK: sub r24, r22
+; CHECK: sbc r25, r23
+    %result = sub i16 %a, %b
+    ret i16 %result
+}
+
+define i16 @sub16_reg_imm(i16 %a) {
+; CHECK: sub16_reg_imm:
+; CHECK: sbiw r25:r24, 63
+    %result = sub i16 %a, 63
+    ret i16 %result
+}
+
+define i16 @sub16_reg_imm_subi(i16 %a) {
+; CHECK: sub16_reg_imm_subi:
+; CHECK: subi r24, 123
+; CHECK: sbci r25, 0
+    %result = sub i16 %a, 123
+    ret i16 %result
+}
+
+define i32 @sub32_reg_reg(i32 %a, i32 %b) {
+; CHECK: sub32_reg_reg:
+; CHECK: sub r22, r18
+; CHECK: sbc r23, r19
+; CHECK: sbc r24, r20
+; CHECK: sbc r25, r21
+    %result = sub i32 %a, %b
+    ret i32 %result
+}
+
+define i32 @sub32_reg_imm(i32 %a) {
+; CHECK: sub32_reg_imm:
+; CHECK: subi r22, 5
+; CHECK: sbci r23, 0
+; CHECK: sbci r24, 0
+; CHECK: sbci r25, 0
+    %result = sub i32 %a, 5
+    ret i32 %result
+}
+
+define i64 @sub64_reg_reg(i64 %a, i64 %b) {
+; CHECK: sub64_reg_reg:
+; CHECK: sub r18, r10
+; CHECK: sbc r20, r12
+; CHECK: sbc r21, r13
+; CHECK: sbc r22, r14
+; CHECK: sbc r23, r15
+; CHECK: sbc r24, r16
+; CHECK: sbc r25, r17
+    %result = sub i64 %a, %b
+    ret i64 %result
+}
+
+define i64 @sub64_reg_imm(i64 %a) {
+; CHECK: sub64_reg_imm:
+; CHECK: subi r18, 5
+; CHECK: sbci r19, 0
+; CHECK: sbci r20, 0
+; CHECK: sbci r21, 0
+; CHECK: sbci r22, 0
+; CHECK: sbci r23, 0
+; CHECK: sbci r24, 0
+; CHECK: sbci r25, 0
+    %result = sub i64 %a, 5
+    ret i64 %result
+}
