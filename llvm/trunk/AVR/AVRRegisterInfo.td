@@ -128,10 +128,7 @@ def DREGS : RegisterClass<"AVR", [i16], 8,
     // callee saved registers
     R29R28, R17R16, R15R14, R13R12, R11R10,
     R9R8, R7R6, R5R4, R3R2, R1R0
-  )>
-{
-  let SubRegClasses = [(GPR8 sub_lo, sub_hi)];
-}
+  )>;
 
 // 16 bit register class for imm instructions
 def DLDREGS : RegisterClass<"AVR", [i16], 8,
@@ -142,10 +139,7 @@ def DLDREGS : RegisterClass<"AVR", [i16], 8,
     R31R30, R27R26,
     // callee saved registers
     R29R28, R17R16
-  )>
-{
-  let SubRegClasses = [(LD8 sub_lo, sub_hi)];
-}
+  )>;
 
 // 16 bit register class for the adiw/sbiw instructions
 def IWREGS : RegisterClass<"AVR", [i16], 8,
@@ -156,28 +150,19 @@ def IWREGS : RegisterClass<"AVR", [i16], 8,
     R31R30, R27R26,
     // callee saved registers
     R29R28
-  )>
-{
-  let SubRegClasses = [(GPR8 sub_lo, sub_hi)];
-}
+  )>;
 
 // 16 bit register class for the ld and st instructions
 def PTRREGS : RegisterClass<"AVR", [i16], 8,
   (
     add R31R30, R27R26, R29R28
-  )>
-{
-  let SubRegClasses = [(GPR8 sub_lo, sub_hi)];
-}
+  )>;
 
 // 16 bit register class for the ldd and std instructions
 def PTRDISPREGS : RegisterClass<"AVR", [i16], 8,
   (
     add R31R30, R29R28
-  )>
-{
-  let SubRegClasses = [(GPR8 sub_lo, sub_hi)];
-}
+  )>;
 
 //:TODO: if we remove this we get an error in tablegen
 //:TODO: this is just a hack, remove it once add16 works!
