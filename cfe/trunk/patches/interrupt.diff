@@ -1,22 +1,24 @@
 Index: include/clang/Basic/Attr.td
 ===================================================================
---- include/clang/Basic/Attr.td	(revisión: 152164)
-+++ include/clang/Basic/Attr.td	(copia de trabajo)
-@@ -336,6 +336,14 @@
-   let Spellings = [];
+--- include/clang/Basic/Attr.td (revisión: 156172)
++++ include/clang/Basic/Attr.td (copia de trabajo)
+@@ -379,6 +379,16 @@
+   let SemaHandler = 0;
  }
- 
+
 +def AVRSignalHandler : InheritableAttr {
 +  let Spellings = [];
++  let SemaHandler = 0;
 +}
 +
 +def AVRInterruptHandler : InheritableAttr {
 +  let Spellings = [];
++  let SemaHandler = 0;
 +}
 +
- def Naked : InheritableAttr {
-   let Spellings = ["naked"];
- }
+ def MBlazeInterruptHandler : InheritableAttr {
+   let Spellings = [];
+   let SemaHandler = 0;
 Index: include/clang/Basic/DiagnosticSemaKinds.td
 ===================================================================
 --- include/clang/Basic/DiagnosticSemaKinds.td	(revisión: 152164)
