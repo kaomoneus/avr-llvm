@@ -21,9 +21,9 @@ Index: include/clang/Basic/Attr.td
    let SemaHandler = 0;
 Index: include/clang/Basic/DiagnosticSemaKinds.td
 ===================================================================
---- include/clang/Basic/DiagnosticSemaKinds.td	(revisión: 152164)
-+++ include/clang/Basic/DiagnosticSemaKinds.td	(copia de trabajo)
-@@ -4440,6 +4440,10 @@
+--- include/clang/Basic/DiagnosticSemaKinds.td	(revision 156247)
++++ include/clang/Basic/DiagnosticSemaKinds.td	(working copy)
+@@ -4604,6 +4604,10 @@
    "reference to %select{__device__|__global__|__host__|__host__ __device__}0 "
    "function %1 in %select{__device__|__global__|__host__|__host__ __device__}2 function">;
  
@@ -114,15 +114,16 @@ Index: lib/Sema/TargetAttributesSema.cpp
    }
 Index: lib/CodeGen/TargetInfo.cpp
 ===================================================================
---- lib/CodeGen/TargetInfo.cpp	(revisión: 152164)
-+++ lib/CodeGen/TargetInfo.cpp	(copia de trabajo)
-@@ -3000,6 +3000,92 @@
+--- lib/CodeGen/TargetInfo.cpp	(revision 156247)
++++ lib/CodeGen/TargetInfo.cpp	(working copy)
+@@ -3049,7 +3049,97 @@
+                           "_interrupt_handler", GV, &M.getModule());
+ }
  
- 
- //===----------------------------------------------------------------------===//
++//===----------------------------------------------------------------------===//
 +// AVR ABI Implementation
 +//===----------------------------------------------------------------------===//
-+
+ 
 +namespace {
 +
 +class AVRABIInfo : public ABIInfo
@@ -210,11 +211,10 @@ Index: lib/CodeGen/TargetInfo.cpp
 +      GV->setLinkage(llvm::GlobalValue::ExternalLinkage);
 +}
 +
-+//===----------------------------------------------------------------------===//
+ //===----------------------------------------------------------------------===//
  // MSP430 ABI Implementation
  //===----------------------------------------------------------------------===//
- 
-@@ -3591,6 +3677,9 @@
+@@ -3642,6 +3732,9 @@
    case llvm::Triple::mblaze:
      return *(TheTargetCodeGenInfo = new MBlazeTargetCodeGenInfo(Types));
  
@@ -223,4 +223,4 @@ Index: lib/CodeGen/TargetInfo.cpp
 +
    case llvm::Triple::msp430:
      return *(TheTargetCodeGenInfo = new MSP430TargetCodeGenInfo(Types));
- 
+

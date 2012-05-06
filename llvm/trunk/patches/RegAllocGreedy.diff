@@ -1,6 +1,6 @@
 Index: lib/CodeGen/RegAllocGreedy.cpp
 ===================================================================
---- lib/CodeGen/RegAllocGreedy.cpp	(revision 152006)
+--- lib/CodeGen/RegAllocGreedy.cpp	(revision 156247)
 +++ lib/CodeGen/RegAllocGreedy.cpp	(working copy)
 @@ -85,6 +85,9 @@
    std::priority_queue<std::pair<unsigned, unsigned> > Queue;
@@ -26,7 +26,7 @@ Index: lib/CodeGen/RegAllocGreedy.cpp
  }
  
 -RAGreedy::RAGreedy(): MachineFunctionPass(ID) {
-+RAGreedy::RAGreedy(): MachineFunctionPass(ID), IsYReserved(false) {
++RAGreedy::RAGreedy(): MachineFunctionPass(ID), IsYReserved(false)  {
    initializeLiveDebugVariablesPass(*PassRegistry::getPassRegistry());
    initializeSlotIndexesPass(*PassRegistry::getPassRegistry());
    initializeLiveIntervalsPass(*PassRegistry::getPassRegistry());
@@ -41,7 +41,7 @@ Index: lib/CodeGen/RegAllocGreedy.cpp
 +#define REG_Y   (45U)
 +bool RA_ReserveREG_Y = false;
 +bool RA_InSpillerCode = false;
- 
++ 
 +void RAGreedy::UndoRegYAllocation() {
 +  // search for all live intervals where REG_Y has been allocated and send them
 +  // back to the work list for reallocation
@@ -50,7 +50,7 @@ Index: lib/CodeGen/RegAllocGreedy.cpp
 +    unsigned VirtReg = I->first;
 +    if (!TargetRegisterInfo::isVirtualRegister(VirtReg))
 +      continue;
-+
+ 
 +    for (const uint16_t *AliasI = TRI->getOverlaps(REG_Y); *AliasI; ++AliasI)
 +      if (VRM->getPhys(VirtReg) == *AliasI) {
 +        LiveInterval &LI = *I->second;
@@ -64,17 +64,17 @@ Index: lib/CodeGen/RegAllocGreedy.cpp
  //===----------------------------------------------------------------------===//
  //                            Main Entry Point
  //===----------------------------------------------------------------------===//
-@@ -1643,11 +1674,25 @@
+@@ -1643,10 +1674,24 @@
      return PhysReg;
  
    // Finally spill VirtReg itself.
 +  RA_InSpillerCode = true;
    NamedRegionTimer T("Spiller", TimerGroupName, TimePassesIsEnabled);
-   LiveRangeEdit LRE(VirtReg, NewVRegs, this);
+   LiveRangeEdit LRE(VirtReg, NewVRegs, *MF, *LIS, VRM, this);
    spiller().spill(LRE);
    setStage(NewVRegs.begin(), NewVRegs.end(), RS_Done);
 +  RA_InSpillerCode = false;
- 
++ 
 +  // AVR specific: If we have reached this point and the backend has notified
 +  // it has inserted a spill via ReserveREG_Y, then search for any allocations
 +  // of REG_Y in the live intervals and undo them.
@@ -86,10 +86,9 @@ Index: lib/CodeGen/RegAllocGreedy.cpp
 +    // finally perform the real work
 +    UndoRegYAllocation();
 +  }
-+
+ 
    if (VerifyEnabled)
      MF->verify(this, "After spilling");
- 
 @@ -1686,6 +1731,9 @@
    addMBBLiveIns(MF);
    LIS->addKillFlags();

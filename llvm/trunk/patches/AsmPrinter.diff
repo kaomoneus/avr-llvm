@@ -13,3 +13,4 @@ Index: lib/CodeGen/AsmPrinter/AsmPrinter.cpp
 +      && GV->getType()->getAddressSpace() == 0) {
      if (Size == 0) Size = 1;   // .comm Foo, 0 is undefined, avoid it.
      unsigned Align = 1 << AlignLog;
+

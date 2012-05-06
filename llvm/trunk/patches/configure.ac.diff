@@ -1,53 +1,53 @@
 Index: autoconf/configure.ac
 ===================================================================
---- autoconf/configure.ac	(revision 155781)
+--- autoconf/configure.ac	(revision 156247)
 +++ autoconf/configure.ac	(working copy)
-@@ -370,6 +370,7 @@
-   hexagon-*)              llvm_cv_target_arch="Hexagon" ;;
-   mblaze-*)               llvm_cv_target_arch="MBlaze" ;;
-   ptx-*)                  llvm_cv_target_arch="PTX" ;;
+@@ -363,6 +363,7 @@
+   sparc*-*)               llvm_cv_target_arch="Sparc" ;;
+   powerpc*-*)             llvm_cv_target_arch="PowerPC" ;;
+   arm*-*)                 llvm_cv_target_arch="ARM" ;;
 +  avr-*)                  llvm_cv_target_arch="AVR" ;;
-   *)                      llvm_cv_target_arch="Unknown" ;;
- esac])
- 
-@@ -517,6 +518,7 @@
-     Hexagon)     AC_SUBST(TARGET_HAS_JIT,0) ;;
-     MBlaze)      AC_SUBST(TARGET_HAS_JIT,0) ;;
-     PTX)         AC_SUBST(TARGET_HAS_JIT,0) ;;
+   mips-*)                 llvm_cv_target_arch="Mips" ;;
+   mipsel-*)               llvm_cv_target_arch="Mips" ;;
+   xcore-*)                llvm_cv_target_arch="XCore" ;;
+@@ -512,6 +513,7 @@
+     PowerPC)     AC_SUBST(TARGET_HAS_JIT,1) ;;
+     x86_64)      AC_SUBST(TARGET_HAS_JIT,1) ;;
+     ARM)         AC_SUBST(TARGET_HAS_JIT,1) ;;
 +    AVR)         AC_SUBST(TARGET_HAS_JIT,0) ;;
-     *)           AC_SUBST(TARGET_HAS_JIT,0) ;;
-   esac
- fi
-@@ -627,14 +629,14 @@
+     Mips)        AC_SUBST(TARGET_HAS_JIT,1) ;;
+     XCore)       AC_SUBST(TARGET_HAS_JIT,0) ;;
+     MSP430)      AC_SUBST(TARGET_HAS_JIT,0) ;;
+@@ -629,14 +631,14 @@
  TARGETS_TO_BUILD=""
  AC_ARG_ENABLE([targets],AS_HELP_STRING([--enable-targets],
      [Build specific host targets: all or target1,target2,... Valid targets are:
 -     host, x86, x86_64, sparc, powerpc, arm, mips, spu, hexagon,
-+     host, x86, x86_64, sparc, powerpc, arm, mips, spu, hexagon, avr,
-      xcore, msp430, ptx, and cpp (default=all)]),,
++     host, x86, x86_64, sparc, powerpc, arm, avr, mips, spu, hexagon,
+      xcore, msp430, ptx, nvptx, and cpp (default=all)]),,
      enableval=all)
  if test "$enableval" = host-only ; then
    enableval=host
  fi
  case "$enableval" in
--  all) TARGETS_TO_BUILD="X86 Sparc PowerPC ARM Mips CellSPU XCore MSP430 CppBackend MBlaze PTX Hexagon" ;;
-+  all) TARGETS_TO_BUILD="X86 Sparc PowerPC ARM Mips CellSPU XCore MSP430 CppBackend MBlaze PTX Hexagon AVR" ;;
+-  all) TARGETS_TO_BUILD="X86 Sparc PowerPC ARM Mips CellSPU XCore MSP430 CppBackend MBlaze PTX NVPTX Hexagon" ;;
++  all) TARGETS_TO_BUILD="X86 Sparc PowerPC ARM AVR Mips CellSPU XCore MSP430 CppBackend MBlaze PTX NVPTX Hexagon" ;;
    *)for a_target in `echo $enableval|sed -e 's/,/ /g' ` ; do
        case "$a_target" in
          x86)      TARGETS_TO_BUILD="X86 $TARGETS_TO_BUILD" ;;
-@@ -651,6 +653,7 @@
-         hexagon)  TARGETS_TO_BUILD="Hexagon $TARGETS_TO_BUILD" ;;
-         mblaze)   TARGETS_TO_BUILD="MBlaze $TARGETS_TO_BUILD" ;;
-         ptx)      TARGETS_TO_BUILD="PTX $TARGETS_TO_BUILD" ;;
+@@ -644,6 +646,7 @@
+         sparc)    TARGETS_TO_BUILD="Sparc $TARGETS_TO_BUILD" ;;
+         powerpc)  TARGETS_TO_BUILD="PowerPC $TARGETS_TO_BUILD" ;;
+         arm)      TARGETS_TO_BUILD="ARM $TARGETS_TO_BUILD" ;;
 +        avr)      TARGETS_TO_BUILD="AVR $TARGETS_TO_BUILD" ;;
-         host) case "$llvm_cv_target_arch" in
-             x86)         TARGETS_TO_BUILD="X86 $TARGETS_TO_BUILD" ;;
-             x86_64)      TARGETS_TO_BUILD="X86 $TARGETS_TO_BUILD" ;;
-@@ -664,6 +667,7 @@
-             MSP430)      TARGETS_TO_BUILD="MSP430 $TARGETS_TO_BUILD" ;;
-             Hexagon)     TARGETS_TO_BUILD="Hexagon $TARGETS_TO_BUILD" ;;
-             PTX)         TARGETS_TO_BUILD="PTX $TARGETS_TO_BUILD" ;;
-+            AVR)         TARGETS_TO_BUILD="AVR $TARGETS_TO_BUILD"
-             *)       AC_MSG_ERROR([Can not set target to build]) ;;
-           esac ;;
-         *) AC_MSG_ERROR([Unrecognized target $a_target]) ;;
+         mips)     TARGETS_TO_BUILD="Mips $TARGETS_TO_BUILD" ;;
+         mipsel)   TARGETS_TO_BUILD="Mips $TARGETS_TO_BUILD" ;;
+         spu)      TARGETS_TO_BUILD="CellSPU $TARGETS_TO_BUILD" ;;
+@@ -660,6 +663,7 @@
+             Sparc)       TARGETS_TO_BUILD="Sparc $TARGETS_TO_BUILD" ;;
+             PowerPC)     TARGETS_TO_BUILD="PowerPC $TARGETS_TO_BUILD" ;;
+             ARM)         TARGETS_TO_BUILD="ARM $TARGETS_TO_BUILD" ;;
++            AVR)         TARGETS_TO_BUILD="AVR $TARGETS_TO_BUILD" ;;
+             Mips)        TARGETS_TO_BUILD="Mips $TARGETS_TO_BUILD" ;;
+             MBlaze)      TARGETS_TO_BUILD="MBlaze $TARGETS_TO_BUILD" ;;
+             CellSPU|SPU) TARGETS_TO_BUILD="CellSPU $TARGETS_TO_BUILD" ;;
