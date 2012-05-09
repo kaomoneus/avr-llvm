@@ -14,6 +14,14 @@ define i8 @add8_reg_imm(i8 %a) {
     ret i8 %result
 }
 
+define i8 @add8_reg_increment(i8 %a) {
+; CHECK: add8_reg_increment:
+; CHECK: inc r24
+    %result = add i8 %a, 1
+    ret i8 %result
+}
+
+
 define i16 @add16_reg_reg(i16 %a, i16 %b) {
 ; CHECK: add16_reg_reg:
 ; CHECK: add r24, r22

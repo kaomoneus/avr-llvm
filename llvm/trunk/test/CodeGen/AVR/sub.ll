@@ -14,6 +14,13 @@ define i8 @sub8_reg_imm(i8 %a) {
     ret i8 %result
 }
 
+define i8 @sub8_reg_decrement(i8 %a) {
+; CHECK: sub8_reg_decrement:
+; CHECK: dec r24
+    %result = sub i8 %a, 1
+    ret i8 %result
+}
+
 define i16 @sub16_reg_reg(i16 %a, i16 %b) {
 ; CHECK: sub16_reg_reg:
 ; CHECK: sub r24, r22
