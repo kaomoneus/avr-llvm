@@ -926,6 +926,11 @@ AVRTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
 
     Callee = DAG.getTargetExternalSymbol(S->getSymbol(), getPointerTy());
   }
+  else
+  {
+    // if we reached this point it is an indirect call.
+    AnalyzeArguments(NULL, TD, &Outs, NULL, ArgLocs, CCInfo, true);
+  }
 
   // Get a count of how many bytes are to be pushed on the stack.
   unsigned NumBytes = CCInfo.getNextStackOffset();

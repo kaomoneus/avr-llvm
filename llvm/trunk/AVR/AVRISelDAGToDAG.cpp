@@ -284,8 +284,6 @@ SDNode *AVRDAGToDAGISel::Select(SDNode *N)
         break;
       }
 
-      assert(Callee.getOpcode() == ISD::CopyFromReg && "Unknown callee source");
-
       // Skip the incoming flag if present
       if (N->getOperand(LastOpNum).getValueType() == MVT::Glue)
       {
