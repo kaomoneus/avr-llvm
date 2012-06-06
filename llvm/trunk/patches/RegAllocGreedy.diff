@@ -1,7 +1,7 @@
-Index: lib/CodeGen/RegAllocGreedy.cpp
+Index: RegAllocGreedy.cpp
 ===================================================================
---- lib/CodeGen/RegAllocGreedy.cpp	(revision 156247)
-+++ lib/CodeGen/RegAllocGreedy.cpp	(working copy)
+--- RegAllocGreedy.cpp	(revisión: 158043)
++++ RegAllocGreedy.cpp	(copia de trabajo)
 @@ -85,6 +85,9 @@
    std::priority_queue<std::pair<unsigned, unsigned> > Queue;
    unsigned NextCascade;
@@ -12,7 +12,7 @@ Index: lib/CodeGen/RegAllocGreedy.cpp
    // Live ranges pass through a number of stages as we try to allocate them.
    // Some of the stages may also create new live ranges:
    //
-@@ -290,6 +293,8 @@
+@@ -292,6 +295,8 @@
      SmallVectorImpl<LiveInterval*>&);
    unsigned trySplit(LiveInterval&, AllocationOrder&,
                      SmallVectorImpl<LiveInterval*>&);
@@ -21,16 +21,16 @@ Index: lib/CodeGen/RegAllocGreedy.cpp
  };
  } // end anonymous namespace
  
-@@ -315,7 +320,7 @@
+@@ -317,7 +322,7 @@
    return new RAGreedy();
  }
  
 -RAGreedy::RAGreedy(): MachineFunctionPass(ID) {
-+RAGreedy::RAGreedy(): MachineFunctionPass(ID), IsYReserved(false)  {
++RAGreedy::RAGreedy(): MachineFunctionPass(ID), IsYReserved(false) {
    initializeLiveDebugVariablesPass(*PassRegistry::getPassRegistry());
    initializeSlotIndexesPass(*PassRegistry::getPassRegistry());
    initializeLiveIntervalsPass(*PassRegistry::getPassRegistry());
-@@ -1592,7 +1597,33 @@
+@@ -1662,7 +1667,33 @@
    return tryBlockSplit(VirtReg, Order, NewVRegs);
  }
  
@@ -41,7 +41,7 @@ Index: lib/CodeGen/RegAllocGreedy.cpp
 +#define REG_Y   (45U)
 +bool RA_ReserveREG_Y = false;
 +bool RA_InSpillerCode = false;
-+ 
+ 
 +void RAGreedy::UndoRegYAllocation() {
 +  // search for all live intervals where REG_Y has been allocated and send them
 +  // back to the work list for reallocation
@@ -50,11 +50,11 @@ Index: lib/CodeGen/RegAllocGreedy.cpp
 +    unsigned VirtReg = I->first;
 +    if (!TargetRegisterInfo::isVirtualRegister(VirtReg))
 +      continue;
- 
-+    for (const uint16_t *AliasI = TRI->getOverlaps(REG_Y); *AliasI; ++AliasI)
-+      if (VRM->getPhys(VirtReg) == *AliasI) {
++
++    for (MCRegAliasIterator AI(REG_Y, TRI, true); AI.isValid(); ++AI)
++      if (VRM->getPhys(VirtReg) == *AI) {
 +        LiveInterval &LI = *I->second;
-+        unassign(LI, *AliasI);
++        unassign(LI, *AI);
 +        enqueue(&LI);
 +      }
 +  }
@@ -64,17 +64,17 @@ Index: lib/CodeGen/RegAllocGreedy.cpp
  //===----------------------------------------------------------------------===//
  //                            Main Entry Point
  //===----------------------------------------------------------------------===//
-@@ -1643,10 +1674,24 @@
+@@ -1713,11 +1744,25 @@
      return PhysReg;
  
    // Finally spill VirtReg itself.
 +  RA_InSpillerCode = true;
    NamedRegionTimer T("Spiller", TimerGroupName, TimePassesIsEnabled);
-   LiveRangeEdit LRE(VirtReg, NewVRegs, *MF, *LIS, VRM, this);
+   LiveRangeEdit LRE(&VirtReg, NewVRegs, *MF, *LIS, VRM, this);
    spiller().spill(LRE);
    setStage(NewVRegs.begin(), NewVRegs.end(), RS_Done);
 +  RA_InSpillerCode = false;
-+ 
+ 
 +  // AVR specific: If we have reached this point and the backend has notified
 +  // it has inserted a spill via ReserveREG_Y, then search for any allocations
 +  // of REG_Y in the live intervals and undo them.
@@ -86,10 +86,11 @@ Index: lib/CodeGen/RegAllocGreedy.cpp
 +    // finally perform the real work
 +    UndoRegYAllocation();
 +  }
- 
++
    if (VerifyEnabled)
      MF->verify(this, "After spilling");
-@@ -1686,6 +1731,9 @@
+ 
+@@ -1756,6 +1801,9 @@
    addMBBLiveIns(MF);
    LIS->addKillFlags();
  
