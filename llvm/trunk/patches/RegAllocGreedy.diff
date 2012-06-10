@@ -1,8 +1,8 @@
-Index: RegAllocGreedy.cpp
+Index: lib/CodeGen/RegAllocGreedy.cpp
 ===================================================================
---- RegAllocGreedy.cpp	(revisión: 158043)
-+++ RegAllocGreedy.cpp	(copia de trabajo)
-@@ -85,6 +85,9 @@
+--- lib/CodeGen/RegAllocGreedy.cpp	(revisión: 158297)
++++ lib/CodeGen/RegAllocGreedy.cpp	(copia de trabajo)
+@@ -84,6 +84,9 @@
    std::priority_queue<std::pair<unsigned, unsigned> > Queue;
    unsigned NextCascade;
  
@@ -12,7 +12,7 @@ Index: RegAllocGreedy.cpp
    // Live ranges pass through a number of stages as we try to allocate them.
    // Some of the stages may also create new live ranges:
    //
-@@ -292,6 +295,8 @@
+@@ -291,6 +294,8 @@
      SmallVectorImpl<LiveInterval*>&);
    unsigned trySplit(LiveInterval&, AllocationOrder&,
                      SmallVectorImpl<LiveInterval*>&);
@@ -21,7 +21,7 @@ Index: RegAllocGreedy.cpp
  };
  } // end anonymous namespace
  
-@@ -317,7 +322,7 @@
+@@ -316,7 +321,7 @@
    return new RAGreedy();
  }
  
@@ -90,13 +90,13 @@ Index: RegAllocGreedy.cpp
    if (VerifyEnabled)
      MF->verify(this, "After spilling");
  
-@@ -1756,6 +1801,9 @@
-   addMBBLiveIns(MF);
-   LIS->addKillFlags();
+@@ -1754,5 +1799,9 @@
  
+   allocatePhysRegs();
+   releaseMemory();
++
 +  IsYReserved = false;
 +  RA_ReserveREG_Y = false;
 +
-   // Run rewriter
-   {
-     NamedRegionTimer T("Rewriter", TimerGroupName, TimePassesIsEnabled);
+   return true;
+ }
