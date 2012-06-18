@@ -38,9 +38,9 @@ define i16 @sub16_reg_imm(i16 %a) {
 
 define i16 @sub16_reg_imm_subi(i16 %a) {
 ; CHECK: sub16_reg_imm_subi:
-; CHECK: subi r24, 123
-; CHECK: sbci r25, 0
-    %result = sub i16 %a, 123
+; CHECK: subi r24, 210
+; CHECK: sbci r25, 4
+    %result = sub i16 %a, 1234
     ret i16 %result
 }
 
@@ -56,11 +56,11 @@ define i32 @sub32_reg_reg(i32 %a, i32 %b) {
 
 define i32 @sub32_reg_imm(i32 %a) {
 ; CHECK: sub32_reg_imm:
-; CHECK: subi r22, 5
-; CHECK: sbci r23, 0
-; CHECK: sbci r24, 0
-; CHECK: sbci r25, 0
-    %result = sub i32 %a, 5
+; CHECK: subi r22, 21
+; CHECK: sbci r23, 205
+; CHECK: sbci r24, 91
+; CHECK: sbci r25, 7
+    %result = sub i32 %a, 123456789
     ret i32 %result
 }
 
@@ -79,14 +79,14 @@ define i64 @sub64_reg_reg(i64 %a, i64 %b) {
 
 define i64 @sub64_reg_imm(i64 %a) {
 ; CHECK: sub64_reg_imm:
-; CHECK: subi r18, 5
-; CHECK: sbci r19, 0
-; CHECK: sbci r20, 0
-; CHECK: sbci r21, 0
-; CHECK: sbci r22, 0
-; CHECK: sbci r23, 0
-; CHECK: sbci r24, 0
-; CHECK: sbci r25, 0
-    %result = sub i64 %a, 5
+; CHECK: subi r18, 204
+; CHECK: sbci r19, 204
+; CHECK: sbci r20, 104
+; CHECK: sbci r21, 37
+; CHECK: sbci r22, 25
+; CHECK: sbci r23, 22
+; CHECK: sbci r24, 236
+; CHECK: sbci r25, 190
+    %result = sub i64 %a, 13757395258967641292
     ret i64 %result
 }

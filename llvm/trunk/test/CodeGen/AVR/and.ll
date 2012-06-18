@@ -66,13 +66,15 @@ define i64 @and64_reg_reg(i64 %a, i64 %b) {
 
 define i64 @and64_reg_imm(i64 %a) {
 ; CHECK: and64_reg_imm:
-; CHECK: andi r18, 62
-; CHECK: andi r19, 28
-; CHECK: andi r20, 220
-; CHECK: andi r21, 223
-; CHECK: andi r22, 2
-; CHECK: andi r23, 0
-    %result = and i64 %a, 12345678910
+; CHECK: andi r18, 253
+; CHECK: andi r19, 255
+; CHECK: andi r20, 155
+; CHECK: andi r21, 88
+; CHECK: andi r22, 76
+; CHECK: andi r23, 73
+; CHECK: andi r24, 31
+; CHECK: andi r25, 242
+    %result = and i64 %a, 17446744073709551613
     ret i64 %result
 }
 

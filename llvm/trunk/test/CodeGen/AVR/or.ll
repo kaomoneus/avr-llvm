@@ -66,13 +66,15 @@ define i64 @or64_reg_reg(i64 %a, i64 %b) {
 
 define i64 @or64_reg_imm(i64 %a) {
 ; CHECK: or64_reg_imm:
-; CHECK: ori r18, 62
-; CHECK: ori r19, 28
-; CHECK: ori r20, 220
-; CHECK: ori r21, 223
-; CHECK: ori r22, 2
-; CHECK: ori r23, 0
-    %result = or i64 %a, 12345678910
+; CHECK: ori r18, 204
+; CHECK: ori r19, 204
+; CHECK: ori r20, 204
+; CHECK: ori r21, 204
+; CHECK: ori r22, 204
+; CHECK: ori r23, 204
+; CHECK: ori r24, 204
+; CHECK: ori r25, 204
+    %result = or i64 %a, 14757395258967641292
     ret i64 %result
 }
 
