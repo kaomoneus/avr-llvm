@@ -155,3 +155,27 @@ define i32 @icall(i32 (i32)* %foo) {
   %4 = add nsw i32 %3, 5
   ret i32 %4
 }
+
+; Calling external functions (like __divsf3) require extra processing for
+; arguments and return values in the LowerCall function.
+declare i32 @foofloat(float)
+
+define i32 @externcall(float %a, float %b) {
+; CHECK: externcall:
+; CHECK: movw [[REG1:r[0-9]+]]:[[REG2:r[0-9]+]], r25:r24
+; CHECK: movw [[REG3:r[0-9]+]]:[[REG4:r[0-9]+]], r23:r22
+; CHECK: movw r23:r22, r19:r18
+; CHECK: movw r25:r24, r21:r20
+; CHECK: movw r19:r18, [[REG3]]:[[REG4]]
+; CHECK: movw r21:r20, [[REG1]]:[[REG2]]
+; CHECK: call __divsf3
+; CHECK: call foofloat
+; CHECK: subi r22, 251
+; CHECK: sbci r23, 255
+; CHECK: sbci r24, 255
+; CHECK: sbci r25, 255
+  %1 = fdiv float %b, %a
+  %2 = call i32 @foofloat(float %1)
+  %3 = add nsw i32 %2, 5
+  ret i32 %3
+}
