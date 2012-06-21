@@ -1,8 +1,12 @@
 Index: include/clang/Basic/DiagnosticSemaKinds.td
 ===================================================================
---- include/clang/Basic/DiagnosticSemaKinds.td	(revisión: 153046)
+--- include/clang/Basic/DiagnosticSemaKinds.td	(revisión: 158913)
 +++ include/clang/Basic/DiagnosticSemaKinds.td	(copia de trabajo)
-@@ -4608,6 +4608,12 @@
+@@ -4718,6 +4718,16 @@
+   "reference to %select{__device__|__global__|__host__|__host__ __device__}0 "
+   "function %1 in %select{__device__|__global__|__host__|__host__ __device__}2 function">;
+ 
+ def err_isr_has_arguments : Error<
    "'%0' attribute only applies to functions with no arguments">;
  def err_isr_not_void_return : Error<
    "'%0' attribute only applies to functions with a void return type">;
@@ -18,9 +22,9 @@ Index: include/clang/Basic/DiagnosticSemaKinds.td
 
 Index: lib/Sema/SemaDecl.cpp
 ===================================================================
---- lib/Sema/SemaDecl.cpp	(revisión: 153046)
+--- lib/Sema/SemaDecl.cpp	(revisión: 158913)
 +++ lib/Sema/SemaDecl.cpp	(copia de trabajo)
-@@ -4297,6 +4297,23 @@
+@@ -4465,6 +4465,23 @@
      return false;
    }
  
@@ -44,7 +48,7 @@ Index: lib/Sema/SemaDecl.cpp
    if (NewVD->hasLocalStorage() && T.isObjCGCWeak()
        && !NewVD->hasAttr<BlocksAttr>()) {
      if (getLangOpts().getGC() != LangOptions::NonGC)
-@@ -7100,8 +7117,16 @@
+@@ -7324,8 +7341,16 @@
    if (T.getAddressSpace() != 0) {
      Diag(NameLoc, diag::err_arg_with_address_space);
      New->setInvalidDecl();
@@ -62,11 +66,12 @@ Index: lib/Sema/SemaDecl.cpp
    return New;
  }
  
+Index: lib/Sema/SemaExpr.cpp
 ===================================================================
---- lib/Sema/SemaExpr.cpp	(revisión: 153046)
+--- lib/Sema/SemaExpr.cpp	(revisión: 158913)
 +++ lib/Sema/SemaExpr.cpp	(copia de trabajo)
-@@ -7165,8 +7165,17 @@
-     IsLV = Expr::MLV_Valid;
+@@ -7449,8 +7449,17 @@
+     IsLV = Expr::MLV_ReadonlyProperty;
    else if (IsLV == Expr::MLV_ClassTemporary && IsReadonlyMessage(E, S))
      IsLV = Expr::MLV_InvalidMessageExpression;
 -  if (IsLV == Expr::MLV_Valid)
