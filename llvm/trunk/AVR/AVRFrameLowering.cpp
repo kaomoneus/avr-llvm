@@ -38,8 +38,7 @@ void AVRFrameLowering::emitPrologue(MachineFunction &MF) const
 {
   MachineBasicBlock &MBB = MF.front();
   MachineBasicBlock::iterator MBBI = MBB.begin();
-  const Function *F = MF.getFunction();
-  CallingConv::ID CallConv = F->getCallingConv();
+  CallingConv::ID CallConv = MF.getFunction()->getCallingConv();
   DebugLoc dl = (MBBI != MBB.end()) ? MBBI->getDebugLoc() : DebugLoc();
   const AVRInstrInfo &TII =
     *static_cast<const AVRInstrInfo *>(MF.getTarget().getInstrInfo());
@@ -131,8 +130,13 @@ void AVRFrameLowering::emitPrologue(MachineFunction &MF) const
 void AVRFrameLowering::emitEpilogue(MachineFunction &MF,
                                     MachineBasicBlock &MBB) const
 {
-  // Early exit if the frame pointer is not needed in this function.
-  if (!hasFP(MF))
+  CallingConv::ID CallConv = MF.getFunction()->getCallingConv();
+  bool isHandler = (CallConv == CallingConv::AVR_INTR
+                    || CallConv == CallingConv::AVR_SIGNAL);
+
+  // Early exit if the frame pointer is not needed in this function except for
+  // signal/interrupt handlers where special code generation is needed.
+  if (!hasFP(MF) && !isHandler)
   {
     return;
   }
@@ -140,11 +144,26 @@ void AVRFrameLowering::emitEpilogue(MachineFunction &MF,
   MachineBasicBlock::iterator MBBI = MBB.getLastNonDebugInstr();
   assert(MBBI->getDesc().isReturn()
          && "Can only insert epilog into returning blocks");
+  DebugLoc dl = MBBI->getDebugLoc();
   const MachineFrameInfo *MFI = MF.getFrameInfo();
   const AVRMachineFunctionInfo *AFI = MF.getInfo<AVRMachineFunctionInfo>();
   uint64_t FrameSize = MFI->getStackSize() - AFI->getCalleeSavedFrameSize();
   const AVRInstrInfo &TII =
     *static_cast<const AVRInstrInfo *>(MF.getTarget().getInstrInfo());
+
+  // Emit special epilogue code to restore R1, R0 and SREG in interrupt/signal
+  // handlers at the very end of the function, just before reti.
+  if (isHandler)
+  {
+    // Don't modify the MBBI iterator so that in the loop below we start
+    // searching just before the point where these instructions are inserted.
+    MachineBasicBlock::iterator MBBI2 = MBBI;
+    BuildMI(MBB, MBBI2, dl, TII.get(AVR::POPRd), AVR::R0);
+    BuildMI(MBB, MBBI2, dl, TII.get(AVR::OUTARr))
+      .addImm(0x3f)
+      .addReg(AVR::R0, RegState::Kill);
+    BuildMI(MBB, MBBI2, dl, TII.get(AVR::POPWRd), AVR::R1R0);
+  }
 
   // Early exit if there is no need to restore the frame pointer.
   if (!FrameSize)
@@ -167,7 +186,6 @@ void AVRFrameLowering::emitEpilogue(MachineFunction &MF,
   }
 
   unsigned Opcode;
-  DebugLoc dl = MBBI->getDebugLoc();
 
   // Select the optimal opcode depending on how big it is.
   if (FrameSize < 64)
@@ -264,12 +282,7 @@ restoreCalleeSavedRegisters(MachineBasicBlock &MBB,
                             const std::vector<CalleeSavedInfo> &CSI,
                             const TargetRegisterInfo *TRI) const
 {
-  CallingConv::ID CallConv = MBB.getParent()->getFunction()->getCallingConv();
-  bool isHandler = (CallConv == CallingConv::AVR_INTR
-                    || CallConv == CallingConv::AVR_SIGNAL);
-
-  // Don't early exit for interrupt/signal handlers.
-  if (CSI.empty() && !isHandler)
+  if (CSI.empty())
   {
     return false;
   }
@@ -285,17 +298,6 @@ restoreCalleeSavedRegisters(MachineBasicBlock &MBB,
     assert(TRI->getMinimalPhysRegClass(Reg)->getSize() == 2
            && "Popping from the stack an 8 bit regiter");
     BuildMI(MBB, MI, DL, TII.get(AVR::POPWRd), Reg);
-  }
-
-  // Emit special epilogue code to restore R1, R0 and SREG in interrupt/signal
-  // handlers at the very end of the function, just before reti.
-  if (isHandler)
-  {
-    BuildMI(MBB, MI, DL, TII.get(AVR::POPRd), AVR::R0);
-    BuildMI(MBB, MI, DL, TII.get(AVR::OUTARr))
-      .addImm(0x3f)
-      .addReg(AVR::R0, RegState::Kill);
-    BuildMI(MBB, MI, DL, TII.get(AVR::POPWRd), AVR::R1R0);
   }
 
   return true;
