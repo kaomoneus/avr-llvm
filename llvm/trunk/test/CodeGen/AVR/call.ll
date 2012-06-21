@@ -148,12 +148,9 @@ define i32 @icall(i32 (i32)* %foo) {
 ; CHECK: sbci r23, 255
 ; CHECK: sbci r24, 255
 ; CHECK: sbci r25, 255
-  %1 = alloca i32 (i32)*
-  store i32 (i32)* %foo, i32 (i32)** %1
-  %2 = load i32 (i32)** %1
-  %3 = call i32 %2(i32 3335977107)
-  %4 = add nsw i32 %3, 5
-  ret i32 %4
+  %1 = call i32 %foo(i32 3335977107)
+  %2 = add nsw i32 %1, 5
+  ret i32 %2
 }
 
 ; Calling external functions (like __divsf3) require extra processing for
