@@ -82,19 +82,24 @@ bool AVRDAGToDAGISel::SelectAddr(SDValue N, SDValue &Base, SDValue &Disp)
       RHSC = -RHSC;
     }
 
+    // <#FI + const>
+    // Allow folding offsets bigger than 63 so the frame pointer can be used
+    // directly instead of copying it around by adjusting and restoring it for
+    // each access.
+    if (N.getOperand(0).getOpcode() == ISD::FrameIndex)
+    {
+      int FI = cast<FrameIndexSDNode>(N.getOperand(0))->getIndex();
+      Base = CurDAG->getTargetFrameIndex(FI, TLI.getPointerTy());
+      Disp = CurDAG->getTargetConstant(RHSC, MVT::i8);
+
+      return true;
+    }
+
     // We only accept offsets that fit in 6 bits (unsigned).
     if ((N.getValueType() == MVT::i8 && RHSC >= 0 && RHSC < 64)
         || (N.getValueType() == MVT::i16 && RHSC >= 0 && RHSC < 63))
     {
       Base = N.getOperand(0);
-
-      // <#FI + const>
-      if (Base.getOpcode() == ISD::FrameIndex)
-      {
-        int FI = cast<FrameIndexSDNode>(Base)->getIndex();
-        Base = CurDAG->getTargetFrameIndex(FI, TLI.getPointerTy());
-      }
-
       Disp = CurDAG->getTargetConstant(RHSC, MVT::i8);
 
       return true;

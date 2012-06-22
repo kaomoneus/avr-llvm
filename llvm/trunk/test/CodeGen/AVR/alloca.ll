@@ -1,0 +1,63 @@
+; RUN: llc < %s -march=avr | FileCheck %s
+
+declare i16 @allocate(i16*, i16*)
+
+; Test taking an address of an alloca with a small offset (adiw)
+define i16 @alloca_addressof_small() {
+entry:
+; CHECK: alloca_addressof_small:
+; CHECK: movw r25:r24, r29:r28
+; CHECK: adiw r25:r24, 17
+; CHECK: movw {{.*}}, r29:r28
+; CHECK: adiw {{.*}}, 39
+; CHECK: movw r23:r22, {{.*}}
+  %p = alloca [18 x i16], align 1
+  %k = alloca [14 x i16], align 1
+  %arrayidx = getelementptr inbounds [14 x i16]* %k, i16 0, i16 8
+  %arrayidx1 = getelementptr inbounds [18 x i16]* %p, i16 0, i16 5
+  %call = call i16 @allocate(i16* %arrayidx, i16* %arrayidx1)
+  ret i16 %call
+}
+
+; Test taking an address of an alloca with a big offset (subi/sbci pair)
+define i16 @alloca_addressof_big() {
+entry:
+; CHECK: alloca_addressof_big:
+; CHECK: movw r25:r24, r29:r28
+; CHECK: adiw r25:r24, 17
+; CHECK: movw r23:r22, r29:r28
+; CHECK: subi r22, 145
+; CHECK: sbci r23, 255
+  %p = alloca [55 x i16], align 1
+  %k = alloca [14 x i16], align 1
+  %arrayidx = getelementptr inbounds [14 x i16]* %k, i16 0, i16 8
+  %arrayidx1 = getelementptr inbounds [55 x i16]* %p, i16 0, i16 41
+  %call = call i16 @allocate(i16* %arrayidx, i16* %arrayidx1)
+  ret i16 %call
+}
+
+; Test writing to an allocated variable with a small and a big offset
+define i16 @alloca_write(i16 %x) nounwind noinline {
+entry:
+; CHECK: alloca_write:
+; Big offset here
+; CHECK: adiw r29:r28, 57
+; CHECK: std Y+62, {{.*}}
+; CHECK: std Y+63, {{.*}}
+; CHECK: sbiw r29:r28, 57
+; Small offset here
+; CHECK: std Y+23, {{.*}}
+; CHECK: std Y+24, {{.*}}
+  %p = alloca [15 x i16], align 1
+  %k = alloca [14 x i16], align 1
+  %arrayidx = getelementptr inbounds [15 x i16]* %p, i16 0, i16 45
+  store i16 22, i16* %arrayidx, align 1
+  %arrayidx1 = getelementptr inbounds [14 x i16]* %k, i16 0, i16 11
+  store i16 42, i16* %arrayidx1, align 1
+  %arrayidx2 = getelementptr inbounds [14 x i16]* %k, i16 0, i16 0
+  %arrayidx3 = getelementptr inbounds [15 x i16]* %p, i16 0, i16 0
+  %call = call i16 @allocate(i16* %arrayidx2, i16* %arrayidx3)
+  ret i16 %call
+}
+
+; :TODO: test writes with huge offsets

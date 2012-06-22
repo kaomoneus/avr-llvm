@@ -203,6 +203,39 @@ eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBasicBlock &MBB,
   MBB.erase(MI);
 }
 
+/// Fold a frame offset shared between two add instructions into a single one.
+static void foldFrameOffset(MachineInstr &MI, int &Offset, unsigned DstReg)
+{
+  unsigned Opcode = MI.getOpcode();
+
+  // Don't bother trying if the next instruction is not an add or a sub
+  if ((Opcode != AVR::SUBIWRdK) && (Opcode != AVR::ADIWRdK))
+  {
+    return;
+  }
+
+  // Check that DstReg matches with next instruction, otherwise the instruction
+  // is not related to stack address manipulation.
+  if (DstReg != MI.getOperand(0).getReg())
+  {
+    return;
+  }
+
+  // Add the offset in the next instruction to our offset.
+  switch (Opcode)
+  {
+  case AVR::SUBIWRdK:
+    Offset += -MI.getOperand(2).getImm();
+    break;
+  case AVR::ADIWRdK:
+    Offset += MI.getOperand(2).getImm();
+    break;
+  }
+
+  // Finally remove the instruction
+  MI.eraseFromParent();
+}
+
 void AVRRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
                                           int SPAdj, RegScavenger *RS) const
 {
@@ -243,6 +276,16 @@ void AVRRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
     // We need to materialize the offset via an add instruction.
     unsigned Opcode;
     unsigned DstReg = MI.getOperand(0).getReg();
+
+    // Generally, to load a frame address two add instructions get emitted that
+    // could be folded into a single one like this:
+    //  movw    r31:r30, r29:r28
+    //  adiw    r31:r30, 29
+    //  adiw    r31:r30, 16
+    // to:
+    //  movw    r31:r30, r29:r28
+    //  adiw    r31:r30, 45
+    foldFrameOffset(*llvm::next(II), Offset, DstReg);
 
     // Select the optimal opcode based on DstReg and the offset size
     switch (DstReg)
