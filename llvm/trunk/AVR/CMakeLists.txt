@@ -24,6 +24,8 @@ add_llvm_target(AVRCodeGen
   AVRTargetObjectFile.cpp
   )
 
+add_dependencies(LLVMAVRCodeGen intrinsics_gen)
+
 add_subdirectory(InstPrinter)
 add_subdirectory(TargetInfo)
 add_subdirectory(MCTargetDesc)
