@@ -1165,27 +1165,6 @@ bool AVRExpandPseudo::expandMI(MachineBasicBlock &MBB,
       MI.eraseFromParent();
       return true;
     }
-  case AVR::SPLOAD:
-    {
-      unsigned DstReg = MI.getOperand(0).getReg();
-      bool DstIsDead = MI.getOperand(0).isDead();
-      OpLo = AVR::INRdA;
-      OpHi = AVR::INRdA;
-      splitRegs(TRI, DstReg, DstLoReg, DstHiReg);
-
-      MachineInstrBuilder MIBLO =
-        BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(OpLo))
-          .addReg(DstLoReg, RegState::Define | getDeadRegState(DstIsDead))
-          .addImm(0x3d);
-
-      MachineInstrBuilder MIBHI =
-        BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(OpHi))
-          .addReg(DstHiReg, RegState::Define | getDeadRegState(DstIsDead))
-          .addImm(0x3e);
-
-      MI.eraseFromParent();
-      return true;
-    }
   }
 
   return false;

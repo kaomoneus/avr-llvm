@@ -47,9 +47,6 @@ namespace AVRISD
     LSLLOOP,
     LSRLOOP,
     ASRLOOP,
-    /// Load SP to a physical reg from I/O space, it is a
-    /// normal load but with in and out glue operands.
-    SPLOAD,
     /// AVR conditional branches. Operand 0 is the chain operand, operand 1
     /// is the block to branch if condition is true, operand 2 is the
     /// condition code, and operand 3 is the flag operand produced by a CMP

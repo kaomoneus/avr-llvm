@@ -28,10 +28,19 @@ using namespace llvm;
 AVRFrameLowering::AVRFrameLowering() :
   TargetFrameLowering(TargetFrameLowering::StackGrowsDown, 1, -2) {}
 
+bool
+AVRFrameLowering::canSimplifyCallFramePseudos(const MachineFunction &MF) const
+{
+  // Always simplify call frame pseudo instructions, even when
+  // hasReservedCallFrame is false.
+  return true;
+}
+
 bool AVRFrameLowering::hasReservedCallFrame(const MachineFunction &MF) const
 {
-  //:TODO: for now never reserve call frame space in the prologue
-  return false;
+  // Only do it when Y is reserved!
+  //:TODO: watch out with varargs here
+  return hasFP(MF);
 }
 
 void AVRFrameLowering::emitPrologue(MachineFunction &MF) const
@@ -85,7 +94,8 @@ void AVRFrameLowering::emitPrologue(MachineFunction &MF) const
   }
 
   // Update Y with the new base value.
-  BuildMI(MBB, MBBI, dl, TII.get(AVR::SPLOAD), AVR::R29R28).addReg(AVR::SP)
+  BuildMI(MBB, MBBI, dl, TII.get(AVR::INWRdA), AVR::R29R28)
+    .addImm(0x3d)
     .setMIFlag(MachineInstr::FrameSetup);
 
   // Mark the FramePtr as live-in in every block except the entry.

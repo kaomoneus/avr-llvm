@@ -21,11 +21,10 @@ include "AVRInstrFormats.td"
 // AVR Type Profiles
 //===----------------------------------------------------------------------===//
 
-def SDT_AVRCallSeqStart : SDCallSeqStart<[SDTCisVT<0, i32>]>;
-def SDT_AVRCallSeqEnd : SDCallSeqEnd<[SDTCisVT<0, i32>, SDTCisPtrTy<1>]>;
+def SDT_AVRCallSeqStart : SDCallSeqStart<[SDTCisVT<0, i16>]>;
+def SDT_AVRCallSeqEnd : SDCallSeqEnd<[SDTCisVT<0, i16>, SDTCisVT<1, i16>]>;
 def SDT_AVRCall : SDTypeProfile<0, -1, [SDTCisVT<0, iPTR>]>;
 def SDT_AVRWrapper : SDTypeProfile<1, 1, [SDTCisSameAs<0, 1>, SDTCisPtrTy<0>]>;
-def SDT_AVRSPLoad : SDTypeProfile<1, 1, [SDTCisSameAs<0, 1>, SDTCisPtrTy<0>]>;
 def SDT_AVRBrcond : SDTypeProfile<0, 2,
                                   [SDTCisVT<0, OtherVT>, SDTCisVT<1, i8>]>;
 def SDT_AVRCmp : SDTypeProfile<0, 2, [SDTCisSameAs<0, 1>]>;
@@ -46,8 +45,6 @@ def AVRcallseq_start : SDNode<"ISD::CALLSEQ_START", SDT_AVRCallSeqStart,
                               [SDNPHasChain, SDNPOutGlue]>;
 def AVRcallseq_end : SDNode<"ISD::CALLSEQ_END", SDT_AVRCallSeqEnd,
                             [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue]>;
-def AVRSPLoad : SDNode<"AVRISD::SPLOAD", SDT_AVRSPLoad,
-                       [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue]>;
 
 def AVRcall : SDNode<"AVRISD::CALL", SDT_AVRCall,
                      [SDNPHasChain, SDNPOutGlue, SDNPOptInGlue, SDNPVariadic]>;
@@ -117,6 +114,12 @@ def memri : Operand<iPTR>
 {
   let PrintMethod = "printMemriOperand";
   let MIOperandInfo = (ops PTRDISPREGS, i8imm);
+}
+
+// Address operand for SP+imm used by STD{W}SPQRr
+def memspi : Operand<iPTR>
+{
+  let MIOperandInfo = (ops GPRSP, i16imm);
 }
 
 // Branch targets have OtherVT type and print as pc-relative values.
@@ -367,17 +370,20 @@ def NOP             0000 0000 0000 0000
 let Defs = [SP, SREG],
 Uses = [SP] in
 {
-let mayStore = 1 in
 def ADJCALLSTACKDOWN : Pseudo<(outs),
-                              (ins i32imm:$amt),
+                              (ins i16imm:$amt),
                               "#ADJCALLSTACKDOWN",
                               [(AVRcallseq_start timm:$amt)]>;
 
-let mayStore = 1 in
+// R31R30 is used to update SP, since it is a scratch reg and this instruction
+// is placed after the function call then R31R30 should be always free.
+//let Defs = [R31R30],
+//Uses = [R31R30] in
+//:TODO: if we enable this, the pseudo is killed because it looks dead
 def ADJCALLSTACKUP : Pseudo<(outs),
-                            (ins i32imm:$amt1, DLDREGS:$src),
+                            (ins i16imm:$amt1, i16imm:$amt2),
                             "#ADJCALLSTACKUP",
-                            [(AVRcallseq_end timm:$amt1, DLDREGS:$src)]>;
+                            [(AVRcallseq_end timm:$amt1, timm:$amt2)]>;
 }
 
 // Arithmetic
@@ -1337,11 +1343,15 @@ def FRMIDX : Pseudo<(outs DLDREGS:$dst),
                     "frmidx\t$dst, $src, $src2",
                     []>;
 
-let mayLoad = 1 in
-def SPLOAD : Pseudo<(outs DLDREGS:$dst),
-                    (ins DLDREGS:$src),
-                    "spload\t$dst, $src",
-                    [(set DLDREGS:$dst, (AVRSPLoad DLDREGS:$src))]>;
+def STDSPQRr : Pseudo<(outs),
+                      (ins memspi:$dst, GPR8:$src),
+                      "stdstk\t$dst, $src",
+                      [(store GPR8:$src, addr:$dst)]>;
+
+def STDWSPQRr : Pseudo<(outs),
+                       (ins memspi:$dst, DREGS:$src),
+                       "stdwstk\t$dst, $src",
+                       [(store DREGS:$src, addr:$dst)]>;
 
 let usesCustomInserter = 1 in
 {

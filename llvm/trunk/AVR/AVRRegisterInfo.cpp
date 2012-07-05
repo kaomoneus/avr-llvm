@@ -65,6 +65,10 @@ BitVector AVRRegisterInfo::getReservedRegs(const MachineFunction &MF) const
   Reserved.set(AVR::R1);
   Reserved.set(AVR::R1R0);
 
+  Reserved.set(AVR::SPL);
+  Reserved.set(AVR::SPH);
+  Reserved.set(AVR::SP);
+
   if (TFI->hasFP(MF))
   {
     Reserved.set(AVR::R28);
@@ -75,112 +79,131 @@ BitVector AVRRegisterInfo::getReservedRegs(const MachineFunction &MF) const
   return Reserved;
 }
 
+/// Replace pseudo store instructions that pass arguments through the stack with
+/// real instructions. If insertPushes is true then all instructions are
+/// replaced with push instructions, otherwise regular std instructions are
+/// inserted.
+static void fixStackStores(MachineBasicBlock &MBB,
+                           MachineBasicBlock::iterator MI,
+                           const TargetInstrInfo &TII, bool insertPushes)
+{
+  // Iterate through the BB until we hit a call instruction or we reach the end.
+  for (MachineBasicBlock::iterator I = MI, E = MBB.end();
+        (I != E) && (!I->isCall()); )
+  {
+    MachineBasicBlock::iterator NextMI = llvm::next(I);
+    MachineInstr &MI = *I;
+    int Opcode = I->getOpcode();
+
+    // Only care of pseudo store instructions where SP is the base pointer.
+    if ((Opcode != AVR::STDSPQRr) && (Opcode != AVR::STDWSPQRr))
+    {
+      I = NextMI;
+      continue;
+    }
+
+    unsigned SrcReg = MI.getOperand(2).getReg();
+    bool SrcIsKill = MI.getOperand(2).isKill();
+    assert(MI.getOperand(0).getReg() == AVR::SP
+           && "Invalid register, should be SP!");
+
+    if (insertPushes)
+    {
+      // Replace this instruction with a push.
+
+      // We can't use PUSHWRr here because when expanded the order of the new
+      // instructions are reversed from what we need. Perform the expansion now.
+      if (Opcode == AVR::STDWSPQRr)
+      {
+        const TargetRegisterInfo *TRI =
+          MBB.getParent()->getTarget().getRegisterInfo();
+
+        BuildMI(MBB, I, MI.getDebugLoc(), TII.get(AVR::PUSHRr))
+          .addReg(TRI->getSubReg(SrcReg, AVR::sub_hi),
+                  getKillRegState(SrcIsKill));
+        BuildMI(MBB, I, MI.getDebugLoc(), TII.get(AVR::PUSHRr))
+          .addReg(TRI->getSubReg(SrcReg, AVR::sub_lo),
+                  getKillRegState(SrcIsKill));
+      }
+      else
+      {
+        BuildMI(MBB, I, MI.getDebugLoc(), TII.get(AVR::PUSHRr))
+          .addReg(SrcReg, getKillRegState(SrcIsKill));
+      }
+    }
+    else
+    {
+      // Replace this instruction with a regular store. Use Y as the base
+      // pointer because it is guaranteed to contain a copy of SP.
+      int STOpc = (Opcode == AVR::STDWSPQRr) ? AVR::STDWPtrQRr : AVR::STDPtrQRr;
+      unsigned Imm = MI.getOperand(1).getImm();
+      assert(isUInt<6>(Imm) && "Offset is out of range");
+
+      MachineInstrBuilder MIB =
+        BuildMI(MBB, I, MI.getDebugLoc(), TII.get(STOpc))
+          .addReg(AVR::R29R28)
+          .addImm(Imm)
+          .addReg(SrcReg, getKillRegState(SrcIsKill));
+      MIB->setMemRefs(MI.memoperands_begin(), MI.memoperands_end());
+    }
+
+    MI.eraseFromParent();
+    I = NextMI;
+  }
+}
+
 void AVRRegisterInfo::
 eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBasicBlock &MBB,
                               MachineBasicBlock::iterator MI) const
 {
   const TargetFrameLowering *TFI = MF.getTarget().getFrameLowering();
-  const TargetRegisterInfo *TRI = MF.getTarget().getRegisterInfo();
+
+  // There is nothing to insert when the call frame memory is allocated during
+  // function entry. Delete the call frame pseudo and replace all pseudo stores
+  // with real store instructions.
+  if (TFI->hasReservedCallFrame(MF))
+  {
+    fixStackStores(MBB, MI, TII, false);
+    MBB.erase(MI);
+    return;
+  }
+
   DebugLoc dl = MI->getDebugLoc();
   int Opcode = MI->getOpcode();
-  uint64_t Amount = MI->getOperand(0).getImm();
+  int Amount = MI->getOperand(0).getImm();
 
-  // Turn the adjcallstackup instruction into a 'sbiw reg, <amt>' and the
-  // adjcallstackdown instruction into 'adiw reg, <amt>' also handle reading
-  // and writing SP from I/O space.
+  // Adjcallstackup does not need to allocate stack space for the call, instead
+  // we insert push instructions that will allocate the necessary stack.
+  // For adjcallstackdown we convert it into an 'adiw reg, <amt>' handling
+  // reading and writing SP from I/O space.
   if (Amount != 0)
   {
-    // We need to keep the stack aligned properly.  To do this, we round the
-    // amount of space needed for the outgoing arguments up to the next
-    // alignment boundary.
-    unsigned Align = TFI->getStackAlignment();
-    Amount = (Amount + Align - 1) / Align * Align;
+    assert(TFI->getStackAlignment() == 1 && "Unsupported stack alignment");
 
     if (Opcode == TII.getCallFrameSetupOpcode())
     {
-      // The next instruction after adjcallstackdown is a SPLOAD, first get the
-      // register it defines and then move the instruction to the start of
-      // sequence we are about to generate.
-      MachineBasicBlock::iterator SPLOAD = llvm::next(MI);
-      assert(SPLOAD->getOpcode() == AVR::SPLOAD
-             && "Expected a SPLOAD instruction");
-      unsigned DstReg = SPLOAD->getOperand(0).getReg();
-      MBB.erase(SPLOAD);
-      BuildMI(MBB, MI, dl, TII.get(AVR::SPLOAD), DstReg).addReg(AVR::SP);
-
-      // Select optimal opcode to adjust SP based on DstReg and the offset size
-      unsigned subOpcode;
-      switch (DstReg)
-      {
-      case AVR::R25R24:
-      case AVR::R27R26:
-      case AVR::R29R28:
-      case AVR::R31R30:
-        {
-          if (Amount < 64)
-          {
-            subOpcode = AVR::SBIWRdK;
-            break;
-          }
-          // Fallthru
-        }
-      default:
-        {
-          subOpcode = AVR::SUBIWRdK;
-          break;
-        }
-      }
-
-      // Generate the real code that reads, modifies and then writes SP back
-      // to I/O space disabling temporarily interrupts.
-      MachineInstr *New = BuildMI(MBB, MI, dl, TII.get(subOpcode), DstReg)
-                            .addReg(DstReg, RegState::Kill)
-                            .addImm(Amount);
-      New->getOperand(3).setIsDead();
-      BuildMI(MBB, MI, dl, TII.get(AVR::INRdA), AVR::R0)
-        .addImm(0x3f);
-      BuildMI(MBB, MI, dl, TII.get(AVR::CLI));
-      BuildMI(MBB, MI, dl, TII.get(AVR::OUTARr))
-        .addImm(0x3e)
-        .addReg(TRI->getSubReg(DstReg, AVR::sub_hi));
-      BuildMI(MBB, MI, dl, TII.get(AVR::OUTARr))
-        .addImm(0x3f)
-        .addReg(AVR::R0, RegState::Kill);
-      BuildMI(MBB, MI, dl, TII.get(AVR::OUTARr))
-        .addImm(0x3d)
-        .addReg(TRI->getSubReg(DstReg, AVR::sub_lo));
+      fixStackStores(MBB, MI, TII, true);
     }
     else
     {
       assert(Opcode == TII.getCallFrameDestroyOpcode());
-      // Select optimal opcode to adjust SP based on DstReg and the offset size
-      unsigned addOpcode;
-      unsigned DstReg = MI->getOperand(1).getReg();
-      bool DstIsKill = MI->getOperand(1).isKill();
-      switch (DstReg)
+
+      // Select the best opcode to adjust SP based on the offset size.
+      int addOpcode;
+      if (isUInt<6>(Amount))
       {
-      case AVR::R25R24:
-      case AVR::R27R26:
-      case AVR::R29R28:
-      case AVR::R31R30:
-        {
-          if (Amount < 64)
-          {
-            addOpcode = AVR::ADIWRdK;
-            break;
-          }
-          // Fallthru
-        }
-      default:
-        {
-          addOpcode = AVR::SUBIWRdK;
-          Amount = -Amount;
-          break;
-        }
+        addOpcode = AVR::ADIWRdK;
+      }
+      else
+      {
+        addOpcode = AVR::SUBIWRdK;
+        Amount = -Amount;
       }
 
-      MachineInstr *New = BuildMI(MBB, MI, dl, TII.get(addOpcode), DstReg)
-                            .addReg(DstReg, RegState::Kill)
+      // Build the instruction sequence.
+      BuildMI(MBB, MI, dl, TII.get(AVR::INWRdA), AVR::R31R30).addImm(0x3d);
+      MachineInstr *New = BuildMI(MBB, MI, dl, TII.get(addOpcode), AVR::R31R30)
+                            .addReg(AVR::R31R30, RegState::Kill)
                             .addImm(Amount);
       New->getOperand(3).setIsDead();
       BuildMI(MBB, MI, dl, TII.get(AVR::INRdA), AVR::R0)
@@ -188,15 +211,13 @@ eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBasicBlock &MBB,
       BuildMI(MBB, MI, dl, TII.get(AVR::CLI));
       BuildMI(MBB, MI, dl, TII.get(AVR::OUTARr))
         .addImm(0x3e)
-        .addReg(TRI->getSubReg(DstReg, AVR::sub_hi),
-                getKillRegState(DstIsKill));
+        .addReg(AVR::R31, RegState::Kill);
       BuildMI(MBB, MI, dl, TII.get(AVR::OUTARr))
         .addImm(0x3f)
         .addReg(AVR::R0, RegState::Kill);
       BuildMI(MBB, MI, dl, TII.get(AVR::OUTARr))
         .addImm(0x3d)
-        .addReg(TRI->getSubReg(DstReg, AVR::sub_lo),
-                getKillRegState(DstIsKill));
+        .addReg(AVR::R30, RegState::Kill);
       }
   }
 
@@ -206,7 +227,7 @@ eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBasicBlock &MBB,
 /// Fold a frame offset shared between two add instructions into a single one.
 static void foldFrameOffset(MachineInstr &MI, int &Offset, unsigned DstReg)
 {
-  unsigned Opcode = MI.getOpcode();
+  int Opcode = MI.getOpcode();
 
   // Don't bother trying if the next instruction is not an add or a sub
   if ((Opcode != AVR::SUBIWRdK) && (Opcode != AVR::ADIWRdK))
@@ -274,7 +295,7 @@ void AVRRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
     assert(Offset > 0 && "Invalid offset");
 
     // We need to materialize the offset via an add instruction.
-    unsigned Opcode;
+    int Opcode;
     unsigned DstReg = MI.getOperand(0).getReg();
 
     // Generally, to load a frame address two add instructions get emitted that

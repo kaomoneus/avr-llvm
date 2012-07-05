@@ -36,6 +36,7 @@ public: // TargetFrameLowering
                                    const std::vector<CalleeSavedInfo> &CSI,
                                    const TargetRegisterInfo *TRI) const;
   bool hasReservedCallFrame(const MachineFunction &MF) const;
+  bool canSimplifyCallFramePseudos(const MachineFunction &MF) const;
   void processFunctionBeforeCalleeSavedScan(MachineFunction &MF,
                                             RegScavenger *RS = NULL) const;
 };

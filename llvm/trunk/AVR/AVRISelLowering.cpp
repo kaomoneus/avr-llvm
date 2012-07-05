@@ -42,9 +42,13 @@ AVRTargetLowering::AVRTargetLowering(AVRTargetMachine &tm) :
   setBooleanContents(ZeroOrOneBooleanContent);
   setBooleanVectorContents(ZeroOrOneBooleanContent); // FIXME: Is this correct?
   setSchedulingPreference(Sched::RegPressure);
+  setStackPointerRegisterToSaveRestore(AVR::R3R2); //:FIXME: test for dynallocas
 
   setOperationAction(ISD::GlobalAddress, getPointerTy(), Custom);
   setOperationAction(ISD::BlockAddress, getPointerTy(), Custom);
+
+  setOperationAction(ISD::DYNAMIC_STACKALLOC, MVT::i8, Expand);
+  setOperationAction(ISD::DYNAMIC_STACKALLOC, MVT::i16, Expand);
 
   setLoadExtAction(ISD::EXTLOAD, MVT::i8, Expand);
   setLoadExtAction(ISD::SEXTLOAD, MVT::i8, Expand);
@@ -108,7 +112,6 @@ const char *AVRTargetLowering::getTargetNodeName(unsigned Opcode) const
   case AVRISD::LSLLOOP:                       return "AVRISD::LSLLOOP";
   case AVRISD::LSRLOOP:                       return "AVRISD::LSRLOOP";
   case AVRISD::ASRLOOP:                       return "AVRISD::ASRLOOP";
-  case AVRISD::SPLOAD:                        return "AVRISD::SPLOAD";
   case AVRISD::BRCOND:                        return "AVRISD::BRCOND";
   case AVRISD::CMP:                           return "AVRISD::CMP";
   case AVRISD::CMPC:                          return "AVRISD::CMPC";
@@ -928,7 +931,7 @@ AVRTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   }
   else
   {
-    // if we reached this point it is an indirect call.
+    // If we reached this point it is an indirect call.
     AnalyzeArguments(NULL, TD, &Outs, NULL, ArgLocs, CCInfo, true);
   }
 
@@ -939,19 +942,6 @@ AVRTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
 
   SmallVector<std::pair<unsigned, SDValue>, 8> RegsToPass;
   SmallVector<SDValue, 8> MemOpChains;
-  SDValue StackPtr;
-
-  SDValue SP = DAG.getRegister(AVR::SP, getPointerTy());
-  SDVTList SPNodeTys = DAG.getVTList(getPointerTy(), MVT::Other, MVT::Glue);
-
-  // Load SP from the I/O space into a physical register used as the pointer
-  // to pass arguments on the stack.
-  if (NumBytes)
-  {
-    StackPtr = DAG.getNode(AVRISD::SPLOAD, dl, SPNodeTys, Chain, SP,
-                           Chain.getValue(1));
-    Chain = StackPtr.getValue(1);
-  }
 
   // Walk the register/memloc assignments, inserting copies/loads.
   for (unsigned i = 0, e = ArgLocs.size(); i != e; ++i)
@@ -990,10 +980,10 @@ AVRTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
     else
     {
       assert(VA.isMemLoc());
-      assert(StackPtr.getNode() != 0 && "Empty stack pointer node");
 
       // SP points to one stack slot further so add one to adjust it
-      SDValue PtrOff = DAG.getNode(ISD::ADD, dl, getPointerTy(), StackPtr,
+      SDValue PtrOff = DAG.getNode(ISD::ADD, dl, getPointerTy(),
+                                   DAG.getRegister(AVR::SP, getPointerTy()),
                                    DAG.getIntPtrConstant(VA.getLocMemOffset()
                                                          + 1));
 
@@ -1045,19 +1035,9 @@ AVRTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   Chain = DAG.getNode(AVRISD::CALL, dl, NodeTys, &Ops[0], Ops.size());
   InFlag = Chain.getValue(1);
 
-  SDValue SPCopy = DAG.getUNDEF(getPointerTy());
-  // Reload SP to a physical register to restore the stack after
-  // the function call.
-  if (NumBytes)
-  {
-    SPCopy = DAG.getNode(AVRISD::SPLOAD, dl, SPNodeTys, Chain, SP, InFlag);
-    Chain = SPCopy.getValue(1);
-    InFlag = SPCopy.getValue(2);
-  }
-
   // Create the CALLSEQ_END node.
   Chain = DAG.getCALLSEQ_END(Chain, DAG.getIntPtrConstant(NumBytes, true),
-                             SPCopy, InFlag);
+                             DAG.getIntPtrConstant(0, true), InFlag);
 
   if (!Ins.empty())
   {

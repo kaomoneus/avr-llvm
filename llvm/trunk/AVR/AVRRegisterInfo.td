@@ -164,6 +164,9 @@ def PTRDISPREGS : RegisterClass<"AVR", [i16], 8,
     add R31R30, R29R28
   )>;
 
+// Register class used for the stack read pseudo instruction
+def GPRSP: RegisterClass<"AVR", [i16], 8, (add SP)>;
+
 //:TODO: if we remove this we get an error in tablegen
 //:TODO: this is just a hack, remove it once add16 works!
 def SREG : AVRReg<14, "FLAGS">, DwarfRegNum<[88]>;
