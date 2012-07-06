@@ -103,14 +103,14 @@ const AVRRegisterInfo *AVRTargetMachine::getRegisterInfo() const
 bool AVRPassConfig::addInstSelector()
 {
   // Install an instruction selector.
-  PM->add(createAVRISelDag(getAVRTargetMachine(), getOptLevel()));
-  PM->add(createAVRFrameAnalyzerPass());
+  addPass(createAVRISelDag(getAVRTargetMachine(), getOptLevel()));
+  addPass(createAVRFrameAnalyzerPass());
   return false;
 }
 
 bool AVRPassConfig::addPreSched2()
 {
-  PM->add(createAVRExpandPseudoPass());
+  addPass(createAVRExpandPseudoPass());
   return true;
 }
 
