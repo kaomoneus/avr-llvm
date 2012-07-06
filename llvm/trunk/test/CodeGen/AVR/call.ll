@@ -133,7 +133,34 @@ define i64 @calli64_stack() {
     ret i64 %result1
 }
 
-declare i32 @bar(i32)
+; Test passing arguments through the stack when the call frame is allocated
+; in the prologue.
+declare void @foo64_3(i64, i64, i64, i16*)
+
+define void @testcallprologue() {
+; CHECK: testcallprologue:
+; CHECK: sbiw r29:r28, 26
+; CHECK: ldi [[REG1:r[0-9]+]], 11
+; CHECK: ldi [[REG2:r[0-9]+]], 10
+; CHECK: std Y+7, [[REG1]]
+; CHECK: std Y+8, [[REG2]]
+; CHECK: ldi [[REG1:r[0-9]+]], 13
+; CHECK: ldi [[REG2:r[0-9]+]], 12
+; CHECK: std Y+5, [[REG1]]
+; CHECK: std Y+6, [[REG2]]
+; CHECK: ldi [[REG1:r[0-9]+]], 15
+; CHECK: ldi [[REG2:r[0-9]+]], 14
+; CHECK: std Y+3, [[REG1]]
+; CHECK: std Y+4, [[REG2]]
+; CHECK: ldi [[REG1:r[0-9]+]], 8
+; CHECK: ldi [[REG2:r[0-9]+]], 9
+; CHECK: std Y+1, [[REG1]]
+; CHECK: std Y+2, [[REG2]]
+  %p = alloca [8 x i16], align 1
+  %arraydecay = getelementptr inbounds [8 x i16]* %p, i16 0, i16 0
+  call void @foo64_3(i64 723685415333071112, i64 723685415333071112, i64 723685415333071112, i16* %arraydecay)
+  ret void
+}
 
 define i32 @icall(i32 (i32)* %foo) {
 ; CHECK: icall:
