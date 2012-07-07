@@ -218,8 +218,14 @@ SDNode *AVRDAGToDAGISel::Select(SDNode *N)
       // the stack on function calls for further expansion during the PEI phase.
       const StoreSDNode *ST = cast<StoreSDNode>(N);
       SDValue BasePtr = ST->getBasePtr();
-      const RegisterSDNode *RN =dyn_cast<RegisterSDNode>(BasePtr.getOperand(0));
 
+      // Early exit when the base pointer is a frame index node.
+      if (isa<FrameIndexSDNode>(BasePtr))
+      {
+        break;
+      }
+
+      const RegisterSDNode *RN =dyn_cast<RegisterSDNode>(BasePtr.getOperand(0));
       // Only stores where SP is the base pointer are valid.
       if (!RN || (RN->getReg() != AVR::SP))
       {
