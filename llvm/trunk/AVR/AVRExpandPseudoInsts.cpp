@@ -61,8 +61,7 @@ bool AVRExpandPseudo::expandMI(MachineBasicBlock &MBB,
 {
   MachineInstr &MI = *MBBI;
   int Opcode = MI.getOpcode();
-  int OpLo, OpHi;
-  unsigned SrcLoReg, SrcHiReg, DstLoReg, DstHiReg;
+  unsigned OpLo, OpHi, SrcLoReg, SrcHiReg, DstLoReg, DstHiReg;
 
   //:TODO: obviously factor out all this mess
   switch (Opcode)
