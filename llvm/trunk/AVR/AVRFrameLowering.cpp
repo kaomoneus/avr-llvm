@@ -108,7 +108,7 @@ void AVRFrameLowering::emitPrologue(MachineFunction &MF) const
   // Reserve the necessary frame memory by doing FP -= <size>.
   if (FrameSize)
   {
-    unsigned Opcode = (FrameSize > 63) ? AVR::SUBIWRdK : AVR::SBIWRdK;
+    unsigned Opcode = (isUInt<6>(FrameSize)) ? AVR::SBIWRdK : AVR::SUBIWRdK;
 
     MachineInstr *MI = BuildMI(MBB, MBBI, dl, TII.get(Opcode), AVR::R29R28)
       .addReg(AVR::R29R28).addImm(FrameSize)
@@ -185,7 +185,7 @@ void AVRFrameLowering::emitEpilogue(MachineFunction &MF,
   while (MBBI != MBB.begin())
   {
     MachineBasicBlock::iterator PI = llvm::prior(MBBI);
-    unsigned Opc = PI->getOpcode();
+    int Opc = PI->getOpcode();
 
     if (((Opc != AVR::POPRd) && (Opc != AVR::POPWRd)) && !(PI->isTerminator()))
     {
@@ -198,7 +198,7 @@ void AVRFrameLowering::emitEpilogue(MachineFunction &MF,
   unsigned Opcode;
 
   // Select the optimal opcode depending on how big it is.
-  if (FrameSize < 64)
+  if (isUInt<6>(FrameSize))
   {
     Opcode = AVR::ADIWRdK;
   }
@@ -336,14 +336,14 @@ namespace
       const MachineFrameInfo *MFI = MF.getFrameInfo();
       AVRMachineFunctionInfo *FuncInfo = MF.getInfo<AVRMachineFunctionInfo>();
 
-      // If there are non fixed frame indices during this stage it means there
+      // If there are no fixed frame indexes during this stage it means there
       // are allocas present in the function.
       if (MFI->getNumObjects() - MFI->getNumFixedObjects())
       {
         FuncInfo->setHasAllocas(true);
       }
 
-      // If there are fixed frame indices present, scan the function to see if
+      // If there are fixed frame indexes present, scan the function to see if
       // they are really being used.
       if (MFI->getNumFixedObjects() == 0)
       {

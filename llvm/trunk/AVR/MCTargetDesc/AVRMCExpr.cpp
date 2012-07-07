@@ -43,7 +43,7 @@ AVRMCExpr::EvaluateAsRelocatableImpl(MCValue &Res,
   return false;
 }
 
-static void AddValueSymbols_(const MCExpr *Value, MCAssembler *Asm)
+static void addValueSymbols_(const MCExpr *Value, MCAssembler *Asm)
 {
   switch (Value->getKind())
   {
@@ -54,20 +54,20 @@ static void AddValueSymbols_(const MCExpr *Value, MCAssembler *Asm)
   case MCExpr::Binary:
     {
       const MCBinaryExpr *BE = cast<MCBinaryExpr>(Value);
-      AddValueSymbols_(BE->getLHS(), Asm);
-      AddValueSymbols_(BE->getRHS(), Asm);
+      addValueSymbols_(BE->getLHS(), Asm);
+      addValueSymbols_(BE->getRHS(), Asm);
       break;
     }
   case MCExpr::SymbolRef:
     Asm->getOrCreateSymbolData(cast<MCSymbolRefExpr>(Value)->getSymbol());
     break;
   case MCExpr::Unary:
-    AddValueSymbols_(cast<MCUnaryExpr>(Value)->getSubExpr(), Asm);
+    addValueSymbols_(cast<MCUnaryExpr>(Value)->getSubExpr(), Asm);
     break;
   }
 }
 
 void AVRMCExpr::AddValueSymbols(MCAssembler *Asm) const
 {
-  AddValueSymbols_(getSubExpr(), Asm);
+  addValueSymbols_(getSubExpr(), Asm);
 }

@@ -135,7 +135,8 @@ static void fixStackStores(MachineBasicBlock &MBB,
     {
       // Replace this instruction with a regular store. Use Y as the base
       // pointer because it is guaranteed to contain a copy of SP.
-      int STOpc = (Opcode == AVR::STDWSPQRr) ? AVR::STDWPtrQRr : AVR::STDPtrQRr;
+      unsigned STOpc =
+        (Opcode == AVR::STDWSPQRr) ? AVR::STDWPtrQRr : AVR::STDPtrQRr;
       unsigned Imm = MI.getOperand(1).getImm();
       assert(isUInt<6>(Imm) && "Offset is out of range");
 
@@ -175,7 +176,7 @@ eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBasicBlock &MBB,
   // Adjcallstackup does not need to allocate stack space for the call, instead
   // we insert push instructions that will allocate the necessary stack.
   // For adjcallstackdown we convert it into an 'adiw reg, <amt>' handling
-  // reading and writing SP from I/O space.
+  // the read and write of SP in I/O space.
   if (Amount != 0)
   {
     assert(TFI->getStackAlignment() == 1 && "Unsupported stack alignment");
@@ -189,7 +190,7 @@ eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBasicBlock &MBB,
       assert(Opcode == TII.getCallFrameDestroyOpcode());
 
       // Select the best opcode to adjust SP based on the offset size.
-      int addOpcode;
+      unsigned addOpcode;
       if (isUInt<6>(Amount))
       {
         addOpcode = AVR::ADIWRdK;
@@ -218,7 +219,7 @@ eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBasicBlock &MBB,
       BuildMI(MBB, MI, dl, TII.get(AVR::OUTARr))
         .addImm(0x3d)
         .addReg(AVR::R30, RegState::Kill);
-      }
+    }
   }
 
   MBB.erase(MI);
@@ -229,7 +230,7 @@ static void foldFrameOffset(MachineInstr &MI, int &Offset, unsigned DstReg)
 {
   int Opcode = MI.getOpcode();
 
-  // Don't bother trying if the next instruction is not an add or a sub
+  // Don't bother trying if the next instruction is not an add or a sub.
   if ((Opcode != AVR::SUBIWRdK) && (Opcode != AVR::ADIWRdK))
   {
     return;
@@ -253,7 +254,7 @@ static void foldFrameOffset(MachineInstr &MI, int &Offset, unsigned DstReg)
     break;
   }
 
-  // Finally remove the instruction
+  // Finally remove the instruction.
   MI.eraseFromParent();
 }
 
@@ -279,9 +280,9 @@ void AVRRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   int FrameIndex = MI.getOperand(i).getIndex();
   int Offset = MFI->getObjectOffset(FrameIndex);
 
-  // Add one to the offset because SP points to an empty slot
+  // Add one to the offset because SP points to an empty slot.
   Offset += MFI->getStackSize() - TFI->getOffsetOfLocalArea() + 1;
-  // Fold incoming offset
+  // Fold incoming offset.
   Offset += MI.getOperand(i + 1).getImm();
 
   // This is actually "load effective address" of the stack slot
@@ -295,11 +296,11 @@ void AVRRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
     assert(Offset > 0 && "Invalid offset");
 
     // We need to materialize the offset via an add instruction.
-    int Opcode;
+    unsigned Opcode;
     unsigned DstReg = MI.getOperand(0).getReg();
 
-    // Generally, to load a frame address two add instructions get emitted that
-    // could be folded into a single one like this:
+    // Generally, to load a frame address two add instructions are emitted that
+    // could get folded into a single one:
     //  movw    r31:r30, r29:r28
     //  adiw    r31:r30, 29
     //  adiw    r31:r30, 16
@@ -308,14 +309,14 @@ void AVRRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
     //  adiw    r31:r30, 45
     foldFrameOffset(*llvm::next(II), Offset, DstReg);
 
-    // Select the optimal opcode based on DstReg and the offset size
+    // Select the best opcode based on DstReg and the offset size.
     switch (DstReg)
     {
     case AVR::R25R24:
     case AVR::R27R26:
     case AVR::R31R30:
       {
-        if (Offset < 64)
+        if (isUInt<6>(Offset))
         {
           Opcode = AVR::ADIWRdK;
           break;
@@ -324,7 +325,7 @@ void AVRRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
       }
     default:
       {
-        // This opcode will get expanded into a pair of subi/sbci
+        // This opcode will get expanded into a pair of subi/sbci.
         //:FIXME: INVALID CODEGEN: NON IMM REGS CANT USE SUBI!!!
         // we have to materialize the offset by other means, see what gcc does
         // For now, FRMIDX only accepts DLDREGS which looks like a good solution
@@ -341,8 +342,8 @@ void AVRRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
     return;
   }
 
-  // if the offset is too big we have to adjust and restore the frame pointer
-  // to materialize a valid load/store with displacement
+  // If the offset is too big we have to adjust and restore the frame pointer
+  // to materialize a valid load/store with displacement.
   //:TODO: consider using only one adiw/sbiw chain for more than one frame index
   if (Offset >= 63)
   {

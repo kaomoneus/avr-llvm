@@ -50,18 +50,19 @@ char AVRExpandPseudo::ID = 0;
 /// splitRegs - Split the incoming register pair into the subregisters that it
 /// is composed of.
 static void splitRegs(const TargetRegisterInfo *TRI, unsigned Reg,
-                      unsigned &loreg, unsigned &hireg)
+                      unsigned &LoReg, unsigned &HiReg)
 {
-  loreg = TRI->getSubReg(Reg, AVR::sub_lo);
-  hireg = TRI->getSubReg(Reg, AVR::sub_hi);
+  LoReg = TRI->getSubReg(Reg, AVR::sub_lo);
+  HiReg = TRI->getSubReg(Reg, AVR::sub_hi);
 }
 
 bool AVRExpandPseudo::expandMI(MachineBasicBlock &MBB,
                                MachineBasicBlock::iterator MBBI)
 {
   MachineInstr &MI = *MBBI;
-  unsigned Opcode = MI.getOpcode();
-  unsigned OpLo, OpHi, SrcLoReg, SrcHiReg, DstLoReg, DstHiReg;
+  int Opcode = MI.getOpcode();
+  int OpLo, OpHi;
+  unsigned SrcLoReg, SrcHiReg, DstLoReg, DstHiReg;
 
   //:TODO: obviously factor out all this mess
   switch (Opcode)

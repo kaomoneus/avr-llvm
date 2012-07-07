@@ -28,31 +28,24 @@ using namespace llvm;
 
 //:FIXME: this should be done somewhere else
 // check out the new feature about alternative reg names
-static const char *getPtrRegName(const char *reg)
+/// Convert a register name to its pointer name.
+static char getPtrRegName(const char *RegName)
 {
-  if (strcmp(reg, "r31:r30") == 0)
+  if (strcmp(RegName, "r31:r30") == 0)
   {
-    return "Z";
+    return 'Z';
   }
-  else if (strcmp(reg, "r29:r28") == 0)
+  else if (strcmp(RegName, "r29:r28") == 0)
   {
-    return "Y";
+    return 'Y';
   }
-  else if (strcmp(reg, "r27:r26") == 0)
+  else if (strcmp(RegName, "r27:r26") == 0)
   {
-    return "X";
-  }
-  else if (strcmp(reg, "SP") == 0)
-  {
-    //:FIXME: SP is used for pseudo ld/st that get expanded into in/out
-    return "SP";
-  }
-  else
-  {
-    llvm_unreachable("Invalid register name");
+    return 'X';
   }
 
-  return 0;
+  llvm_unreachable("Invalid register name");
+  return '\0';
 }
 
 void AVRInstPrinter::printInst(const MCInst *MI, raw_ostream &O,
@@ -99,6 +92,7 @@ void AVRInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
                                   raw_ostream &O, const char *Modifier)
 {
   const MCOperand &Op = MI->getOperand(OpNo);
+
   if (Op.isReg())
   {
     // Print ptr registers as X, Y and Z
@@ -117,7 +111,7 @@ void AVRInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
   }
   else
   {
-    assert(Op.isExpr() && "unknown operand kind in printOperand");
+    assert(Op.isExpr() && "Unknown operand kind in printOperand");
     O << *Op.getExpr();
   }
 }
@@ -144,7 +138,7 @@ void AVRInstPrinter::print_pcrel_imm(const MCInst *MI, unsigned OpNo,
   }
   else
   {
-    assert(Op.isExpr() && "unknown pcrel immediate operand");
+    assert(Op.isExpr() && "Unknown pcrel immediate operand");
     O << *Op.getExpr();
   }
 }

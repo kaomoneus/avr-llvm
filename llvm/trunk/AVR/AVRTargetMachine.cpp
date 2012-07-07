@@ -114,7 +114,7 @@ bool AVRPassConfig::addPreSched2()
   return true;
 }
 
-static FunctionPass* createAVRRegisterAllocator()
+static FunctionPass *createAVRRegisterAllocator()
 {
   return createGreedyRegisterAllocator();
 }
