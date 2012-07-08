@@ -1,7 +1,7 @@
 Index: lib/CodeGen/RegAllocGreedy.cpp
 ===================================================================
---- lib/CodeGen/RegAllocGreedy.cpp	(revisión: 158913)
-+++ lib/CodeGen/RegAllocGreedy.cpp	(copia de trabajo)
+--- lib/CodeGen/RegAllocGreedy.cpp	(revision 159909)
++++ lib/CodeGen/RegAllocGreedy.cpp	(working copy)
 @@ -85,6 +85,9 @@
    std::priority_queue<std::pair<unsigned, unsigned> > Queue;
    unsigned NextCascade;

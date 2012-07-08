@@ -2,11 +2,8 @@ Index: include/clang/Basic/DiagnosticSemaKinds.td
 ===================================================================
 --- include/clang/Basic/DiagnosticSemaKinds.td	(revisión: 158913)
 +++ include/clang/Basic/DiagnosticSemaKinds.td	(copia de trabajo)
-@@ -4718,6 +4718,16 @@
-   "reference to %select{__device__|__global__|__host__|__host__ __device__}0 "
-   "function %1 in %select{__device__|__global__|__host__|__host__ __device__}2 function">;
- 
- def err_isr_has_arguments : Error<
+
+@@ -4742,6 +4742,12 @@
    "'%0' attribute only applies to functions with no arguments">;
  def err_isr_not_void_return : Error<
    "'%0' attribute only applies to functions with a void return type">;

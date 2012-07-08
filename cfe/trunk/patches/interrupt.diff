@@ -1,11 +1,11 @@
 Index: include/clang/Basic/Attr.td
 ===================================================================
---- include/clang/Basic/Attr.td (revisión: 156172)
-+++ include/clang/Basic/Attr.td (copia de trabajo)
-@@ -379,6 +379,16 @@
+--- include/clang/Basic/Attr.td	(revision 159909)
++++ include/clang/Basic/Attr.td	(working copy)
+@@ -393,6 +393,16 @@
    let SemaHandler = 0;
  }
-
+ 
 +def AVRSignalHandler : InheritableAttr {
 +  let Spellings = [];
 +  let SemaHandler = 0;
@@ -21,9 +21,9 @@ Index: include/clang/Basic/Attr.td
    let SemaHandler = 0;
 Index: include/clang/Basic/DiagnosticSemaKinds.td
 ===================================================================
---- include/clang/Basic/DiagnosticSemaKinds.td	(revision 156247)
+--- include/clang/Basic/DiagnosticSemaKinds.td	(revision 159909)
 +++ include/clang/Basic/DiagnosticSemaKinds.td	(working copy)
-@@ -4604,6 +4604,10 @@
+@@ -4738,6 +4738,10 @@
    "reference to %select{__device__|__global__|__host__|__host__ __device__}0 "
    "function %1 in %select{__device__|__global__|__host__|__host__ __device__}2 function">;
  
@@ -36,8 +36,8 @@ Index: include/clang/Basic/DiagnosticSemaKinds.td
    "cannot pass object with interface type %0 by-value through variadic "
 Index: lib/Sema/TargetAttributesSema.cpp
 ===================================================================
---- lib/Sema/TargetAttributesSema.cpp	(revisión: 152164)
-+++ lib/Sema/TargetAttributesSema.cpp	(copia de trabajo)
+--- lib/Sema/TargetAttributesSema.cpp	(revision 159909)
++++ lib/Sema/TargetAttributesSema.cpp	(working copy)
 @@ -120,6 +120,64 @@
    };
  }
@@ -103,7 +103,7 @@ Index: lib/Sema/TargetAttributesSema.cpp
  static void HandleX86ForceAlignArgPointerAttr(Decl *D,
                                                const AttributeList& Attr,
                                                Sema &S) {
-@@ -272,6 +330,8 @@
+@@ -275,6 +333,8 @@
    case llvm::Triple::x86:
    case llvm::Triple::x86_64:
      return *(TheTargetAttributesSema = new X86AttributesSema);
@@ -114,9 +114,9 @@ Index: lib/Sema/TargetAttributesSema.cpp
    }
 Index: lib/CodeGen/TargetInfo.cpp
 ===================================================================
---- lib/CodeGen/TargetInfo.cpp	(revision 156247)
+--- lib/CodeGen/TargetInfo.cpp	(revision 159909)
 +++ lib/CodeGen/TargetInfo.cpp	(working copy)
-@@ -3049,7 +3049,97 @@
+@@ -3119,7 +3119,97 @@
                            "_interrupt_handler", GV, &M.getModule());
  }
  
@@ -214,7 +214,7 @@ Index: lib/CodeGen/TargetInfo.cpp
  //===----------------------------------------------------------------------===//
  // MSP430 ABI Implementation
  //===----------------------------------------------------------------------===//
-@@ -3642,6 +3732,9 @@
+@@ -3722,6 +3812,9 @@
    case llvm::Triple::mblaze:
      return *(TheTargetCodeGenInfo = new MBlazeTargetCodeGenInfo(Types));
  
@@ -223,4 +223,4 @@ Index: lib/CodeGen/TargetInfo.cpp
 +
    case llvm::Triple::msp430:
      return *(TheTargetCodeGenInfo = new MSP430TargetCodeGenInfo(Types));
-
+ 

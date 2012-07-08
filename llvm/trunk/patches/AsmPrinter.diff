@@ -1,7 +1,7 @@
 Index: lib/CodeGen/AsmPrinter/AsmPrinter.cpp
 ===================================================================
---- lib/CodeGen/AsmPrinter/AsmPrinter.cpp	(revisión: 152169)
-+++ lib/CodeGen/AsmPrinter/AsmPrinter.cpp	(copia de trabajo)
+--- lib/CodeGen/AsmPrinter/AsmPrinter.cpp	(revision 159909)
++++ lib/CodeGen/AsmPrinter/AsmPrinter.cpp	(working copy)
 @@ -289,7 +289,10 @@
    unsigned AlignLog = getGVAlignmentLog2(GV, *TD);
  
@@ -13,4 +13,4 @@ Index: lib/CodeGen/AsmPrinter/AsmPrinter.cpp
 +      && GV->getType()->getAddressSpace() == 0) {
      if (Size == 0) Size = 1;   // .comm Foo, 0 is undefined, avoid it.
      unsigned Align = 1 << AlignLog;
-
+ 

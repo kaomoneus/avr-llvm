@@ -1,53 +1,98 @@
-Index: autoconf/configure.ac
+Index: projects/sample/autoconf/configure.ac
 ===================================================================
---- autoconf/configure.ac	(revision 156247)
-+++ autoconf/configure.ac	(working copy)
-@@ -363,6 +363,7 @@
-   sparc*-*)               llvm_cv_target_arch="Sparc" ;;
-   powerpc*-*)             llvm_cv_target_arch="PowerPC" ;;
-   arm*-*)                 llvm_cv_target_arch="ARM" ;;
-+  avr-*)                  llvm_cv_target_arch="AVR" ;;
-   mips-*)                 llvm_cv_target_arch="Mips" ;;
-   mipsel-*)               llvm_cv_target_arch="Mips" ;;
-   xcore-*)                llvm_cv_target_arch="XCore" ;;
-@@ -512,6 +513,7 @@
-     PowerPC)     AC_SUBST(TARGET_HAS_JIT,1) ;;
-     x86_64)      AC_SUBST(TARGET_HAS_JIT,1) ;;
-     ARM)         AC_SUBST(TARGET_HAS_JIT,1) ;;
+--- projects/sample/autoconf/configure.ac	(revision 159909)
++++ projects/sample/autoconf/configure.ac	(working copy)
+@@ -311,6 +311,7 @@
+   hexagon-*)              llvm_cv_target_arch="Hexagon" ;;
+   mblaze-*)               llvm_cv_target_arch="MBlaze" ;;
+   nvptx-*)                llvm_cv_target_arch="NVPTX" ;;
++  avr*-*)                 llvm_cv_target_arch="AVR" ;;
+   *)                      llvm_cv_target_arch="Unknown" ;;
+ esac])
+ 
+@@ -458,6 +459,7 @@
+     Hexagon)     AC_SUBST(TARGET_HAS_JIT,0) ;;
+     MBlaze)      AC_SUBST(TARGET_HAS_JIT,0) ;;
+     NVPTX)       AC_SUBST(TARGET_HAS_JIT,0) ;;
 +    AVR)         AC_SUBST(TARGET_HAS_JIT,0) ;;
-     Mips)        AC_SUBST(TARGET_HAS_JIT,1) ;;
-     XCore)       AC_SUBST(TARGET_HAS_JIT,0) ;;
-     MSP430)      AC_SUBST(TARGET_HAS_JIT,0) ;;
-@@ -629,14 +631,14 @@
- TARGETS_TO_BUILD=""
- AC_ARG_ENABLE([targets],AS_HELP_STRING([--enable-targets],
-     [Build specific host targets: all or target1,target2,... Valid targets are:
--     host, x86, x86_64, sparc, powerpc, arm, mips, spu, hexagon,
-+     host, x86, x86_64, sparc, powerpc, arm, avr, mips, spu, hexagon,
-      xcore, msp430, ptx, nvptx, and cpp (default=all)]),,
-     enableval=all)
- if test "$enableval" = host-only ; then
+     *)           AC_SUBST(TARGET_HAS_JIT,0) ;;
+   esac
+ fi
+@@ -574,7 +576,7 @@
    enableval=host
  fi
  case "$enableval" in
--  all) TARGETS_TO_BUILD="X86 Sparc PowerPC ARM Mips CellSPU XCore MSP430 CppBackend MBlaze PTX NVPTX Hexagon" ;;
-+  all) TARGETS_TO_BUILD="X86 Sparc PowerPC ARM AVR Mips CellSPU XCore MSP430 CppBackend MBlaze PTX NVPTX Hexagon" ;;
+-  all) TARGETS_TO_BUILD="X86 Sparc PowerPC ARM Mips CellSPU XCore MSP430 Hexagon CppBackend MBlaze NVPTX" ;;
++  all) TARGETS_TO_BUILD="X86 Sparc PowerPC ARM Mips CellSPU XCore MSP430 Hexagon CppBackend MBlaze NVPTX AVR" ;;
    *)for a_target in `echo $enableval|sed -e 's/,/ /g' ` ; do
        case "$a_target" in
          x86)      TARGETS_TO_BUILD="X86 $TARGETS_TO_BUILD" ;;
-@@ -644,6 +646,7 @@
-         sparc)    TARGETS_TO_BUILD="Sparc $TARGETS_TO_BUILD" ;;
-         powerpc)  TARGETS_TO_BUILD="PowerPC $TARGETS_TO_BUILD" ;;
-         arm)      TARGETS_TO_BUILD="ARM $TARGETS_TO_BUILD" ;;
+@@ -590,6 +592,7 @@
+         cpp)      TARGETS_TO_BUILD="CppBackend $TARGETS_TO_BUILD" ;;
+         mblaze)   TARGETS_TO_BUILD="MBlaze $TARGETS_TO_BUILD" ;;
+         nvptx)    TARGETS_TO_BUILD="NVPTX $TARGETS_TO_BUILD" ;;
 +        avr)      TARGETS_TO_BUILD="AVR $TARGETS_TO_BUILD" ;;
-         mips)     TARGETS_TO_BUILD="Mips $TARGETS_TO_BUILD" ;;
-         mipsel)   TARGETS_TO_BUILD="Mips $TARGETS_TO_BUILD" ;;
-         spu)      TARGETS_TO_BUILD="CellSPU $TARGETS_TO_BUILD" ;;
-@@ -660,6 +663,7 @@
-             Sparc)       TARGETS_TO_BUILD="Sparc $TARGETS_TO_BUILD" ;;
-             PowerPC)     TARGETS_TO_BUILD="PowerPC $TARGETS_TO_BUILD" ;;
-             ARM)         TARGETS_TO_BUILD="ARM $TARGETS_TO_BUILD" ;;
+         host) case "$llvm_cv_target_arch" in
+             x86)         TARGETS_TO_BUILD="X86 $TARGETS_TO_BUILD" ;;
+             x86_64)      TARGETS_TO_BUILD="X86 $TARGETS_TO_BUILD" ;;
+@@ -603,6 +606,7 @@
+             MSP430)      TARGETS_TO_BUILD="MSP430 $TARGETS_TO_BUILD" ;;
+             Hexagon)     TARGETS_TO_BUILD="Hexagon $TARGETS_TO_BUILD" ;;
+             NVPTX)       TARGETS_TO_BUILD="NVPTX $TARGETS_TO_BUILD" ;;
 +            AVR)         TARGETS_TO_BUILD="AVR $TARGETS_TO_BUILD" ;;
-             Mips)        TARGETS_TO_BUILD="Mips $TARGETS_TO_BUILD" ;;
-             MBlaze)      TARGETS_TO_BUILD="MBlaze $TARGETS_TO_BUILD" ;;
-             CellSPU|SPU) TARGETS_TO_BUILD="CellSPU $TARGETS_TO_BUILD" ;;
+             *)       AC_MSG_ERROR([Can not set target to build]) ;;
+           esac ;;
+         *) AC_MSG_ERROR([Unrecognized target $a_target]) ;;
+Index: autoconf/configure.ac
+===================================================================
+--- autoconf/configure.ac	(revision 159909)
++++ autoconf/configure.ac	(working copy)
+@@ -370,6 +370,7 @@
+   hexagon-*)              llvm_cv_target_arch="Hexagon" ;;
+   mblaze-*)               llvm_cv_target_arch="MBlaze" ;;
+   nvptx-*)                llvm_cv_target_arch="NVPTX" ;;
++  avr*-*)                 llvm_cv_target_arch="AVR" ;;
+   *)                      llvm_cv_target_arch="Unknown" ;;
+ esac])
+ 
+@@ -402,6 +403,7 @@
+   msp430-*)               host_arch="MSP430" ;;
+   hexagon-*)              host_arch="Hexagon" ;;
+   mblaze-*)               host_arch="MBlaze" ;;
++  avr*-*)                 host_arch="AVR" ;;
+   *)                      host_arch="Unknown" ;;
+ esac
+ 
+@@ -541,6 +543,7 @@
+     Hexagon)     AC_SUBST(TARGET_HAS_JIT,0) ;;
+     MBlaze)      AC_SUBST(TARGET_HAS_JIT,0) ;;
+     NVPTX)       AC_SUBST(TARGET_HAS_JIT,0) ;;
++    AVR)         AC_SUBST(TARGET_HAS_JIT,0) ;;
+     *)           AC_SUBST(TARGET_HAS_JIT,0) ;;
+   esac
+ fi
+@@ -658,7 +661,7 @@
+   enableval=host
+ fi
+ case "$enableval" in
+-  all) TARGETS_TO_BUILD="X86 Sparc PowerPC ARM Mips CellSPU XCore MSP430 CppBackend MBlaze NVPTX Hexagon" ;;
++  all) TARGETS_TO_BUILD="X86 Sparc PowerPC ARM Mips CellSPU XCore MSP430 CppBackend MBlaze NVPTX Hexagon AVR" ;;
+   *)for a_target in `echo $enableval|sed -e 's/,/ /g' ` ; do
+       case "$a_target" in
+         x86)      TARGETS_TO_BUILD="X86 $TARGETS_TO_BUILD" ;;
+@@ -675,6 +678,7 @@
+         hexagon)  TARGETS_TO_BUILD="Hexagon $TARGETS_TO_BUILD" ;;
+         mblaze)   TARGETS_TO_BUILD="MBlaze $TARGETS_TO_BUILD" ;;
+         nvptx)    TARGETS_TO_BUILD="NVPTX $TARGETS_TO_BUILD" ;;
++        avr)      TARGETS_TO_BUILD="AVR $TARGETS_TO_BUILD" ;;
+         host) case "$llvm_cv_target_arch" in
+             x86)         TARGETS_TO_BUILD="X86 $TARGETS_TO_BUILD" ;;
+             x86_64)      TARGETS_TO_BUILD="X86 $TARGETS_TO_BUILD" ;;
+@@ -688,6 +692,7 @@
+             MSP430)      TARGETS_TO_BUILD="MSP430 $TARGETS_TO_BUILD" ;;
+             Hexagon)     TARGETS_TO_BUILD="Hexagon $TARGETS_TO_BUILD" ;;
+             NVPTX)       TARGETS_TO_BUILD="NVPTX $TARGETS_TO_BUILD" ;;
++            AVR)         TARGETS_TO_BUILD="AVR $TARGETS_TO_BUILD" ;;
+             *)       AC_MSG_ERROR([Can not set target to build]) ;;
+           esac ;;
+         *) AC_MSG_ERROR([Unrecognized target $a_target]) ;;

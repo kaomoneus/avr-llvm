@@ -1,25 +1,25 @@
-Index: CMakeLists.txt
-===================================================================
---- CMakeLists.txt	(revision 155781)
-+++ CMakeLists.txt	(working copy)
-@@ -72,6 +72,7 @@
- 
- set(LLVM_ALL_TARGETS
-   ARM
-+  AVR
-   CellSPU
-   CppBackend
-   Hexagon
 Index: cmake/config-ix.cmake
 ===================================================================
---- cmake/config-ix.cmake	(revision 155781)
+--- cmake/config-ix.cmake	(revision 159909)
 +++ cmake/config-ix.cmake	(working copy)
-@@ -315,6 +315,8 @@
-   set(LLVM_NATIVE_ARCH PowerPC)
- elseif (LLVM_NATIVE_ARCH MATCHES "arm")
-   set(LLVM_NATIVE_ARCH ARM)
+@@ -323,6 +323,8 @@
+   set(LLVM_NATIVE_ARCH XCore)
+ elseif (LLVM_NATIVE_ARCH MATCHES "msp430")
+   set(LLVM_NATIVE_ARCH MSP430)
 +elseif (LLVM_NATIVE_ARCH MATCHES "avr")
 +  set(LLVM_NATIVE_ARCH AVR)
- elseif (LLVM_NATIVE_ARCH MATCHES "mips")
-   set(LLVM_NATIVE_ARCH Mips)
- elseif (LLVM_NATIVE_ARCH MATCHES "xcore")
+ else ()
+   message(FATAL_ERROR "Unknown architecture ${LLVM_NATIVE_ARCH}")
+ endif ()
+Index: CMakeLists.txt
+===================================================================
+--- CMakeLists.txt	(revision 159909)
++++ CMakeLists.txt	(working copy)
+@@ -74,6 +74,7 @@
+ set(LLVM_LIBDIR_SUFFIX "" CACHE STRING "Define suffix of library directory name (32/64)" )
+ 
+ set(LLVM_ALL_TARGETS
++  AVR
+   ARM
+   CellSPU
+   CppBackend

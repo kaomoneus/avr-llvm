@@ -1,8 +1,8 @@
 Index: lib/Basic/Targets.cpp
 ===================================================================
---- lib/Basic/Targets.cpp	(revision 159034)
+--- lib/Basic/Targets.cpp	(revision 159909)
 +++ lib/Basic/Targets.cpp	(working copy)
-@@ -3108,7 +3108,126 @@
+@@ -3171,7 +3171,126 @@
  };
  } // end anonymous namespace.
  
@@ -129,7 +129,7 @@ Index: lib/Basic/Targets.cpp
  namespace {
  // Hexagon abstract base class
  class HexagonTargetInfo : public TargetInfo {
-@@ -4049,6 +4168,9 @@
+@@ -4154,6 +4273,9 @@
        return new ARMTargetInfo(T);
      }
  

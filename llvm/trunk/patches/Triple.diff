@@ -1,6 +1,6 @@
 Index: include/llvm/ADT/Triple.h
 ===================================================================
---- include/llvm/ADT/Triple.h	(revision 152006)
+--- include/llvm/ADT/Triple.h	(revision 159909)
 +++ include/llvm/ADT/Triple.h	(working copy)
 @@ -44,6 +44,7 @@
      UnknownArch,
@@ -10,17 +10,17 @@ Index: include/llvm/ADT/Triple.h
      cellspu, // CellSPU: spu, cellspu
      hexagon, // Hexagon: hexagon
      mips,    // MIPS: mips, mipsallegrex
-@@ -70,6 +71,7 @@
+@@ -71,6 +72,7 @@
      UnknownVendor,
  
      Apple,
 +    Atmel,
      PC,
-     SCEI
-   };
+     SCEI,
+     BGP,
 Index: lib/Support/Triple.cpp
 ===================================================================
---- lib/Support/Triple.cpp	(revision 152006)
+--- lib/Support/Triple.cpp	(revision 159909)
 +++ lib/Support/Triple.cpp	(working copy)
 @@ -20,6 +20,7 @@
    case UnknownArch: return "unknown";
@@ -30,7 +30,7 @@ Index: lib/Support/Triple.cpp
    case cellspu: return "cellspu";
    case hexagon: return "hexagon";
    case mips:    return "mips";
-@@ -54,6 +55,8 @@
+@@ -55,6 +56,8 @@
    case arm:
    case thumb:   return "arm";
  
@@ -39,15 +39,15 @@ Index: lib/Support/Triple.cpp
    case cellspu: return "spu";
  
    case ppc64:
-@@ -83,6 +86,7 @@
+@@ -91,6 +94,7 @@
    case UnknownVendor: return "unknown";
  
    case Apple: return "apple";
 +  case Atmel: return "atmel";
    case PC: return "pc";
    case SCEI: return "scei";
-   }
-@@ -135,6 +139,7 @@
+   case BGP: return "bgp";
+@@ -146,6 +150,7 @@
  Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
    return StringSwitch<Triple::ArchType>(Name)
      .Case("arm", arm)
@@ -55,7 +55,7 @@ Index: lib/Support/Triple.cpp
      .Case("cellspu", cellspu)
      .Case("mips", mips)
      .Case("mipsel", mipsel)
-@@ -201,6 +206,7 @@
+@@ -214,6 +219,7 @@
      .Case("powerpc", "ppc")
      .Case("powerpc64", "ppc64")
      .Cases("mblaze", "microblaze", "mblaze")
@@ -63,8 +63,8 @@ Index: lib/Support/Triple.cpp
      .Case("arm", "arm")
      .Cases("armv4t", "thumbv4t", "armv4t")
      .Cases("armv5", "armv5e", "thumbv5", "thumbv5e", "armv5")
-@@ -243,12 +249,14 @@
-     .Case("ptx64", Triple::ptx64)
+@@ -258,12 +264,14 @@
+     .Case("nvptx64", Triple::nvptx64)
      .Case("le32", Triple::le32)
      .Case("amdil", Triple::amdil)
 +    .Case("avr", Triple::avr)
@@ -77,8 +77,8 @@ Index: lib/Support/Triple.cpp
 +    .Case("atmel", Triple::Atmel)
      .Case("pc", Triple::PC)
      .Case("scei", Triple::SCEI)
-     .Default(Triple::UnknownVendor);
-@@ -629,6 +637,7 @@
+     .Case("bgp", Triple::BGP)
+@@ -670,6 +678,7 @@
      return 0;
  
    case llvm::Triple::msp430:
@@ -86,7 +86,7 @@ Index: lib/Support/Triple.cpp
      return 16;
  
    case llvm::Triple::amdil:
-@@ -676,6 +685,7 @@
+@@ -718,6 +727,7 @@
    switch (getArch()) {
    case Triple::UnknownArch:
    case Triple::msp430:
@@ -94,7 +94,7 @@ Index: lib/Support/Triple.cpp
      T.setArch(UnknownArch);
      break;
  
-@@ -713,6 +723,7 @@
+@@ -756,6 +766,7 @@
    case Triple::UnknownArch:
    case Triple::amdil:
    case Triple::arm:
