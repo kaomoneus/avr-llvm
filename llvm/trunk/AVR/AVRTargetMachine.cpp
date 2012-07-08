@@ -53,6 +53,7 @@ public:
 
   bool addInstSelector();
   bool addPreSched2();
+  bool addPreRegAlloc();
 };
 } // namespace
 
@@ -104,13 +105,24 @@ bool AVRPassConfig::addInstSelector()
 {
   // Install an instruction selector.
   addPass(createAVRISelDag(getAVRTargetMachine(), getOptLevel()));
+  // Create the frame analyzer pass used by the PEI pass.
   addPass(createAVRFrameAnalyzerPass());
+
+  return false;
+}
+
+bool AVRPassConfig::addPreRegAlloc()
+{
+  // Create the dynalloc SP save/restore pass to handle variable sized allocas.
+  addPass(createAVRDynAllocaSRPass());
+
   return false;
 }
 
 bool AVRPassConfig::addPreSched2()
 {
   addPass(createAVRExpandPseudoPass());
+
   return true;
 }
 

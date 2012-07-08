@@ -18,6 +18,7 @@ define avr_intrcc void @interrupt_handler() {
 
 define avr_signalcc void @signal_handler() {
 ; CHECK: signal_handler:
+; CHECK-NOT: sei
 ; CHECK: push r0
 ; CHECK-NEXT: push r1
 ; CHECK-NEXT: in r0, 63

@@ -29,7 +29,8 @@ class AVRMachineFunctionInfo : public MachineFunctionInfo
   /// allocator.
   bool HasSpills;
 
-  /// HasAllocas - Indicates if there are allocas present.
+  /// HasAllocas - Indicates if there are any fixed size allocas present.
+  /// Note that if there are only variable sized allocas this is set to false.
   bool HasAllocas;
 
   /// HasStackArgs - Indicates if arguments passed using the stack are being

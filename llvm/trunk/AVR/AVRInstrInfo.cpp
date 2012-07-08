@@ -50,6 +50,14 @@ void AVRInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
   {
     Opc = AVR::MOVWRdRr;
   }
+  else if (SrcReg == AVR::SP && AVR::DREGSRegClass.contains(DestReg))
+  {
+    Opc = AVR::SPREAD;
+  }
+  else if (DestReg == AVR::SP && AVR::DREGSRegClass.contains(SrcReg))
+  {
+    Opc = AVR::SPWRITE;
+  }
   else
   {
     llvm_unreachable("Impossible reg-to-reg copy");

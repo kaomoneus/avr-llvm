@@ -1353,6 +1353,18 @@ def STDWSPQRr : Pseudo<(outs),
                        "stdwstk\t$dst, $src",
                        [(store DREGS:$src, addr:$dst)]>;
 
+let neverHasSideEffects = 1 in
+def SPREAD : Pseudo<(outs DREGS:$dst),
+                    (ins GPRSP:$src),
+                    "spread\t$dst, $src",
+                    []>;
+
+let neverHasSideEffects = 1 in
+def SPWRITE : Pseudo<(outs GPRSP:$dst),
+                     (ins DREGS:$src),
+                     "spwrite\t$dst, $src",
+                     []>;
+
 let usesCustomInserter = 1 in
 {
   let Uses = [SREG] in

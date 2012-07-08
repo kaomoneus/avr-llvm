@@ -42,7 +42,7 @@ AVRTargetLowering::AVRTargetLowering(AVRTargetMachine &tm) :
   setBooleanContents(ZeroOrOneBooleanContent);
   setBooleanVectorContents(ZeroOrOneBooleanContent); // FIXME: Is this correct?
   setSchedulingPreference(Sched::RegPressure);
-  setStackPointerRegisterToSaveRestore(AVR::R3R2); //:FIXME: test for dynallocas
+  setStackPointerRegisterToSaveRestore(AVR::SP);
 
   setOperationAction(ISD::GlobalAddress, getPointerTy(), Custom);
   setOperationAction(ISD::BlockAddress, getPointerTy(), Custom);

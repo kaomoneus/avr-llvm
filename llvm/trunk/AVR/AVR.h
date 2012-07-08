@@ -27,6 +27,7 @@ namespace llvm
                                  CodeGenOpt::Level OptLevel);
   FunctionPass *createAVRExpandPseudoPass();
   FunctionPass *createAVRFrameAnalyzerPass();
+  FunctionPass *createAVRDynAllocaSRPass();
 } // end namespace llvm
 
 #endif //__INCLUDE_AVR_H__

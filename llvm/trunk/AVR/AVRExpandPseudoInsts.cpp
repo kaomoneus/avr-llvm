@@ -1165,6 +1165,50 @@ bool AVRExpandPseudo::expandMI(MachineBasicBlock &MBB,
       MI.eraseFromParent();
       return true;
     }
+  case AVR::SPREAD:
+    {
+      unsigned DstReg = MI.getOperand(0).getReg();
+      bool DstIsDead = MI.getOperand(0).isDead();
+      OpLo = AVR::INRdA;
+      OpHi = AVR::INRdA;
+      splitRegs(TRI, DstReg, DstLoReg, DstHiReg);
+
+      MachineInstrBuilder MIBLO =
+        BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(OpLo))
+          .addReg(DstLoReg, RegState::Define | getDeadRegState(DstIsDead))
+          .addImm(0x3d);
+
+      MachineInstrBuilder MIBHI =
+        BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(OpHi))
+          .addReg(DstHiReg, RegState::Define | getDeadRegState(DstIsDead))
+          .addImm(0x3e);
+
+      MI.eraseFromParent();
+      return true;
+    }
+  case AVR::SPWRITE:
+    {
+      unsigned SrcReg = MI.getOperand(1).getReg();
+      bool SrcIsKill = MI.getOperand(1).isKill();
+      splitRegs(TRI, SrcReg, SrcLoReg, SrcHiReg);
+
+      BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(AVR::INRdA))
+        .addReg(AVR::R0, RegState::Define)
+        .addImm(0x3f);
+      BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(AVR::CLI));
+      BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(AVR::OUTARr))
+        .addImm(0x3e)
+        .addReg(SrcHiReg, getKillRegState(SrcIsKill));
+      BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(AVR::OUTARr))
+        .addImm(0x3f)
+        .addReg(AVR::R0, RegState::Kill);
+      BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(AVR::OUTARr))
+        .addImm(0x3d)
+        .addReg(SrcLoReg, getKillRegState(SrcIsKill));
+
+      MI.eraseFromParent();
+      return true;
+    }
   }
 
   return false;
