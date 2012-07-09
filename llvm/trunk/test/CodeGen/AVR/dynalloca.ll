@@ -1,6 +1,6 @@
 ; RUN: llc < %s -march=avr | FileCheck %s
 
-declare void @foo(i16*, i16*, i16*)
+declare void @foo(i16*, i16*, i8*)
 
 define void @test1(i16 %x) {
 ; CHECK: test1:
@@ -21,8 +21,8 @@ define void @test1(i16 %x) {
 ; Test writes
 ; CHECK: std Z+12, {{.*}}
 ; CHECK: std Z+13, {{.*}}
-; CHECK: std Z+14, {{.*}}
-; CHECK: std Z+15, {{.*}}
+; CHECK: std Z+7, {{.*}}
+; CHECK-NOT: std
 ; Test SP restore
 ; CHECK: in r0, 63
 ; CHECK-NEXT: cli
@@ -32,15 +32,15 @@ define void @test1(i16 %x) {
   %a = alloca [8 x i16], align 1
   %vla = alloca i16, i16 %x, align 1
   %add = shl nsw i16 %x, 1
-  %vla1 = alloca i16, i16 %add, align 1
+  %vla1 = alloca i8, i16 %add, align 1
   %arrayidx = getelementptr inbounds [8 x i16]* %a, i16 0, i16 2
   store i16 3, i16* %arrayidx, align 1
   %arrayidx2 = getelementptr inbounds i16* %vla, i16 6
   store i16 4, i16* %arrayidx2, align 1
-  %arrayidx3 = getelementptr inbounds i16* %vla1, i16 7
-  store i16 44, i16* %arrayidx3, align 1
+  %arrayidx3 = getelementptr inbounds i8* %vla1, i16 7
+  store i8 44, i8* %arrayidx3, align 1
   %arraydecay = getelementptr inbounds [8 x i16]* %a, i16 0, i16 0
-  call void @foo(i16* %arraydecay, i16* %vla, i16* %vla1)
+  call void @foo(i16* %arraydecay, i16* %vla, i8* %vla1)
   ret void
 }
 

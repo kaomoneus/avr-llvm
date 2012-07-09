@@ -40,7 +40,7 @@ public:
   }
 
   // Address Selection.
-  bool SelectAddr(SDValue N, SDValue &Base, SDValue &Disp);
+  bool SelectAddr(SDNode *Op, SDValue N, SDValue &Base, SDValue &Disp);
   // Indexed load (postinc and predec) matching code.
   SDNode *SelectIndexedLoad(SDNode *N);
   // Indexed progmem load (only postinc) matching code.
@@ -55,7 +55,8 @@ private:
 
 } // end of anonymous namespace
 
-bool AVRDAGToDAGISel::SelectAddr(SDValue N, SDValue &Base, SDValue &Disp)
+bool
+AVRDAGToDAGISel::SelectAddr(SDNode *Op, SDValue N, SDValue &Base, SDValue &Disp)
 {
   // if N (the address) is a FI get the TargetFrameIndex.
   if (const FrameIndexSDNode *FIN = dyn_cast<FrameIndexSDNode>(N))
@@ -95,9 +96,13 @@ bool AVRDAGToDAGISel::SelectAddr(SDValue N, SDValue &Base, SDValue &Disp)
       return true;
     }
 
+    // The value type of the memory instruction determines what is the maximum
+    // offset allowed.
+    MVT VT = cast<MemSDNode>(Op)->getMemoryVT().getSimpleVT();
+
     // We only accept offsets that fit in 6 bits (unsigned).
-    if ((N.getValueType() == MVT::i8 && isUInt<6>(RHSC))
-        || (N.getValueType() == MVT::i16 && RHSC >= 0 && RHSC < 63))
+    if ((VT == MVT::i8 && isUInt<6>(RHSC))
+        || (VT == MVT::i16 && RHSC >= 0 && RHSC < 63))
     {
       Base = N.getOperand(0);
       Disp = CurDAG->getTargetConstant(RHSC, MVT::i8);

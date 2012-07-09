@@ -129,7 +129,7 @@ def brtarget : Operand<OtherVT>
 }
 
 // Addressing mode pattern reg+imm6
-def addr : ComplexPattern<iPTR, 2, "SelectAddr", []>;
+def addr : ComplexPattern<iPTR, 2, "SelectAddr", [], [SDNPWantRoot]>;
 
 // AVR specific condition code. These correspond to AVR_*_COND in
 // AVRInstrInfo.td. They must be kept in synch.
