@@ -89,7 +89,7 @@ static void fixStackStores(MachineBasicBlock &MBB,
 {
   // Iterate through the BB until we hit a call instruction or we reach the end.
   for (MachineBasicBlock::iterator I = MI, E = MBB.end();
-        (I != E) && (!I->isCall()); )
+       I != E && !I->isCall(); )
   {
     MachineBasicBlock::iterator NextMI = llvm::next(I);
     MachineInstr &MI = *I;
@@ -202,23 +202,16 @@ eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBasicBlock &MBB,
       }
 
       // Build the instruction sequence.
-      BuildMI(MBB, MI, dl, TII.get(AVR::INWRdA), AVR::R31R30).addImm(0x3d);
+      BuildMI(MBB, MI, dl, TII.get(AVR::SPREAD), AVR::R31R30)
+        .addReg(AVR::SP);
+
       MachineInstr *New = BuildMI(MBB, MI, dl, TII.get(addOpcode), AVR::R31R30)
                             .addReg(AVR::R31R30, RegState::Kill)
                             .addImm(Amount);
       New->getOperand(3).setIsDead();
-      BuildMI(MBB, MI, dl, TII.get(AVR::INRdA), AVR::R0)
-        .addImm(0x3f);
-      BuildMI(MBB, MI, dl, TII.get(AVR::CLI));
-      BuildMI(MBB, MI, dl, TII.get(AVR::OUTARr))
-        .addImm(0x3e)
-        .addReg(AVR::R31, RegState::Kill);
-      BuildMI(MBB, MI, dl, TII.get(AVR::OUTARr))
-        .addImm(0x3f)
-        .addReg(AVR::R0, RegState::Kill);
-      BuildMI(MBB, MI, dl, TII.get(AVR::OUTARr))
-        .addImm(0x3d)
-        .addReg(AVR::R30, RegState::Kill);
+
+      BuildMI(MBB, MI, dl, TII.get(AVR::SPWRITE), AVR::SP)
+        .addReg(AVR::R31R30, RegState::Kill);
     }
   }
 
@@ -336,7 +329,8 @@ void AVRRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
       }
     }
 
-    BuildMI(MBB, llvm::next(II), dl, TII.get(Opcode), DstReg).addReg(DstReg)
+    BuildMI(MBB, llvm::next(II), dl, TII.get(Opcode), DstReg)
+      .addReg(DstReg, RegState::Kill)
       .addImm(Offset);
 
     return;
@@ -350,6 +344,7 @@ void AVRRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
     //assert((Offset - 63 + 1) < 63 && "Implement subi/sbci for huge offsets");
 
     //:FIXME: use subi/sbci when Offset - 63 + 1 > 63
+    //:TODO: mark SREG as dead for these insts? do the same for the inst above!
     BuildMI(MBB, II, dl, TII.get(AVR::ADIWRdK), AVR::R29R28)
       .addReg(AVR::R29R28).addImm(Offset - 63 + 1);
     BuildMI(MBB, llvm::next(II), dl, TII.get(AVR::SBIWRdK), AVR::R29R28)

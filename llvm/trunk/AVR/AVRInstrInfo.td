@@ -1337,17 +1337,25 @@ def ZEXT : Pseudo<(outs DREGS:$dst),
                   "zext\t$dst, $src",
                   [(set DREGS:$dst, (zext GPR8:$src)), (implicit SREG)]>;
 
-let neverHasSideEffects = 1 in
+// This pseudo gets expanded into a movw+adiw thus it clobbers SREG.
+let Defs = [SREG],
+neverHasSideEffects = 1 in
 def FRMIDX : Pseudo<(outs DLDREGS:$dst),
                     (ins DLDREGS:$src, i16imm:$src2),
                     "frmidx\t$dst, $src, $src2",
                     []>;
 
+// This pseudo is either converted to a regular store or a push which clobbers
+// SP.
+let Defs = [SP] in
 def STDSPQRr : Pseudo<(outs),
                       (ins memspi:$dst, GPR8:$src),
                       "stdstk\t$dst, $src",
                       [(store GPR8:$src, addr:$dst)]>;
 
+// This pseudo is either converted to a regular store or a push which clobbers
+// SP.
+let Defs = [SP] in
 def STDWSPQRr : Pseudo<(outs),
                        (ins memspi:$dst, DREGS:$src),
                        "stdwstk\t$dst, $src",

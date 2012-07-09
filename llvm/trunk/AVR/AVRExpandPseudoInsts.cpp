@@ -956,17 +956,20 @@ bool AVRExpandPseudo::expandMI(MachineBasicBlock &MBB,
     {
       unsigned SrcReg = MI.getOperand(0).getReg();
       bool SrcIsKill = MI.getOperand(0).isKill();
+      unsigned Flags = MI.getFlags();
       OpLo = AVR::PUSHRr;
       OpHi = AVR::PUSHRr;
       splitRegs(TRI, SrcReg, SrcLoReg, SrcHiReg);
 
       MachineInstrBuilder MIBLO =
         BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(OpLo))
-          .addReg(SrcLoReg, getKillRegState(SrcIsKill));
+          .addReg(SrcLoReg, getKillRegState(SrcIsKill))
+          .setMIFlags(Flags);
 
       MachineInstrBuilder MIBHI =
         BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(OpHi))
-          .addReg(SrcHiReg, getKillRegState(SrcIsKill));
+          .addReg(SrcHiReg, getKillRegState(SrcIsKill))
+          .setMIFlags(Flags);
 
       MI.eraseFromParent();
       return true;
@@ -974,15 +977,18 @@ bool AVRExpandPseudo::expandMI(MachineBasicBlock &MBB,
   case AVR::POPWRd:
     {
       unsigned DstReg = MI.getOperand(0).getReg();
+      unsigned Flags = MI.getFlags();
       OpLo = AVR::POPRd;
       OpHi = AVR::POPRd;
       splitRegs(TRI, DstReg, DstLoReg, DstHiReg);
 
       MachineInstrBuilder MIBHI =
-        BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(OpHi), DstHiReg);
+        BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(OpHi), DstHiReg)
+          .setMIFlags(Flags);
 
       MachineInstrBuilder MIBLO =
-        BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(OpLo), DstLoReg);
+        BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(OpLo), DstLoReg)
+          .setMIFlags(Flags);
 
       MI.eraseFromParent();
       return true;
@@ -1169,6 +1175,7 @@ bool AVRExpandPseudo::expandMI(MachineBasicBlock &MBB,
     {
       unsigned DstReg = MI.getOperand(0).getReg();
       bool DstIsDead = MI.getOperand(0).isDead();
+      unsigned Flags = MI.getFlags();
       OpLo = AVR::INRdA;
       OpHi = AVR::INRdA;
       splitRegs(TRI, DstReg, DstLoReg, DstHiReg);
@@ -1176,12 +1183,14 @@ bool AVRExpandPseudo::expandMI(MachineBasicBlock &MBB,
       MachineInstrBuilder MIBLO =
         BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(OpLo))
           .addReg(DstLoReg, RegState::Define | getDeadRegState(DstIsDead))
-          .addImm(0x3d);
+          .addImm(0x3d)
+          .setMIFlags(Flags);
 
       MachineInstrBuilder MIBHI =
         BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(OpHi))
           .addReg(DstHiReg, RegState::Define | getDeadRegState(DstIsDead))
-          .addImm(0x3e);
+          .addImm(0x3e)
+          .setMIFlags(Flags);
 
       MI.eraseFromParent();
       return true;
@@ -1190,21 +1199,27 @@ bool AVRExpandPseudo::expandMI(MachineBasicBlock &MBB,
     {
       unsigned SrcReg = MI.getOperand(1).getReg();
       bool SrcIsKill = MI.getOperand(1).isKill();
+      unsigned Flags = MI.getFlags();
       splitRegs(TRI, SrcReg, SrcLoReg, SrcHiReg);
 
       BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(AVR::INRdA))
         .addReg(AVR::R0, RegState::Define)
-        .addImm(0x3f);
-      BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(AVR::CLI));
+        .addImm(0x3f)
+        .setMIFlags(Flags);
+      BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(AVR::CLI))
+        .setMIFlags(Flags);
       BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(AVR::OUTARr))
         .addImm(0x3e)
-        .addReg(SrcHiReg, getKillRegState(SrcIsKill));
+        .addReg(SrcHiReg, getKillRegState(SrcIsKill))
+        .setMIFlags(Flags);
       BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(AVR::OUTARr))
         .addImm(0x3f)
-        .addReg(AVR::R0, RegState::Kill);
+        .addReg(AVR::R0, RegState::Kill)
+        .setMIFlags(Flags);
       BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(AVR::OUTARr))
         .addImm(0x3d)
-        .addReg(SrcLoReg, getKillRegState(SrcIsKill));
+        .addReg(SrcLoReg, getKillRegState(SrcIsKill))
+        .setMIFlags(Flags);
 
       MI.eraseFromParent();
       return true;

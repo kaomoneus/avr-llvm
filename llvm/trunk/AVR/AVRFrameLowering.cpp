@@ -95,8 +95,8 @@ void AVRFrameLowering::emitPrologue(MachineFunction &MF) const
   }
 
   // Update Y with the new base value.
-  BuildMI(MBB, MBBI, dl, TII.get(AVR::INWRdA), AVR::R29R28)
-    .addImm(0x3d)
+  BuildMI(MBB, MBBI, dl, TII.get(AVR::SPREAD), AVR::R29R28)
+    .addReg(AVR::SP)
     .setMIFlag(MachineInstr::FrameSetup);
 
   // Mark the FramePtr as live-in in every block except the entry.
@@ -112,28 +112,15 @@ void AVRFrameLowering::emitPrologue(MachineFunction &MF) const
     unsigned Opcode = (isUInt<6>(FrameSize)) ? AVR::SBIWRdK : AVR::SUBIWRdK;
 
     MachineInstr *MI = BuildMI(MBB, MBBI, dl, TII.get(Opcode), AVR::R29R28)
-      .addReg(AVR::R29R28).addImm(FrameSize)
+      .addReg(AVR::R29R28, RegState::Kill)
+      .addImm(FrameSize)
       .setMIFlag(MachineInstr::FrameSetup);
     // The SREG implicit def is dead.
     MI->getOperand(3).setIsDead();
 
     // Write back R29R28 to SP and temporarily disable interrupts.
-    BuildMI(MBB, MBBI, dl, TII.get(AVR::INRdA), AVR::R0)
-      .addImm(0x3f)
-      .setMIFlag(MachineInstr::FrameSetup);
-    BuildMI(MBB, MBBI, dl, TII.get(AVR::CLI))
-      .setMIFlag(MachineInstr::FrameSetup);
-    BuildMI(MBB, MBBI, dl, TII.get(AVR::OUTARr))
-      .addImm(0x3e)
-      .addReg(AVR::R29)
-      .setMIFlag(MachineInstr::FrameSetup);
-    BuildMI(MBB, MBBI, dl, TII.get(AVR::OUTARr))
-      .addImm(0x3f)
-      .addReg(AVR::R0, RegState::Kill)
-      .setMIFlag(MachineInstr::FrameSetup);
-    BuildMI(MBB, MBBI, dl, TII.get(AVR::OUTARr))
-      .addImm(0x3d)
-      .addReg(AVR::R28)
+    BuildMI(MBB, MBBI, dl, TII.get(AVR::SPWRITE), AVR::SP)
+      .addReg(AVR::R29R28)
       .setMIFlag(MachineInstr::FrameSetup);
   }
 }
@@ -211,23 +198,14 @@ void AVRFrameLowering::emitEpilogue(MachineFunction &MF,
 
   // Restore the frame pointer by doing FP += <size>.
   MachineInstr *MI = BuildMI(MBB, MBBI, dl, TII.get(Opcode), AVR::R29R28)
-    .addReg(AVR::R29R28).addImm(FrameSize);
+    .addReg(AVR::R29R28, RegState::Kill)
+    .addImm(FrameSize);
   // The SREG implicit def is dead.
   MI->getOperand(3).setIsDead();
 
   // Write back R29R28 to SP and temporarily disable interrupts.
-  BuildMI(MBB, MBBI, dl, TII.get(AVR::INRdA), AVR::R0)
-    .addImm(0x3f);
-  BuildMI(MBB, MBBI, dl, TII.get(AVR::CLI));
-  BuildMI(MBB, MBBI, dl, TII.get(AVR::OUTARr))
-    .addImm(0x3e)
-    .addReg(AVR::R29);
-  BuildMI(MBB, MBBI, dl, TII.get(AVR::OUTARr))
-    .addImm(0x3f)
-    .addReg(AVR::R0, RegState::Kill);
-  BuildMI(MBB, MBBI, dl, TII.get(AVR::OUTARr))
-    .addImm(0x3d)
-    .addReg(AVR::R28);
+  BuildMI(MBB, MBBI, dl, TII.get(AVR::SPWRITE), AVR::SP)
+    .addReg(AVR::R29R28, RegState::Kill);
 }
 
 // hasFP - Return true if the specified function should have a dedicated frame
@@ -425,7 +403,7 @@ namespace
 
     bool runOnMachineFunction(MachineFunction &MF)
     {
-      // Early exit when there are no variable sized objects in this function.
+      // Early exit when there are no variable sized objects in the function.
       if (!MF.getFrameInfo()->hasVarSizedObjects())
       {
         return false;
@@ -452,7 +430,8 @@ namespace
         {
           MBBI = MFI->getLastNonDebugInstr();
           DL = MBBI->getDebugLoc();
-          BuildMI(*MFI, MBBI, DL, TII->get(AVR::COPY), AVR::SP).addReg(SPCopy);
+          BuildMI(*MFI, MBBI, DL, TII->get(AVR::COPY), AVR::SP)
+            .addReg(SPCopy, RegState::Kill);
         }
       }
 

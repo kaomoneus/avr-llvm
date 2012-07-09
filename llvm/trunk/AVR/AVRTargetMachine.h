@@ -40,7 +40,7 @@ public: // TargetMachine
   const TargetData *getTargetData() const;
   const AVRRegisterInfo *getRegisterInfo() const;
 public:
-  // Pass Pipeline Configuration
+  // Pass Pipeline Configuration.
   TargetPassConfig *createPassConfig(PassManagerBase &PM);
 private:
   AVRSubtarget SubTarget;

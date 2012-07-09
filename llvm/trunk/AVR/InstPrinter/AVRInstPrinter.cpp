@@ -54,7 +54,7 @@ void AVRInstPrinter::printInst(const MCInst *MI, raw_ostream &O,
   unsigned Opcode = MI->getOpcode();
 
   // First handle load and store instructions with postinc or predec
-  // of the form "ld reg, X+"
+  // of the form "ld reg, X+".
   switch (Opcode)
   {
   case AVR::LDRdPtr:
@@ -95,7 +95,7 @@ void AVRInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
 
   if (Op.isReg())
   {
-    // Print ptr registers as X, Y and Z
+    // Print ptr registers as X, Y and Z.
     if (Modifier && strcmp(Modifier, "ptr") == 0)
     {
       O << getPtrRegName(getRegisterName(Op.getReg()));
@@ -119,7 +119,7 @@ void AVRInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
 void AVRInstPrinter::printMemriOperand(const MCInst *MI, unsigned OpNo,
                                        raw_ostream &O)
 {
-  // The memri operand is of the form "Y+<offs>"
+  // The memri operand is of the form "Y+<offs>".
   printOperand(MI, OpNo, O, "ptr");
   O << '+';
   printOperand(MI, OpNo + 1, O);
