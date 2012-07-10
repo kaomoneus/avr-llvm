@@ -140,12 +140,12 @@ static void fixStackStores(MachineBasicBlock &MBB,
       unsigned Imm = MI.getOperand(1).getImm();
       assert(isUInt<6>(Imm) && "Offset is out of range");
 
-      MachineInstrBuilder MIB =
+      MachineInstr *New =
         BuildMI(MBB, I, MI.getDebugLoc(), TII.get(STOpc))
           .addReg(AVR::R29R28)
           .addImm(Imm)
           .addReg(SrcReg, getKillRegState(SrcIsKill));
-      MIB->setMemRefs(MI.memoperands_begin(), MI.memoperands_end());
+      New->setMemRefs(MI.memoperands_begin(), MI.memoperands_end());
     }
 
     MI.eraseFromParent();
@@ -291,6 +291,7 @@ void AVRRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
     // We need to materialize the offset via an add instruction.
     unsigned Opcode;
     unsigned DstReg = MI.getOperand(0).getReg();
+    assert(DstReg != AVR::R29R28 && "Dest reg cannot be the frame pointer");
 
     // Generally, to load a frame address two add instructions are emitted that
     // could get folded into a single one:
@@ -319,19 +320,17 @@ void AVRRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
     default:
       {
         // This opcode will get expanded into a pair of subi/sbci.
-        //:FIXME: INVALID CODEGEN: NON IMM REGS CANT USE SUBI!!!
-        // we have to materialize the offset by other means, see what gcc does
-        // For now, FRMIDX only accepts DLDREGS which looks like a good solution
-        // but check if it's the best thing to do.
         Opcode = AVR::SUBIWRdK;
         Offset = -Offset;
         break;
       }
     }
 
-    BuildMI(MBB, llvm::next(II), dl, TII.get(Opcode), DstReg)
-      .addReg(DstReg, RegState::Kill)
-      .addImm(Offset);
+    MachineInstr *New =
+      BuildMI(MBB, llvm::next(II), dl, TII.get(Opcode), DstReg)
+        .addReg(DstReg, RegState::Kill)
+        .addImm(Offset);
+    New->getOperand(3).setIsDead();
 
     return;
   }
@@ -341,14 +340,27 @@ void AVRRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   //:TODO: consider using only one adiw/sbiw chain for more than one frame index
   if (Offset >= 63)
   {
-    //assert((Offset - 63 + 1) < 63 && "Implement subi/sbci for huge offsets");
+    unsigned AddOpc = AVR::ADIWRdK, SubOpc = AVR::SBIWRdK;
+    int AddOffset = Offset - 63 + 1;
 
-    //:FIXME: use subi/sbci when Offset - 63 + 1 > 63
-    //:TODO: mark SREG as dead for these insts? do the same for the inst above!
-    BuildMI(MBB, II, dl, TII.get(AVR::ADIWRdK), AVR::R29R28)
-      .addReg(AVR::R29R28).addImm(Offset - 63 + 1);
-    BuildMI(MBB, llvm::next(II), dl, TII.get(AVR::SBIWRdK), AVR::R29R28)
-      .addReg(AVR::R29R28).addImm(Offset - 63 + 1);
+    // For huge offsets where adiw/sbiw cannot be used use a pair of subi/sbci.
+    if ((Offset - 63 + 1) > 63)
+    {
+      AddOpc = AVR::SUBIWRdK;
+      SubOpc = AVR::SUBIWRdK;
+      AddOffset = -AddOffset;
+    }
+
+    MachineInstr *New =
+      BuildMI(MBB, II, dl, TII.get(AddOpc), AVR::R29R28)
+        .addReg(AVR::R29R28, RegState::Kill)
+        .addImm(AddOffset);
+    New->getOperand(3).setIsDead();
+
+    New = BuildMI(MBB, llvm::next(II), dl, TII.get(SubOpc), AVR::R29R28)
+            .addReg(AVR::R29R28, RegState::Kill)
+            .addImm(Offset - 63 + 1);
+    New->getOperand(3).setIsDead();
 
     Offset = 62;
   }

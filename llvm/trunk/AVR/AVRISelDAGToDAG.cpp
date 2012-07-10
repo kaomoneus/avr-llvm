@@ -91,7 +91,7 @@ AVRDAGToDAGISel::SelectAddr(SDNode *Op, SDValue N, SDValue &Base, SDValue &Disp)
     {
       int FI = cast<FrameIndexSDNode>(N.getOperand(0))->getIndex();
       Base = CurDAG->getTargetFrameIndex(FI, TLI.getPointerTy());
-      Disp = CurDAG->getTargetConstant(RHSC, MVT::i8);
+      Disp = CurDAG->getTargetConstant(RHSC, MVT::i16);
 
       return true;
     }

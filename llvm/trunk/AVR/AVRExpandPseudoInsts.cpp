@@ -716,6 +716,8 @@ bool AVRExpandPseudo::expandMI(MachineBasicBlock &MBB,
       OpHi = AVR::LDDRdPtrQ;
       splitRegs(TRI, DstReg, DstLoReg, DstHiReg);
 
+      assert(Imm < 63 && "Offset is out of range");
+
       MachineInstrBuilder MIBLO =
         BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(OpLo))
           .addReg(DstLoReg, RegState::Define | getDeadRegState(DstIsDead))
@@ -883,6 +885,8 @@ bool AVRExpandPseudo::expandMI(MachineBasicBlock &MBB,
       OpHi = AVR::STDPtrQRr;
       splitRegs(TRI, SrcReg, SrcLoReg, SrcHiReg);
 
+      assert(Imm < 63 && "Offset is out of range");
+
       MachineInstrBuilder MIBLO =
         BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(OpLo))
           .addReg(DstReg)
@@ -910,6 +914,8 @@ bool AVRExpandPseudo::expandMI(MachineBasicBlock &MBB,
       OpHi = AVR::INRdA;
       splitRegs(TRI, DstReg, DstLoReg, DstHiReg);
 
+      assert(Imm < 63 && "Address is out of range");
+
       MachineInstrBuilder MIBLO =
         BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(OpLo))
           .addReg(DstLoReg, RegState::Define | getDeadRegState(DstIsDead))
@@ -934,6 +940,8 @@ bool AVRExpandPseudo::expandMI(MachineBasicBlock &MBB,
       OpLo = AVR::OUTARr;
       OpHi = AVR::OUTARr;
       splitRegs(TRI, SrcReg, SrcLoReg, SrcHiReg);
+
+      assert(Imm < 63 && "Address is out of range");
 
       // 16 bit I/O writes need the high byte first
       MachineInstrBuilder MIBHI =

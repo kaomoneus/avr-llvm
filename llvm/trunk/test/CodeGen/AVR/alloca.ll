@@ -37,7 +37,7 @@ entry:
 }
 
 ; Test writing to an allocated variable with a small and a big offset
-define i16 @alloca_write(i16 %x) nounwind noinline {
+define i16 @alloca_write(i16 %x) {
 entry:
 ; CHECK: alloca_write:
 ; Big offset here
@@ -60,4 +60,20 @@ entry:
   ret i16 %call
 }
 
-; :TODO: test writes with huge offsets
+; Test writing to an allocated variable with a huge offset that cant be
+; materialized with adiw/sbiw but with a subi/sbci pair.
+define void @alloca_write_huge() {
+; CHECK: alloca_write_huge:
+; CHECK: subi r28, 41
+; CHECK: sbci r29, 255
+; CHECK: std Y+62, {{.*}}
+; CHECK: std Y+63, {{.*}}
+; CHECK: subi r28, 215
+; CHECK: sbci r29, 0
+  %k = alloca [140 x i16], align 1
+  %arrayidx = getelementptr inbounds [140 x i16]* %k, i16 0, i16 138
+  store i16 22, i16* %arrayidx, align 1
+  %arraydecay = getelementptr inbounds [140 x i16]* %k, i16 0, i16 0
+  call i16 @allocate(i16* %arraydecay, i16* null)
+  ret void
+}
