@@ -366,6 +366,7 @@ void AVRRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   }
 
   MI.getOperand(i).ChangeToRegister(AVR::R29R28, false);
+  assert(isUInt<6>(Offset) && "Offset is out of range");
   MI.getOperand(i + 1).ChangeToImmediate(Offset);
 }
 

@@ -38,11 +38,16 @@ AVRFrameLowering::canSimplifyCallFramePseudos(const MachineFunction &MF) const
 
 bool AVRFrameLowering::hasReservedCallFrame(const MachineFunction &MF) const
 {
-  // Reserve call frame memory in function prologue when Y is reserved to be
-  // the frame pointer and when the function does not contain variable sized
-  // objects.
-  //:TODO: if maxcallframesize is >63 std will fail folding the offset.
-  return hasFP(MF) && !MF.getFrameInfo()->hasVarSizedObjects();
+  // Reserve call frame memory in function prologue under the following
+  // conditions:
+  // - Y pointer is reserved to be the frame pointer.
+  // - The function does not contain variable sized objects.
+  // - MaxCallFrameSize is greater than 63.
+  // :TODO: improve the heuristics here to benefit from a wide range of cases.
+  const MachineFrameInfo *MFI = MF.getFrameInfo();
+  return (hasFP(MF)
+          && !MFI->hasVarSizedObjects()
+          && isUInt<6>(MFI->getMaxCallFrameSize()));
 }
 
 void AVRFrameLowering::emitPrologue(MachineFunction &MF) const
