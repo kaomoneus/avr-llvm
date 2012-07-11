@@ -67,7 +67,8 @@ def R31 : AVRReg<31, "r31">, DwarfRegNum<[31]>;
 def SPL : AVRReg<32, "SPL">, DwarfRegNum<[32]>;
 def SPH : AVRReg<33, "SPH">, DwarfRegNum<[33]>;
 
-let SubRegIndices = [sub_lo, sub_hi] in
+let SubRegIndices = [sub_lo, sub_hi],
+CoveredBySubRegs = 1 in
 {
   // 16 bit register pairs
   def SP     : AVRReg<32, "SP",      [SPL, SPH]>, DwarfRegNum<[32]>;
