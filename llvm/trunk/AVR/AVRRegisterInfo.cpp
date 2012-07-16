@@ -33,27 +33,16 @@ AVRRegisterInfo::AVRRegisterInfo(const TargetInstrInfo &tii) :
 const uint16_t *
 AVRRegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const
 {
-  const Function *F = MF->getFunction();
+  CallingConv::ID CC = MF->getFunction()->getCallingConv();
 
-  //:TODO: test if adding the 8bit regs here, makes 8bit pushes in
-  // prologue code instead of pushing the whole pair
-  // IT WORKS! so add all the 8bit regs here!
-  static const uint16_t CalleeSavedRegs[] =
-  {
-    AVR::R29R28, AVR::R17R16, AVR::R15R14, AVR::R13R12, AVR::R11R10,
-    AVR::R9R8, AVR::R7R6, AVR::R5R4, AVR::R3R2, AVR::R1R0, 0
-  };
-  static const uint16_t IntCalleeSavedRegs[] =
-  {
-    AVR::R31R30, AVR::R29R28, AVR::R27R26, AVR::R25R24, AVR::R23R22,
-    AVR::R21R20, AVR::R19R18, AVR::R17R16, AVR::R15R14, AVR::R13R12,
-    AVR::R11R10, AVR::R9R8, AVR::R7R6, AVR::R5R4, AVR::R3R2, AVR::R1R0, 0
-  };
+  return ((CC == CallingConv::AVR_INTR || CC == CallingConv::AVR_SIGNAL) ?
+          CSR_Interrupts_SaveList : CSR_Normal_SaveList);
+}
 
-  //:TODO: someday convert this to use regmasks
-  return ((F->getCallingConv() == CallingConv::AVR_INTR
-           || F->getCallingConv() == CallingConv::AVR_SIGNAL) ?
-          IntCalleeSavedRegs : CalleeSavedRegs);
+const uint32_t *AVRRegisterInfo::getCallPreservedMask(CallingConv::ID CC) const
+{
+  return ((CC == CallingConv::AVR_INTR || CC == CallingConv::AVR_SIGNAL) ?
+          CSR_Interrupts_RegMask : CSR_Normal_RegMask);
 }
 
 BitVector AVRRegisterInfo::getReservedRegs(const MachineFunction &MF) const

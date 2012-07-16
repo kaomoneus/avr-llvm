@@ -21,7 +21,6 @@
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/Target/TargetOptions.h"
 
 using namespace llvm;
 
@@ -251,15 +250,24 @@ spillCalleeSavedRegisters(MachineBasicBlock &MBB,
   for (unsigned i = CSI.size(); i != 0; --i)
   {
     unsigned Reg = CSI[i - 1].getReg();
+    bool IsNotLiveIn = !MBB.isLiveIn(Reg);
 
-    // Add the callee-saved register as live-in. It's killed at the spill.
-    MBB.addLiveIn(Reg);
-    //:FIXME: make this work with 8bit regs
-    assert(TRI->getMinimalPhysRegClass(Reg)->getSize() == 2
-           && "Pushing to the stack an 8 bit regiter");
-    BuildMI(MBB, MI, DL, TII.get(AVR::PUSHWRr)).addReg(Reg, RegState::Kill)
+    assert(TRI->getMinimalPhysRegClass(Reg)->getSize() == 1
+           && "Invalid register size");
+
+    // Add the callee-saved register as live-in only if it is not already a
+    // live-in register, this usually happens with arguments that are passed
+    // through callee-saved registers.
+    if (IsNotLiveIn)
+    {
+      MBB.addLiveIn(Reg);
+    }
+
+    // Do not kill the register when it is an input argument.
+    BuildMI(MBB, MI, DL, TII.get(AVR::PUSHRr))
+      .addReg(Reg, getKillRegState(IsNotLiveIn))
       .setMIFlag(MachineInstr::FrameSetup);
-    CalleeFrameSize += 2; //:TODO: when 1byte pushes work, adjust this code
+    ++CalleeFrameSize;
   }
 
   AVRFI->setCalleeSavedFrameSize(CalleeFrameSize);
@@ -285,10 +293,11 @@ restoreCalleeSavedRegisters(MachineBasicBlock &MBB,
   for (unsigned i = 0, e = CSI.size(); i != e; ++i)
   {
     unsigned Reg = CSI[i].getReg();
-    //:FIXME: make this work with 8bit regs
-    assert(TRI->getMinimalPhysRegClass(Reg)->getSize() == 2
-           && "Popping from the stack an 8 bit regiter");
-    BuildMI(MBB, MI, DL, TII.get(AVR::POPWRd), Reg);
+
+    assert(TRI->getMinimalPhysRegClass(Reg)->getSize() == 1
+           && "Invalid register size");
+
+    BuildMI(MBB, MI, DL, TII.get(AVR::POPRd), Reg);
   }
 
   return true;

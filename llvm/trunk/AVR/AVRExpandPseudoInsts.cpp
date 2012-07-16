@@ -631,6 +631,8 @@ bool AVRExpandPseudo::expandMI(MachineBasicBlock &MBB,
       OpHi = AVR::LDDRdPtrQ;
       splitRegs(TRI, DstReg, DstLoReg, DstHiReg);
 
+      assert(DstReg != SrcReg && "SrcReg and DstReg cannot be the same");
+
       MachineInstrBuilder MIBLO =
         BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(OpLo))
           .addReg(DstLoReg, RegState::Define | getDeadRegState(DstIsDead))
@@ -657,6 +659,8 @@ bool AVRExpandPseudo::expandMI(MachineBasicBlock &MBB,
       OpLo = AVR::LDRdPtrPi;
       OpHi = AVR::LDRdPtrPi;
       splitRegs(TRI, DstReg, DstLoReg, DstHiReg);
+
+      assert(DstReg != SrcReg && "SrcReg and DstReg cannot be the same");
 
       MachineInstrBuilder MIBLO =
         BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(OpLo))
@@ -687,6 +691,8 @@ bool AVRExpandPseudo::expandMI(MachineBasicBlock &MBB,
       OpHi = AVR::LDRdPtrPd;
       splitRegs(TRI, DstReg, DstLoReg, DstHiReg);
 
+      assert(DstReg != SrcReg && "SrcReg and DstReg cannot be the same");
+
       MachineInstrBuilder MIBHI =
         BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(OpHi))
           .addReg(DstHiReg, RegState::Define | getDeadRegState(DstIsDead))
@@ -706,6 +712,7 @@ bool AVRExpandPseudo::expandMI(MachineBasicBlock &MBB,
       return true;
     }
   case AVR::LDDWRdPtrQ:
+  case AVR::LDDWRdYQ: //:FIXME: remove this once PR13375 gets fixed
     {
       unsigned DstReg = MI.getOperand(0).getReg();
       unsigned SrcReg = MI.getOperand(1).getReg();
@@ -717,6 +724,7 @@ bool AVRExpandPseudo::expandMI(MachineBasicBlock &MBB,
       splitRegs(TRI, DstReg, DstLoReg, DstHiReg);
 
       assert(Imm < 63 && "Offset is out of range");
+      assert(DstReg != SrcReg && "SrcReg and DstReg cannot be the same");
 
       MachineInstrBuilder MIBLO =
         BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(OpLo))
@@ -822,6 +830,8 @@ bool AVRExpandPseudo::expandMI(MachineBasicBlock &MBB,
       OpHi = AVR::STPtrPiRr;
       splitRegs(TRI, SrcReg, SrcLoReg, SrcHiReg);
 
+      assert(DstReg != SrcReg && "SrcReg and DstReg cannot be the same");
+
       MachineInstrBuilder MIBLO =
         BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(OpLo))
           .addReg(DstReg, RegState::Define)
@@ -853,6 +863,8 @@ bool AVRExpandPseudo::expandMI(MachineBasicBlock &MBB,
       OpLo = AVR::STPtrPdRr;
       OpHi = AVR::STPtrPdRr;
       splitRegs(TRI, SrcReg, SrcLoReg, SrcHiReg);
+
+      assert(DstReg != SrcReg && "SrcReg and DstReg cannot be the same");
 
       MachineInstrBuilder MIBHI =
         BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(OpHi))

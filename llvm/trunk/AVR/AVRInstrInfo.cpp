@@ -73,7 +73,8 @@ unsigned AVRInstrInfo::isLoadFromStackSlot(const MachineInstr *MI,
   switch (MI->getOpcode())
   {
   case AVR::LDDRdPtrQ:
-  case AVR::LDDWRdPtrQ:
+  case AVR::LDDWRdYQ: //:FIXME: remove this once PR13375 gets fixed
+  //case AVR::LDDWRdPtrQ:
     {
       if ((MI->getOperand(1).isFI())
           && (MI->getOperand(2).isImm())
@@ -192,7 +193,9 @@ void AVRInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
   }
   else if (RC->hasType(MVT::i16))
   {
-    Opcode = AVR::LDDWRdPtrQ;
+    //Opcode = AVR::LDDWRdPtrQ;
+    //:FIXME: remove this once PR13375 gets fixed
+    Opcode = AVR::LDDWRdYQ;
   }
   else
   {

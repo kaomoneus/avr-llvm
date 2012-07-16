@@ -716,12 +716,9 @@ def RCALLi          1101 kkkk kkkk kkkk ok
 */
 
 let isCall = 1 in
-  // All calls clobber the non-callee saved registers. SP is marked as
-  // a use to prevent stack-pointer assignments that appear immediately
-  // before calls from potentially appearing dead. Uses for argument
-  // registers are added manually.
-  //let Defs = [], //:TODO: readd all regs!!
-  let Uses = [R31R30] in //TODO: add stack ptr here!
+  // SP is marked as a use to prevent stack-pointer assignments that appear
+  // immediately before calls from potentially appearing dead.
+  let Uses = [SP, R31R30] in
   {
     def ICALL : FBR<0b1001010100001001,
                     (outs),
@@ -735,12 +732,9 @@ def EICALL          1001 0101 0001 1001 ok
 */
 
 let isCall = 1 in
-  // All calls clobber the non-callee saved registers. SP is marked as
-  // a use to prevent stack-pointer assignments that appear immediately
-  // before calls from potentially appearing dead. Uses for argument
-  // registers are added manually.
-  let Defs = [R31R30, R27R26, R25R24, R23R22, R21R20, R19R18, SREG],
-  Uses = [SP] in
+  // SP is marked as a use to prevent stack-pointer assignments that appear
+  // immediately before calls from potentially appearing dead.
+  let Uses = [SP] in
   {
     def CALLk : F32BRk<0b111,
                        (outs),
@@ -946,7 +940,8 @@ def LDRdPtr : Pseudo<(outs GPR8:$dst),
 //:FIXME: dst cant be the same reg as src otherwise this gets expanded into:
 // ldw R29:R28, Y -> ld R28, Y  ldd R29, Y+1 (Y is overwritten by ld)
 let canFoldAsLoad = 1,
-isReMaterializable = 1 in
+isReMaterializable = 1,
+Constraints = "@earlyclobber $dst" in
 def LDWRdPtr : Pseudo<(outs DREGS:$dst),
                       (ins PTRDISPREGS:$src),
                       "ldw\t$dst, $src",
@@ -955,7 +950,7 @@ def LDWRdPtr : Pseudo<(outs DREGS:$dst),
 //:FIXME: dest reg cant be a subreg of the addr (ld r28, Y+)
 let mayLoad = 1,
 neverHasSideEffects = 1,
-Constraints = "$src = $base_wb" in
+Constraints = "$src = $base_wb,@earlyclobber $dst,@earlyclobber $base_wb" in
 def LDRdPtrPi : Pseudo<(outs GPR8:$dst, PTRREGS:$base_wb),
                        (ins PTRREGS:$src),
                        "ld\t$dst, $src+",
@@ -964,7 +959,7 @@ def LDRdPtrPi : Pseudo<(outs GPR8:$dst, PTRREGS:$base_wb),
 //:FIXME: dest reg cant be a subreg of the addr (ld r28, Y+)
 let mayLoad = 1,
 neverHasSideEffects = 1,
-Constraints = "$src = $base_wb" in
+Constraints = "$src = $base_wb,@earlyclobber $dst,@earlyclobber $base_wb" in
 def LDWRdPtrPi : Pseudo<(outs DREGS:$dst, PTRREGS:$base_wb),
                         (ins PTRREGS:$src),
                         "ldw\t$dst, $src+",
@@ -973,7 +968,7 @@ def LDWRdPtrPi : Pseudo<(outs DREGS:$dst, PTRREGS:$base_wb),
 //:FIXME: dest reg cant be a subreg of the addr (ld r28, -Y)
 let mayLoad = 1,
 neverHasSideEffects = 1,
-Constraints = "$src = $base_wb" in
+Constraints = "$src = $base_wb,@earlyclobber $dst,@earlyclobber $base_wb" in
 def LDRdPtrPd : Pseudo<(outs GPR8:$dst, PTRREGS:$base_wb),
                        (ins PTRREGS:$src),
                        "ld\t$dst, -$src",
@@ -982,7 +977,7 @@ def LDRdPtrPd : Pseudo<(outs GPR8:$dst, PTRREGS:$base_wb),
 //:FIXME: dest reg cant be a subreg of the addr (ld r28, -Y)
 let mayLoad = 1,
 neverHasSideEffects = 1,
-Constraints = "$src = $base_wb" in
+Constraints = "$src = $base_wb,@earlyclobber $dst,@earlyclobber $base_wb" in
 def LDWRdPtrPd : Pseudo<(outs DREGS:$dst, PTRREGS:$base_wb),
                         (ins PTRREGS:$src),
                         "ldw\t$dst, -$src",
@@ -998,11 +993,22 @@ def LDDRdPtrQ : Pseudo<(outs GPR8:$dst),
 //:FIXME: dst cant be the same reg as src otherwise this gets expanded into:
 // lddw R29:R28, Y+8 -> ldd R28, Y+8  ldd R29, Y+9 (Y is overwritten by ldd)
 let canFoldAsLoad = 1,
-isReMaterializable = 1 in
+isReMaterializable = 1,
+Constraints = "@earlyclobber $dst" in
 def LDDWRdPtrQ : Pseudo<(outs DREGS:$dst),
                         (ins memri:$src),
                         "lddw\t$dst, $src",
                         [(set DREGS:$dst, (load addr:$src))]>;
+
+//:FIXME: remove this once PR13375 gets fixed
+let canFoldAsLoad = 1,
+isReMaterializable = 1,
+mayLoad = 1,
+neverHasSideEffects = 1 in
+def LDDWRdYQ : Pseudo<(outs DREGS:$dst),
+                      (ins memri:$src),
+                      "lddw\t$dst, $src",
+                      []>;
 
 def STSKRr : Pseudo<(outs),
                     (ins i16imm:$dst, GPR8:$src),
@@ -1025,7 +1031,7 @@ def STWPtrRr : Pseudo<(outs),
                       [(store DREGS:$src, PTRDISPREGS:$dst)]>;
 
 //:FIXME: dest reg cant be a subreg of the addr (st Y+, r28)
-let Constraints = "$dst = $base_wb" in
+let Constraints = "$dst = $base_wb,@earlyclobber $base_wb" in
 def STPtrPiRr : Pseudo<(outs PTRREGS:$base_wb),
                        (ins PTRREGS:$dst, GPR8:$src, i8imm:$offs),
                        "st\t$dst+, $src",
@@ -1033,7 +1039,7 @@ def STPtrPiRr : Pseudo<(outs PTRREGS:$base_wb),
                         (post_store GPR8:$src, PTRREGS:$dst, imm:$offs))]>;
 
 //:FIXME: dest reg cant be a subreg of the addr (st Y+, r28)
-let Constraints = "$dst = $base_wb" in
+let Constraints = "$dst = $base_wb,@earlyclobber $base_wb" in
 def STWPtrPiRr : Pseudo<(outs PTRREGS:$base_wb),
                         (ins PTRREGS:$dst, DREGS:$src, i8imm:$offs),
                         "stw\t$dst+, $src",
@@ -1041,7 +1047,7 @@ def STWPtrPiRr : Pseudo<(outs PTRREGS:$base_wb),
                          (post_store DREGS:$src, PTRREGS:$dst, imm:$offs))]>;
 
 //:FIXME: dest reg cant be a subreg of the addr (st -Y, r28)
-let Constraints = "$dst = $base_wb" in
+let Constraints = "$dst = $base_wb,@earlyclobber $base_wb" in
 def STPtrPdRr : Pseudo<(outs PTRREGS:$base_wb),
                        (ins PTRREGS:$dst, GPR8:$src, i8imm:$offs),
                        "st\t-$dst, $src",
@@ -1049,7 +1055,7 @@ def STPtrPdRr : Pseudo<(outs PTRREGS:$base_wb),
                         (pre_store GPR8:$src, PTRREGS:$dst, imm:$offs))]>;
 
 //:FIXME: dest reg cant be a subreg of the addr (st -Y, r28)
-let Constraints = "$dst = $base_wb" in
+let Constraints = "$dst = $base_wb,@earlyclobber $base_wb" in
 def STWPtrPdRr : Pseudo<(outs PTRREGS:$base_wb),
                         (ins PTRREGS:$dst, DREGS:$src, i8imm:$offs),
                         "stw\t-$dst, $src",
@@ -1083,7 +1089,7 @@ def LPMRdZ : Pseudo<(outs GPR8:$dst),
 let canFoldAsLoad = 1,
 isReMaterializable = 1,
 neverHasSideEffects = 1,
-Constraints = "$src = $base_wb" in
+Constraints = "$src = $base_wb,@earlyclobber $dst,@earlyclobber $base_wb" in
 def LPMWRdZ : Pseudo<(outs DREGS:$dst, DREGS:$base_wb),
                      (ins DREGS:$src),
                      "lpmw\t$dst, Z",
@@ -1092,7 +1098,7 @@ def LPMWRdZ : Pseudo<(outs DREGS:$dst, DREGS:$base_wb),
 //:FIXME: dest reg cant be a subreg of the addr (lpm r30, Z+)
 let mayLoad = 1,
 neverHasSideEffects = 1,
-Constraints = "$src = $base_wb" in
+Constraints = "$src = $base_wb,@earlyclobber $dst,@earlyclobber $base_wb" in
 def LPMRdZPi : Pseudo<(outs GPR8:$dst, DREGS:$base_wb),
                       (ins DREGS:$src),
                       "lpm\t$dst, Z+",
@@ -1101,7 +1107,7 @@ def LPMRdZPi : Pseudo<(outs GPR8:$dst, DREGS:$base_wb),
 //:FIXME: dest reg cant be a subreg of the addr (lpm r30, Z+)
 let mayLoad = 1,
 neverHasSideEffects = 1,
-Constraints = "$src = $base_wb" in
+Constraints = "$src = $base_wb,@earlyclobber $dst,@earlyclobber $base_wb" in
 def LPMWRdZPi : Pseudo<(outs DREGS:$dst, DREGS:$base_wb),
                        (ins DREGS:$src),
                        "lpmw\t$dst, Z+",

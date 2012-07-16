@@ -31,6 +31,7 @@ public:
 public: // TargetRegisterInfo
   /// Code Generation virtual methods...
   const uint16_t *getCalleeSavedRegs(const MachineFunction *MF = 0) const;
+  const uint32_t *getCallPreservedMask(CallingConv::ID CC) const;
   BitVector getReservedRegs(const MachineFunction &MF) const;
 
   /// Stack Frame Processing Methods

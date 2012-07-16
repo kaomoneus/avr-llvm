@@ -27,3 +27,10 @@ def RetCC_AVR : CallingConv
 //===----------------------------------------------------------------------===//
 
 // The calling conventions are implemented in custom C++ code
+
+//===----------------------------------------------------------------------===//
+// Callee-saved register lists.
+//===----------------------------------------------------------------------===//
+
+def CSR_Normal : CalleeSavedRegs<(add R29, R28, (sequence "R%u", 17, 0))>;
+def CSR_Interrupts : CalleeSavedRegs<(add (sequence "R%u", 31, 0))>;
