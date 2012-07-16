@@ -16,7 +16,6 @@ namespace llvm
 {
 
 class AsmPrinter;
-class Mangler;
 class MachineInstr;
 class MachineOperand;
 class MCContext;
@@ -27,14 +26,13 @@ class MCSymbol;
 class LLVM_LIBRARY_VISIBILITY AVRMCInstLower
 {
 public:
-  AVRMCInstLower(MCContext &ctx, Mangler &mang, AsmPrinter &printer) :
-    Ctx(ctx), Mang(mang), Printer(printer) {}
+  AVRMCInstLower(MCContext &ctx, AsmPrinter &printer) :
+    Ctx(ctx), Printer(printer) {}
 
   void Lower(const MachineInstr *MI, MCInst &OutMI) const;
   MCOperand LowerSymbolOperand(const MachineOperand &MO, MCSymbol *Sym) const;
 private:
   MCContext &Ctx;
-  Mangler &Mang;
   AsmPrinter &Printer;
 };
 

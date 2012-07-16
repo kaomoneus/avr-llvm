@@ -84,7 +84,7 @@ void AVRAsmPrinter::printOperand(const MachineInstr *MI, unsigned OpNo,
 //===----------------------------------------------------------------------===//
 void AVRAsmPrinter::EmitInstruction(const MachineInstr *MI)
 {
-  AVRMCInstLower MCInstLowering(OutContext, *Mang, *this);
+  AVRMCInstLower MCInstLowering(OutContext, *this);
 
   MCInst TmpInst;
   MCInstLowering.Lower(MI, TmpInst);
