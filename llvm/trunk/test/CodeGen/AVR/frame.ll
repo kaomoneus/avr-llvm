@@ -9,6 +9,8 @@ define float @f3(float %days) {
 entry:
 ; CHECK: f3:
 ; prologue code:
+; CHECK: push r28
+; CHECK: push r29
 ; CHECK: in r28, 61
 ; CHECK-NEXT: in r29, 62
 ; CHECK-NEXT: sbiw r29:r28, [[SIZE:[0-9]+]]
@@ -24,6 +26,8 @@ entry:
 ; CHECK-NEXT: out 62, r29
 ; CHECK-NEXT: out 63, r0
 ; CHECK-NEXT: out 61, r28
+; CHECK: pop r29
+; CHECK: pop r28
   %mul = fmul float %days, 0x3FEF8A6C60000000
   %add = fadd float %mul, 0x40718776A0000000
   %mul1 = fmul float %days, 0x3FEF8A09A0000000

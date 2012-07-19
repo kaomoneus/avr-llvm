@@ -135,11 +135,15 @@ define i64 @calli64_stack() {
 
 ; Test passing arguments through the stack when the call frame is allocated
 ; in the prologue.
-declare void @foo64_3(i64, i64, i64, i16*)
+declare void @foo64_3(i64, i64, i64, i8, i16*)
 
 define void @testcallprologue() {
 ; CHECK: testcallprologue:
-; CHECK: sbiw r29:r28, 26
+; CHECK: push r28
+; CHECK: push r29
+; CHECK: sbiw r29:r28, 27
+; CHECK: ldi [[REG1:r[0-9]+]], 88
+; CHECK: std Y+9, [[REG1]]
 ; CHECK: ldi [[REG1:r[0-9]+]], 11
 ; CHECK: ldi [[REG2:r[0-9]+]], 10
 ; CHECK: std Y+7, [[REG1]]
@@ -156,9 +160,11 @@ define void @testcallprologue() {
 ; CHECK: ldi [[REG2:r[0-9]+]], 9
 ; CHECK: std Y+1, [[REG1]]
 ; CHECK: std Y+2, [[REG2]]
+; CHECK: pop r29
+; CHECK: pop r28
   %p = alloca [8 x i16], align 1
   %arraydecay = getelementptr inbounds [8 x i16]* %p, i16 0, i16 0
-  call void @foo64_3(i64 723685415333071112, i64 723685415333071112, i64 723685415333071112, i16* %arraydecay)
+  call void @foo64_3(i64 723685415333071112, i64 723685415333071112, i64 723685415333071112, i8 88, i16* %arraydecay)
   ret void
 }
 

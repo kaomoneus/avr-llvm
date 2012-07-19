@@ -6,11 +6,16 @@ declare i16 @allocate(i16*, i16*)
 define i16 @alloca_addressof_small() {
 entry:
 ; CHECK: alloca_addressof_small:
+; Test that Y is saved
+; CHECK: push r28
+; CHECK: push r29
 ; CHECK: movw r25:r24, r29:r28
 ; CHECK: adiw r25:r24, 17
 ; CHECK: movw {{.*}}, r29:r28
 ; CHECK: adiw {{.*}}, 39
 ; CHECK: movw r23:r22, {{.*}}
+; CHECK: pop r29
+; CHECK: pop r28
   %p = alloca [18 x i16], align 1
   %k = alloca [14 x i16], align 1
   %arrayidx = getelementptr inbounds [14 x i16]* %k, i16 0, i16 8
