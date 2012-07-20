@@ -224,8 +224,8 @@ SDNode *AVRDAGToDAGISel::Select(SDNode *N)
       const StoreSDNode *ST = cast<StoreSDNode>(N);
       SDValue BasePtr = ST->getBasePtr();
 
-      // Early exit when the base pointer is a frame index node.
-      if (isa<FrameIndexSDNode>(BasePtr))
+      // Early exit when the base pointer is a frame index node or a constant.
+      if (isa<FrameIndexSDNode>(BasePtr) || isa<ConstantSDNode>(BasePtr))
       {
         break;
       }

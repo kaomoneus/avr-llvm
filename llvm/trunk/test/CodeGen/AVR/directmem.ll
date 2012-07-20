@@ -313,3 +313,33 @@ define i64 @static64_inc() {
   store i64 %inc, i64* @longlong.static
   ret i64 %inc
 }
+
+define i8 @constantaddr_read8() {
+; CHECK: constantaddr_read8:
+; CHECK: lds r24, 1234
+  %1 = load i8* inttoptr (i16 1234 to i8*), align 2
+  ret i8 %1
+}
+
+define i16 @constantaddr_read16() {
+; CHECK: constantaddr_read16:
+; CHECK: lds r24, 1234
+; CHECK: lds r25, 1235
+  %1 = load i16* inttoptr (i16 1234 to i16*), align 2
+  ret i16 %1
+}
+
+define void @constantaddr_write8() {
+; CHECK: constantaddr_write8:
+; CHECK: sts 1234
+  store i8 22, i8* inttoptr (i16 1234 to i8*), align 2
+  ret void
+}
+
+define void @constantaddr_write16() {
+; CHECK: constantaddr_write16:
+; CHECK: sts 1235
+; CHECK: sts 1234
+  store i16 2222, i16* inttoptr (i16 1234 to i16*), align 2
+  ret void
+}
