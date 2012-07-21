@@ -94,7 +94,19 @@ def uimm6 : PatLeaf<(imm), [{ return isUInt<6>(N->getZExtValue()); }]>;
 
 def ioaddr_XFORM : SDNodeXForm<imm,
 [{
-  return CurDAG->getTargetConstant((uint8_t)N->getZExtValue() - 0x20, MVT::i8);
+  return CurDAG->getTargetConstant(uint8_t(N->getZExtValue()) - 0x20, MVT::i8);
+}]>;
+
+def iobitpos8_XFORM : SDNodeXForm<imm,
+[{
+  return CurDAG->getTargetConstant(Log2_32(uint8_t(N->getZExtValue())),
+                                   MVT::i8);
+}]>;
+
+def iobitposn8_XFORM : SDNodeXForm<imm,
+[{
+  return CurDAG->getTargetConstant(Log2_32(uint8_t(~N->getZExtValue())),
+                                   MVT::i8);
 }]>;
 
 def ioaddr8 : PatLeaf<(imm),
@@ -103,11 +115,27 @@ def ioaddr8 : PatLeaf<(imm),
   return val >= 0x20 && val < 0x60;
 }], ioaddr_XFORM>;
 
+def lowioaddr8 : PatLeaf<(imm),
+[{
+  uint64_t val = N->getZExtValue();
+  return val >= 0x20 && val < 0x40;
+}], ioaddr_XFORM>;
+
 def ioaddr16 : PatLeaf<(imm),
 [{
   uint64_t val = N->getZExtValue();
   return val >= 0x20 && val < 0x5f;
 }], ioaddr_XFORM>;
+
+def iobitpos8 : PatLeaf<(imm),
+[{
+  return isPowerOf2_32(uint8_t(N->getZExtValue()));
+}], iobitpos8_XFORM>;
+
+def iobitposn8 : PatLeaf<(imm),
+[{
+  return isPowerOf2_32(uint8_t(~N->getZExtValue()));
+}], iobitposn8_XFORM>;
 
 // Address operand for reg+imm
 def memri : Operand<iPTR>
@@ -1258,10 +1286,23 @@ def SWAPRd : FRd<0b1001,
                  (ins GPR8:$src),
                  "swap\t$dst",
                  [(set GPR8:$dst, (bswap GPR8:$src))]>;
-/*
-def SBIab           1001 1010 AAAA Abbb
-def CBIab           1001 1000 AAAA Abbb
 
+//:TODO: add 16 bit versions of cbi/sbi
+//:TODO: add patterns when popcount(imm)==2 to be expanded with 2 sbi/cbi
+// instead of in+ori+out which requires one more instr.
+def SBIAb : Pseudo<(outs),
+                   (ins i16imm:$addr, i8imm:$bit),
+                   "sbi\t$addr, $bit",
+                   [(store (or (i8 (load lowioaddr8:$addr)), iobitpos8:$bit),
+                     lowioaddr8:$addr)]>;
+
+def CBIAb : Pseudo<(outs),
+                   (ins i16imm:$addr, i8imm:$bit),
+                   "cbi\t$addr, $bit",
+                   [(store (and (i8 (load lowioaddr8:$addr)), iobitposn8:$bit),
+                     lowioaddr8:$addr)]>;
+
+/*
 def BSTrb           1111 101d dddd 0bbb
 def BLDrb           1111 100d dddd 0bbb
 

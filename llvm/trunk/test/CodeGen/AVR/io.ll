@@ -77,3 +77,21 @@ define void @write64() {
   store i64 1234567891234567, i64* inttoptr (i16 40 to i64*), align 8
   ret void
 }
+
+define void @sbi8() {
+; CHECK: sbi8
+; CHECK: sbi 8, 5
+  %1 = load i8* inttoptr (i16 40 to i8*), align 8
+  %or = or i8 %1, 32
+  store i8 %or, i8* inttoptr (i16 40 to i8*), align 8
+  ret void
+}
+
+define void @cbi8() {
+; CHECK: cbi8
+; CHECK: cbi 8, 5
+  %1 = load volatile i8* inttoptr (i16 40 to i8*), align 8
+  %and = and i8 %1, -33
+  store volatile i8 %and, i8* inttoptr (i16 40 to i8*), align 8
+  ret void
+}
