@@ -72,12 +72,18 @@ AVRTargetLowering::AVRTargetLowering(AVRTargetMachine &tm) :
   setOperationAction(ISD::BR_CC, MVT::i16, Custom);
   setOperationAction(ISD::BR_CC, MVT::i32, Custom);
   setOperationAction(ISD::BR_CC, MVT::i64, Custom);
+  setOperationAction(ISD::BRCOND, MVT::Other, Expand);
+
   setOperationAction(ISD::SELECT_CC, MVT::i8, Custom);
   setOperationAction(ISD::SELECT_CC, MVT::i16, Custom);
   setOperationAction(ISD::SELECT_CC, MVT::i32, Custom);
   setOperationAction(ISD::SELECT_CC, MVT::i64, Custom);
-  setOperationAction(ISD::SETCC, MVT::i8, Expand);
-  setOperationAction(ISD::SETCC, MVT::i16, Expand);
+  setOperationAction(ISD::SETCC, MVT::i8, Custom);
+  setOperationAction(ISD::SETCC, MVT::i16, Custom);
+  setOperationAction(ISD::SETCC, MVT::i32, Custom);
+  setOperationAction(ISD::SETCC, MVT::i64, Custom);
+  setOperationAction(ISD::SELECT, MVT::i8, Expand);
+  setOperationAction(ISD::SELECT, MVT::i16, Expand);
 
   // add support for postincrement and predecrement load/stores.
   setIndexedLoadAction(ISD::POST_INC, MVT::i8, Legal);
@@ -224,7 +230,7 @@ SDValue AVRTargetLowering::getAVRCmp(SDValue LHS, SDValue RHS, ISD::CondCode CC,
                                      DebugLoc dl) const
 {
   SDValue Cmp;
-  unsigned CmpSize = LHS.getValueSizeInBits();
+  EVT VT = LHS.getValueType();
   bool UseTest = false;
 
   switch (CC)
@@ -257,7 +263,7 @@ SDValue AVRTargetLowering::getAVRCmp(SDValue LHS, SDValue RHS, ISD::CondCode CC,
             // Turn lhs > 0 into 0 < lhs since 0 can be materialized with
             // __zero_reg__ in lhs.
             RHS = LHS;
-            LHS = DAG.getConstant(0, C->getValueType(0));
+            LHS = DAG.getConstant(0, VT);
             CC = ISD::SETLT;
             break;
           }
@@ -265,7 +271,7 @@ SDValue AVRTargetLowering::getAVRCmp(SDValue LHS, SDValue RHS, ISD::CondCode CC,
           {
             // Turn lhs < rhs with lhs constant into rhs >= lhs+1, this allows
             // us to  fold the constant into the cmp instruction.
-            RHS = DAG.getConstant(C->getZExtValue() + 1, C->getValueType(0));
+            RHS = DAG.getConstant(C->getZExtValue() + 1, VT);
             CC = ISD::SETGE;
             break;
           }
@@ -288,7 +294,7 @@ SDValue AVRTargetLowering::getAVRCmp(SDValue LHS, SDValue RHS, ISD::CondCode CC,
             // Turn lhs < 1 into 0 >= lhs since 0 can be materialized with
             // __zero_reg__ in lhs.
             RHS = LHS;
-            LHS = DAG.getConstant(0, C->getValueType(0));
+            LHS = DAG.getConstant(0, VT);
             CC = ISD::SETGE;
             break;
           }
@@ -317,7 +323,7 @@ SDValue AVRTargetLowering::getAVRCmp(SDValue LHS, SDValue RHS, ISD::CondCode CC,
       // fold the constant into the cmp instruction.
       if (const ConstantSDNode *C = dyn_cast<ConstantSDNode>(RHS))
       {
-        RHS = DAG.getConstant(C->getZExtValue() + 1, C->getValueType(0));
+        RHS = DAG.getConstant(C->getZExtValue() + 1, VT);
         CC = ISD::SETUGE;
         break;
       }
@@ -330,7 +336,7 @@ SDValue AVRTargetLowering::getAVRCmp(SDValue LHS, SDValue RHS, ISD::CondCode CC,
 
   // Expand 32 and 64 bit comparisons with custom CMP and CMPC nodes instead of
   // using the default and/or/xor expansion code which is much longer.
-  if (CmpSize == 32)
+  if (VT == MVT::i32)
   {
     SDValue LHSlo = DAG.getNode(ISD::EXTRACT_ELEMENT, dl, MVT::i16, LHS,
                                 DAG.getIntPtrConstant(0));
@@ -354,7 +360,7 @@ SDValue AVRTargetLowering::getAVRCmp(SDValue LHS, SDValue RHS, ISD::CondCode CC,
       Cmp = DAG.getNode(AVRISD::CMPC, dl, MVT::Glue, LHShi, RHShi, Cmp);
     }
   }
-  else if (CmpSize == 64)
+  else if (VT == MVT::i64)
   {
     SDValue LHS_0 = DAG.getNode(ISD::EXTRACT_ELEMENT, dl, MVT::i32, LHS,
                                 DAG.getIntPtrConstant(0));
@@ -399,14 +405,14 @@ SDValue AVRTargetLowering::getAVRCmp(SDValue LHS, SDValue RHS, ISD::CondCode CC,
       Cmp = DAG.getNode(AVRISD::CMPC, dl, MVT::Glue, LHS3, RHS3, Cmp);
     }
   }
-  else if (CmpSize == 8 || CmpSize == 16)
+  else if (VT == MVT::i8 || VT == MVT::i16)
   {
     if (UseTest)
     {
       // When using tst we only care about the highest part.
       Cmp = DAG.getNode(AVRISD::TST, dl, MVT::Glue,
-        (CmpSize == 8) ? LHS : DAG.getNode(ISD::EXTRACT_ELEMENT, dl, MVT::i8,
-                                           LHS, DAG.getIntPtrConstant(1)));
+        (VT == MVT::i16) ? LHS : DAG.getNode(ISD::EXTRACT_ELEMENT, dl, MVT::i8,
+                                             LHS, DAG.getIntPtrConstant(1)));
     }
     else
     {
@@ -461,6 +467,24 @@ SDValue AVRTargetLowering::LowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const
   return DAG.getNode(AVRISD::SELECT_CC, dl, VTs, Ops, array_lengthof(Ops));
 }
 
+SDValue AVRTargetLowering::LowerSETCC(SDValue Op, SelectionDAG &DAG) const
+{
+  SDValue LHS = Op.getOperand(0);
+  SDValue RHS = Op.getOperand(1);
+  ISD::CondCode CC = cast<CondCodeSDNode>(Op.getOperand(2))->get();
+  DebugLoc dl = Op.getDebugLoc();
+
+  SDValue TargetCC;
+  SDValue Cmp = getAVRCmp(LHS, RHS, CC, TargetCC, DAG, dl);
+
+  SDValue TrueV = DAG.getConstant(1, Op.getValueType());
+  SDValue FalseV = DAG.getConstant(0, Op.getValueType());
+  SDVTList VTs = DAG.getVTList(Op.getValueType(), MVT::Glue);
+  SDValue Ops[] = { TrueV, FalseV, TargetCC, Cmp };
+
+  return DAG.getNode(AVRISD::SELECT_CC, dl, VTs, Ops, array_lengthof(Ops));
+}
+
 SDValue AVRTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const
 {
   switch (Op.getOpcode())
@@ -481,6 +505,8 @@ SDValue AVRTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const
     return LowerBR_CC(Op, DAG);
   case ISD::SELECT_CC:
     return LowerSELECT_CC(Op, DAG);
+  case ISD::SETCC:
+    return LowerSETCC(Op, DAG);
   }
 
   return SDValue();
