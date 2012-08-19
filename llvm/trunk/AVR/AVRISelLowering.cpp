@@ -411,8 +411,8 @@ SDValue AVRTargetLowering::getAVRCmp(SDValue LHS, SDValue RHS, ISD::CondCode CC,
     {
       // When using tst we only care about the highest part.
       Cmp = DAG.getNode(AVRISD::TST, dl, MVT::Glue,
-        (VT == MVT::i16) ? LHS : DAG.getNode(ISD::EXTRACT_ELEMENT, dl, MVT::i8,
-                                             LHS, DAG.getIntPtrConstant(1)));
+        (VT == MVT::i8) ? LHS : DAG.getNode(ISD::EXTRACT_ELEMENT, dl, MVT::i8,
+                                            LHS, DAG.getIntPtrConstant(1)));
     }
     else
     {
