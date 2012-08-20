@@ -120,8 +120,6 @@ bool AVRBSel::runOnMachineFunction(MachineFunction &Fn)
   //     jmp MBB
   //
   bool MadeChange = true;
-  bool EverMadeChange = false;
-
   while (MadeChange)
   {
     // Iteratively expand branches until we reach a fixed point.
@@ -176,8 +174,8 @@ bool AVRBSel::runOnMachineFunction(MachineFunction &Fn)
           }
         }
 
-        assert((!(BranchSize & 1)) &&
-               "BranchSize should have an even number of bytes");
+        assert(!(BranchSize & 1)
+               && "BranchSize should have an even number of bytes");
         // If this branch is in range, ignore it.
         if ((isCondBranch(Opc) && isInt<8>(BranchSize))
             || (Opc == AVR::RJMPk && isInt<13>(BranchSize)))
@@ -216,17 +214,17 @@ bool AVRBSel::runOnMachineFunction(MachineFunction &Fn)
           unsigned BrCCOffs;
           // Determine if we can reach the destination block with a rjmp,
           // otherwise a jmp instruction is needed.
-          if (!isInt<13>(BranchSize))
-          {
-            NewSize = 6;
-            BrCCOffs = 4;
-            UncondOpc = AVR::JMPk;
-          }
-          else
+          if (isInt<13>(BranchSize))
           {
             NewSize = 4;
             BrCCOffs = 2;
             UncondOpc = AVR::RJMPk;
+          }
+          else
+          {
+            NewSize = 6;
+            BrCCOffs = 4;
+            UncondOpc = AVR::JMPk;
           }
 
           AVRCC::CondCodes OCC =
@@ -251,8 +249,6 @@ bool AVRBSel::runOnMachineFunction(MachineFunction &Fn)
         MadeChange = true;
       }
     }
-
-    EverMadeChange |= MadeChange;
   }
 
   BlockSizes.clear();
