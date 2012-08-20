@@ -160,6 +160,9 @@ bool AVRBSel::runOnMachineFunction(MachineFunction &Fn)
           {
             BranchSize += BlockSizes[i];
           }
+
+          // Set backwards branches to have a negative value.
+          BranchSize = -BranchSize;
         }
         else
         {
