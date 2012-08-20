@@ -74,6 +74,7 @@ public:
   const MCInstrDesc &getBrCond(AVRCC::CondCodes CC) const;
   AVRCC::CondCodes getCondFromBranchOpc(unsigned Opc) const;
   AVRCC::CondCodes getOppositeCondition(AVRCC::CondCodes CC) const;
+  unsigned GetInstSizeInBytes(const MachineInstr *MI) const;
 public: // TargetInstrInfo
   void copyPhysReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator MI,
                    DebugLoc DL, unsigned DestReg, unsigned SrcReg,

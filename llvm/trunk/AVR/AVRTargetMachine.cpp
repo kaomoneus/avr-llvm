@@ -53,6 +53,7 @@ public:
   bool addInstSelector();
   bool addPreSched2();
   bool addPreRegAlloc();
+  bool addPreEmitPass();
 };
 } // namespace
 
@@ -123,6 +124,14 @@ bool AVRPassConfig::addPreSched2()
   addPass(createAVRExpandPseudoPass());
 
   return true;
+}
+
+bool AVRPassConfig::addPreEmitPass()
+{
+  // Must run branch selection immediately preceding the asm printer.
+  addPass(createAVRBranchSelectionPass());
+
+  return false;
 }
 
 static FunctionPass *createAVRRegisterAllocator()

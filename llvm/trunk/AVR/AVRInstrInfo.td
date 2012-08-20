@@ -738,8 +738,15 @@ def IJMP : FBR<0b1001010000001001,
                "ijmp",
                []>;
 
+let isBarrier = 1,
+isBranch = 1,
+isTerminator = 1 in
+def JMPk : F32BRk<0b110,
+                  (outs),
+                  (ins brtarget:$target),
+                  "jmp\t$target",
+                  []>;
 /*
-def JMPi            1001 010k kkkk 110k kkkk kkkk kkkk kkkk
 def RCALLi          1101 kkkk kkkk kkkk ok
 */
 

@@ -479,3 +479,31 @@ ReverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const
 
   return false;
 }
+
+unsigned AVRInstrInfo::GetInstSizeInBytes(const MachineInstr *MI) const
+{
+  //:FIXME: use TSFlags here instead of listing all instrs.
+  switch(MI->getOpcode())
+  {
+  default:
+    return 2;
+  case AVR::CALLk:
+  case AVR::JMPk:
+  case AVR::LDSRdK:
+  case AVR::STSKRr:
+    return 4;
+  case TargetOpcode::PROLOG_LABEL:
+  case TargetOpcode::EH_LABEL:
+  case TargetOpcode::IMPLICIT_DEF:
+  case TargetOpcode::KILL:
+  case TargetOpcode::DBG_VALUE:
+    return 0;
+  case TargetOpcode::INLINEASM:
+    {
+      const MachineFunction *MF = MI->getParent()->getParent();
+      const TargetInstrInfo &TII = *MF->getTarget().getInstrInfo();
+      return TII.getInlineAsmLength(MI->getOperand(0).getSymbolName(),
+                                    *MF->getTarget().getMCAsmInfo());
+    }
+  }
+}

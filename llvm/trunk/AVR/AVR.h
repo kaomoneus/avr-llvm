@@ -28,6 +28,7 @@ namespace llvm
   FunctionPass *createAVRExpandPseudoPass();
   FunctionPass *createAVRFrameAnalyzerPass();
   FunctionPass *createAVRDynAllocaSRPass();
+  FunctionPass *createAVRBranchSelectionPass();
 } // end namespace llvm
 
 #endif //__INCLUDE_AVR_H__
