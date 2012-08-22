@@ -31,9 +31,6 @@ def RetCC_AVR : CallingConv
 // Calling convention for variadic functions.
 def CC_AVR_Vararg : CallingConv
 <[
-  // i8 is always promoted to i16.
-  CCIfType<[i8], CCPromoteToType<i16>>,
-
   // i16 are always passed through the stack with an alignment of 1.
   CCAssignToStack<2, 1>
 ]>;

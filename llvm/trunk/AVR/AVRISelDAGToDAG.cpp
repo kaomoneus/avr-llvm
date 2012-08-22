@@ -259,7 +259,7 @@ SDNode *AVRDAGToDAGISel::Select(SDNode *N)
     }
   case ISD::LOAD:
     {
-      const LoadSDNode *LD = dyn_cast<LoadSDNode>(N);
+      const LoadSDNode *LD = cast<LoadSDNode>(N);
       const Value *SV = LD->getSrcValue();
       if (SV && cast<PointerType>(SV->getType())->getAddressSpace() == 1)
       {
@@ -270,7 +270,7 @@ SDNode *AVRDAGToDAGISel::Select(SDNode *N)
         SDValue Ptr = LD->getBasePtr();
         SDNode *ResNode;
 
-        Chain = CurDAG->getCopyToReg(Chain, dl, AVR::R31R30, Ptr, SDValue(0,0));
+        Chain = CurDAG->getCopyToReg(Chain, dl, AVR::R31R30, Ptr, SDValue());
         Ptr = CurDAG->getCopyFromReg(Chain, dl, AVR::R31R30, MVT::i16,
                                      Chain.getValue(1));
 

@@ -42,7 +42,7 @@ bool AVRFrameLowering::hasReservedCallFrame(const MachineFunction &MF) const
   // - Y pointer is reserved to be the frame pointer.
   // - The function does not contain variable sized objects.
   // - MaxCallFrameSize is greater than 63.
-  // :TODO: improve the heuristics here to benefit from a wide range of cases.
+  // :TODO: improve the heuristics here to benefit from a wider range of cases.
   const MachineFrameInfo *MFI = MF.getFrameInfo();
   return (hasFP(MF)
           && !MFI->hasVarSizedObjects()
@@ -93,8 +93,8 @@ void AVRFrameLowering::emitPrologue(MachineFunction &MF) const
 
   // Skip the callee-saved push instructions.
   while ((MBBI != MBB.end())
-         && ((MBBI->getOpcode() == AVR::PUSHRr
-             || MBBI->getOpcode() == AVR::PUSHWRr)))
+         && (MBBI->getOpcode() == AVR::PUSHRr
+             || MBBI->getOpcode() == AVR::PUSHWRr))
   {
     ++MBBI;
   }
@@ -111,23 +111,25 @@ void AVRFrameLowering::emitPrologue(MachineFunction &MF) const
     I->addLiveIn(AVR::R29R28);
   }
 
-  // Reserve the necessary frame memory by doing FP -= <size>.
-  if (FrameSize)
+  if (!FrameSize)
   {
-    unsigned Opcode = (isUInt<6>(FrameSize)) ? AVR::SBIWRdK : AVR::SUBIWRdK;
-
-    MachineInstr *MI = BuildMI(MBB, MBBI, dl, TII.get(Opcode), AVR::R29R28)
-      .addReg(AVR::R29R28, RegState::Kill)
-      .addImm(FrameSize)
-      .setMIFlag(MachineInstr::FrameSetup);
-    // The SREG implicit def is dead.
-    MI->getOperand(3).setIsDead();
-
-    // Write back R29R28 to SP and temporarily disable interrupts.
-    BuildMI(MBB, MBBI, dl, TII.get(AVR::SPWRITE), AVR::SP)
-      .addReg(AVR::R29R28)
-      .setMIFlag(MachineInstr::FrameSetup);
+    return;
   }
+
+  // Reserve the necessary frame memory by doing FP -= <size>.
+  unsigned Opcode = (isUInt<6>(FrameSize)) ? AVR::SBIWRdK : AVR::SUBIWRdK;
+
+  MachineInstr *MI = BuildMI(MBB, MBBI, dl, TII.get(Opcode), AVR::R29R28)
+    .addReg(AVR::R29R28, RegState::Kill)
+    .addImm(FrameSize)
+    .setMIFlag(MachineInstr::FrameSetup);
+  // The SREG implicit def is dead.
+  MI->getOperand(3).setIsDead();
+
+  // Write back R29R28 to SP and temporarily disable interrupts.
+  BuildMI(MBB, MBBI, dl, TII.get(AVR::SPWRITE), AVR::SP)
+    .addReg(AVR::R29R28)
+    .setMIFlag(MachineInstr::FrameSetup);
 }
 
 void AVRFrameLowering::emitEpilogue(MachineFunction &MF,
@@ -138,7 +140,7 @@ void AVRFrameLowering::emitEpilogue(MachineFunction &MF,
                     || CallConv == CallingConv::AVR_SIGNAL);
 
   // Early exit if the frame pointer is not needed in this function except for
-  // signal/interrupt handlers where special code generation is needed.
+  // signal/interrupt handlers where special code generation is required.
   if (!hasFP(MF) && !isHandler)
   {
     return;
@@ -364,24 +366,25 @@ namespace
           const MachineInstr *MI = I;
           int Opcode = MI->getOpcode();
 
-          if ((Opcode == AVR::LDDRdPtrQ) || (Opcode == AVR::LDDWRdPtrQ)
-              || (Opcode == AVR::STDPtrQRr) || (Opcode == AVR::STDWPtrQRr))
+          if ((Opcode != AVR::LDDRdPtrQ) && (Opcode != AVR::LDDWRdPtrQ)
+              && (Opcode != AVR::STDPtrQRr) && (Opcode != AVR::STDWPtrQRr))
           {
-            for (unsigned i = 0, e = MI->getNumOperands(); i != e; ++i)
+            continue;
+          }
+
+          for (unsigned i = 0, e = MI->getNumOperands(); i != e; ++i)
+          {
+            const MachineOperand &MO = MI->getOperand(i);
+
+            if (!MO.isFI())
             {
-              const MachineOperand &MO = MI->getOperand(i);
+              continue;
+            }
 
-              if (!MO.isFI())
-              {
-                continue;
-              }
-
-              int Index = MO.getIndex();
-              if (MFI->isFixedObjectIndex(Index))
-              {
-                FuncInfo->setHasStackArgs(true);
-                return false;
-              }
+            if (MFI->isFixedObjectIndex(MO.getIndex()))
+            {
+              FuncInfo->setHasStackArgs(true);
+              return false;
             }
           }
         }

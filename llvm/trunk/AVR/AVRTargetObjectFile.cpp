@@ -40,7 +40,7 @@ AVRTargetObjectFile::SelectSectionForGlobal(const GlobalValue *GV,
     }
   }
 
-  // Otherwise, we work the same as ELF.
+  // Otherwise, we work the same way as ELF.
   return TargetLoweringObjectFileELF::SelectSectionForGlobal(GV, Kind, Mang,
                                                              TM);
 }

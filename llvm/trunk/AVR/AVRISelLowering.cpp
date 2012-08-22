@@ -986,26 +986,21 @@ AVRTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   // If the callee is a GlobalAddress/ExternalSymbol node (quite common, every
   // direct call is) turn it into a TargetGlobalAddress/TargetExternalSymbol
   // node so that legalize doesn't hack it.
+  const Function *F = 0;
   if (const GlobalAddressSDNode *G = dyn_cast<GlobalAddressSDNode>(Callee))
   {
     const GlobalValue *GV = G->getGlobal();
-    analyzeArguments(cast<Function>(GV), TD, &Outs, 0, ArgLocs, CCInfo,
-                     true, isVarArg);
 
+    F = cast<Function>(GV);
     Callee = DAG.getTargetGlobalAddress(GV, dl, getPointerTy());
   }
   else if (const ExternalSymbolSDNode *ES =
              dyn_cast<ExternalSymbolSDNode>(Callee))
   {
-    analyzeArguments(0, TD, &Outs, 0, ArgLocs, CCInfo, true, isVarArg);
-
     Callee = DAG.getTargetExternalSymbol(ES->getSymbol(), getPointerTy());
   }
-  else
-  {
-    // If we reached this point it is an indirect call.
-    analyzeArguments(0, TD, &Outs, 0, ArgLocs, CCInfo, true, isVarArg);
-  }
+
+  analyzeArguments(F, TD, &Outs, 0, ArgLocs, CCInfo, true, isVarArg);
 
   // Get a count of how many bytes are to be pushed on the stack.
   unsigned NumBytes = CCInfo.getNextStackOffset();
@@ -1044,18 +1039,17 @@ AVRTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
       break;
     }
 
-    // Arguments that can be passed on registers must be kept in the RegsToPass
-    // vector.
-    if (VA.isRegLoc())
+    // Stop when we encounter a stack argument, we need to process them
+    // in reverse order in the loop below.
+    if (VA.isMemLoc())
     {
-      RegsToPass.push_back(std::make_pair(VA.getLocReg(), Arg));
-      continue;
+      HasStkArgs = true;
+      break;
     }
 
-    // Rest of outgoing arguments are passed using the stack, process them
-    // in reverse order in the loop below.
-    HasStkArgs = true;
-    break;
+    // Arguments that can be passed on registers must be kept in the RegsToPass
+    // vector.
+    RegsToPass.push_back(std::make_pair(VA.getLocReg(), Arg));
   }
 
   // Second, stack arguments have to walked in reverse order by inserting

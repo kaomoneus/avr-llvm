@@ -35,11 +35,11 @@ static char getPtrRegName(const char *RegName)
   {
     return 'Z';
   }
-  else if (strcmp(RegName, "r29:r28") == 0)
+  if (strcmp(RegName, "r29:r28") == 0)
   {
     return 'Y';
   }
-  else if (strcmp(RegName, "r27:r26") == 0)
+  if (strcmp(RegName, "r27:r26") == 0)
   {
     return 'X';
   }
@@ -104,16 +104,17 @@ void AVRInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
     {
       O << getRegisterName(Op.getReg());
     }
+    return;
   }
-  else if (Op.isImm())
+
+  if (Op.isImm())
   {
     O << Op.getImm();
+    return;
   }
-  else
-  {
-    assert(Op.isExpr() && "Unknown operand kind in printOperand");
-    O << *Op.getExpr();
-  }
+
+  assert(Op.isExpr() && "Unknown operand kind in printOperand");
+  O << *Op.getExpr();
 }
 
 void AVRInstPrinter::printMemriOperand(const MCInst *MI, unsigned OpNo,
@@ -135,10 +136,9 @@ void AVRInstPrinter::print_pcrel_imm(const MCInst *MI, unsigned OpNo,
   if (Op.isImm())
   {
     O << Op.getImm();
+    return;
   }
-  else
-  {
-    assert(Op.isExpr() && "Unknown pcrel immediate operand");
-    O << *Op.getExpr();
-  }
+
+  assert(Op.isExpr() && "Unknown pcrel immediate operand");
+  O << *Op.getExpr();
 }

@@ -91,14 +91,14 @@ static void fixStackStores(MachineBasicBlock &MBB,
       continue;
     }
 
-    unsigned SrcReg = MI.getOperand(2).getReg();
-    bool SrcIsKill = MI.getOperand(2).isKill();
     assert(MI.getOperand(0).getReg() == AVR::SP
            && "Invalid register, should be SP!");
 
     if (insertPushes)
     {
       // Replace this instruction with a push.
+      unsigned SrcReg = MI.getOperand(2).getReg();
+      bool SrcIsKill = MI.getOperand(2).isKill();
 
       // We can't use PUSHWRr here because when expanded the order of the new
       // instructions are reversed from what we need. Perform the expansion now.
@@ -119,25 +119,21 @@ static void fixStackStores(MachineBasicBlock &MBB,
         BuildMI(MBB, I, MI.getDebugLoc(), TII.get(AVR::PUSHRr))
           .addReg(SrcReg, getKillRegState(SrcIsKill));
       }
-    }
-    else
-    {
-      // Replace this instruction with a regular store. Use Y as the base
-      // pointer because it is guaranteed to contain a copy of SP.
-      unsigned STOpc =
-        (Opcode == AVR::STDWSPQRr) ? AVR::STDWPtrQRr : AVR::STDPtrQRr;
-      unsigned Imm = MI.getOperand(1).getImm();
-      assert(isUInt<6>(Imm) && "Offset is out of range");
 
-      MachineInstr *New =
-        BuildMI(MBB, I, MI.getDebugLoc(), TII.get(STOpc))
-          .addReg(AVR::R29R28)
-          .addImm(Imm)
-          .addReg(SrcReg, getKillRegState(SrcIsKill));
-      New->setMemRefs(MI.memoperands_begin(), MI.memoperands_end());
+      MI.eraseFromParent();
+      I = NextMI;
+      continue;
     }
 
-    MI.eraseFromParent();
+    // Replace this instruction with a regular store. Use Y as the base
+    // pointer since it is guaranteed to contain a copy of SP.
+    unsigned STOpc =
+      (Opcode == AVR::STDWSPQRr) ? AVR::STDWPtrQRr : AVR::STDPtrQRr;
+    assert(isUInt<6>(MI.getOperand(1).getImm()) && "Offset is out of range");
+
+    MI.setDesc(TII.get(STOpc));
+    MI.getOperand(0).setReg(AVR::R29R28);
+
     I = NextMI;
   }
 }

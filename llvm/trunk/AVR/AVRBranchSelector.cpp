@@ -108,7 +108,7 @@ bool AVRBSel::runOnMachineFunction(MachineFunction &Fn)
   }
 
   // For each conditional branch, if the offset to its destination is larger
-  // than the offset field allows, transform it into a long or huge branch
+  // than the offset field allows, transform it into a long or a huge branch
   // sequence like this:
   //   short branch:
   //     brCC MBB
@@ -159,7 +159,7 @@ bool AVRBSel::runOnMachineFunction(MachineFunction &Fn)
             BranchSize += BlockSizes[i];
           }
 
-          // Set backwards branches to have a negative value.
+          // Set the size of backwards branches to a negative value.
           BranchSize = -BranchSize;
         }
         else
@@ -241,7 +241,7 @@ bool AVRBSel::runOnMachineFunction(MachineFunction &Fn)
         OldBranch->eraseFromParent();
 
         // Remember that this instruction is NewSize bytes, increase the size of
-        //the block by NewSize-2, remember to iterate.
+        // the block by NewSize-2, remember to iterate.
         BlockSizes[MBB.getNumber()] += NewSize - 2;
         MBBStartOffset += NewSize;
 
