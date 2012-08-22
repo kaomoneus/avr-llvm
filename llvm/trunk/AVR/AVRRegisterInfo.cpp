@@ -172,9 +172,6 @@ eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBasicBlock &MBB,
 
     if (Opcode == TII.getCallFrameSetupOpcode())
     {
-      //:FIXME: we cant insert pushes in some varargs function calls,
-      // (when passing arguments from the caller to the callee) because stores
-      // dont come in order.
       fixStackStores(MBB, MI, TII, true);
     }
     else

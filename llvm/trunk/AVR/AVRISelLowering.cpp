@@ -782,15 +782,23 @@ static void analyzeArguments(const Function *F, const TargetData *TD,
     AVR::R15R14, AVR::R13R12, AVR::R11R10, AVR::R9R8
   };
 
-  // Fill in the Args array which will contain original argument sizes.
-  SmallVector<unsigned, 8> Args;
-  if (IsVarArg && IsCall)
+  if (IsVarArg)
   {
     // Variadic functions do not need all the analisys below.
-    CCInfo.AnalyzeCallOperands(*Outs, CC_AVR_Vararg);
+    if (IsCall)
+    {
+      CCInfo.AnalyzeCallOperands(*Outs, CC_AVR_Vararg);
+    }
+    else
+    {
+      CCInfo.AnalyzeFormalArguments(*Ins, CC_AVR_Vararg);
+    }
     return;
   }
-  else if (IsCall && !F)
+
+  // Fill in the Args array which will contain original argument sizes.
+  SmallVector<unsigned, 8> Args;
+  if (IsCall && !F)
   {
     parseExternFuncCallArgs(*Outs, Args);
   }
@@ -801,7 +809,7 @@ static void analyzeArguments(const Function *F, const TargetData *TD,
 
   unsigned RegsLeft = array_lengthof(RegList8), ValNo = 0;
   // Variadic functions always use the stack.
-  bool UsesStack = (IsVarArg) ? true : false;
+  bool UsesStack = false;
   for (unsigned i = 0, pos = 0, e = Args.size(); i != e; ++i)
   {
     unsigned Size = Args[i];
@@ -1005,14 +1013,15 @@ AVRTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   Chain = DAG.getCALLSEQ_START(Chain, DAG.getIntPtrConstant(NumBytes, true));
 
   SmallVector<std::pair<unsigned, SDValue>, 8> RegsToPass;
-  SmallVector<SDValue, 8> MemOpChains;
 
-  // Walk the register/memloc assignments, inserting copies/loads.
-  for (unsigned i = 0, e = ArgLocs.size(); i != e; ++i)
+  // First, walk the register assignments, inserting copies.
+  unsigned AI, AE;
+  bool HasStkArgs = false;
+  for (AI = 0, AE = ArgLocs.size(); AI != AE; ++AI)
   {
-    CCValAssign &VA = ArgLocs[i];
+    CCValAssign &VA = ArgLocs[AI];
     EVT RegVT = VA.getLocVT();
-    SDValue Arg = OutVals[i];
+    SDValue Arg = OutVals[AI];
 
     // Promote the value if needed. With Clang this should not happen.
     switch (VA.getLocInfo())
@@ -1040,9 +1049,27 @@ AVRTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
     if (VA.isRegLoc())
     {
       RegsToPass.push_back(std::make_pair(VA.getLocReg(), Arg));
+      continue;
     }
-    else
+
+    // Rest of outgoing arguments are passed using the stack, process them
+    // in reverse order in the loop below.
+    HasStkArgs = true;
+    break;
+  }
+
+  // Second, stack arguments have to walked in reverse order by inserting
+  // chained stores, this ensures their order is not changed by the scheduler
+  // and that the push instruction sequence generated is correct, otherwise they
+  // can be freely intermixed.
+  if (HasStkArgs)
+  {
+    for (AE = AI, AI = ArgLocs.size(); AI != AE; --AI)
     {
+      unsigned Loc = AI - 1;
+      CCValAssign &VA = ArgLocs[Loc];
+      SDValue Arg = OutVals[Loc];
+
       assert(VA.isMemLoc());
 
       // SP points to one stack slot further so add one to adjust it.
@@ -1051,19 +1078,10 @@ AVRTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
                                    DAG.getIntPtrConstant(VA.getLocMemOffset()
                                                          + 1));
 
-      MemOpChains.push_back
-        (DAG.getStore(Chain, dl, Arg, PtrOff,
-                      MachinePointerInfo::getStack(VA.getLocMemOffset()), false,
-                      false, 0));
+      Chain = DAG.getStore(Chain, dl, Arg, PtrOff,
+                           MachinePointerInfo::getStack(VA.getLocMemOffset()),
+                           false, false, 0);
     }
-  }
-
-  // Transform all store nodes into one single node because all store nodes are
-  // independent of each other.
-  if (!MemOpChains.empty())
-  {
-    Chain = DAG.getNode(ISD::TokenFactor, dl, MVT::Other, &MemOpChains[0],
-                        MemOpChains.size());
   }
 
   // Build a sequence of copy-to-reg nodes chained together with token chain and
@@ -1221,15 +1239,15 @@ AVRTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
     return Chain;
   }
 
-  unsigned retOpc = (CallConv == CallingConv::AVR_INTR
+  unsigned RetOpc = (CallConv == CallingConv::AVR_INTR
                      || CallConv == CallingConv::AVR_SIGNAL) ?
                     AVRISD::RETI_FLAG : AVRISD::RET_FLAG;
   if (Flag.getNode())
   {
-    return DAG.getNode(retOpc, dl, MVT::Other, Chain, Flag);
+    return DAG.getNode(RetOpc, dl, MVT::Other, Chain, Flag);
   }
 
-  return DAG.getNode(retOpc, dl, MVT::Other, Chain);
+  return DAG.getNode(RetOpc, dl, MVT::Other, Chain);
 }
 
 //===----------------------------------------------------------------------===//
