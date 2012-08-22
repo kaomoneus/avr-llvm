@@ -259,8 +259,9 @@ SDNode *AVRDAGToDAGISel::Select(SDNode *N)
     }
   case ISD::LOAD:
     {
-      const LoadSDNode *LD = cast<LoadSDNode>(N);
-      if (cast<PointerType>(LD->getSrcValue()->getType())->getAddressSpace()==1)
+      const LoadSDNode *LD = dyn_cast<LoadSDNode>(N);
+      const Value *SV = LD->getSrcValue();
+      if (SV && cast<PointerType>(SV->getType())->getAddressSpace() == 1)
       {
         // This is a flash memory load, move the pointer into R31R30 and emit
         // the lpm instruction.

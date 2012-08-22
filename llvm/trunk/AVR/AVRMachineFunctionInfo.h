@@ -40,30 +40,38 @@ class AVRMachineFunctionInfo : public MachineFunctionInfo
   /// CalleeSavedFrameSize - Size of the callee-saved register portion of the
   /// stack frame in bytes.
   unsigned CalleeSavedFrameSize;
+
+  /// VarArgsFrameIndex - FrameIndex for start of varargs area.
+  int VarArgsFrameIndex;
 public:
   AVRMachineFunctionInfo() :
     HasSpills(false),
     HasAllocas(false),
     HasStackArgs(false),
-    CalleeSavedFrameSize(0) {}
+    CalleeSavedFrameSize(0),
+    VarArgsFrameIndex(0) {}
 
   explicit AVRMachineFunctionInfo(MachineFunction &MF) :
     HasSpills(false),
     HasAllocas(false),
     HasStackArgs(false),
-    CalleeSavedFrameSize(0) {}
+    CalleeSavedFrameSize(0),
+    VarArgsFrameIndex(0) {}
 
   bool getHasSpills() const { return HasSpills; }
-  void setHasSpills(bool b) { HasSpills = b; }
+  void setHasSpills(bool B) { HasSpills = B; }
 
   bool getHasAllocas() const { return HasAllocas; }
-  void setHasAllocas(bool b) { HasAllocas = b; }
+  void setHasAllocas(bool B) { HasAllocas = B; }
 
   bool getHasStackArgs() const { return HasStackArgs; }
-  void setHasStackArgs(bool b) { HasStackArgs = b; }
+  void setHasStackArgs(bool B) { HasStackArgs = B; }
 
   unsigned getCalleeSavedFrameSize() const { return CalleeSavedFrameSize; }
-  void setCalleeSavedFrameSize(unsigned bytes) { CalleeSavedFrameSize = bytes; }
+  void setCalleeSavedFrameSize(unsigned Bytes) { CalleeSavedFrameSize = Bytes; }
+
+  int getVarArgsFrameIndex() const { return VarArgsFrameIndex; }
+  void setVarArgsFrameIndex(int Idx) { VarArgsFrameIndex = Idx; }
 };
 
 } // end llvm namespace

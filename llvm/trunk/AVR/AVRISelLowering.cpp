@@ -14,6 +14,7 @@
 
 #include "AVRISelLowering.h"
 #include "AVR.h"
+#include "AVRMachineFunctionInfo.h"
 #include "AVRTargetMachine.h"
 #include "AVRTargetObjectFile.h"
 #include "llvm/Function.h"
@@ -97,6 +98,11 @@ AVRTargetLowering::AVRTargetLowering(AVRTargetMachine &tm) :
 
   // :TODO: for now, we don't support jump tables
   setOperationAction(ISD::BR_JT, MVT::Other, Expand);
+
+  setOperationAction(ISD::VASTART, MVT::Other, Custom);
+  setOperationAction(ISD::VAEND, MVT::Other, Expand);
+  setOperationAction(ISD::VAARG, MVT::Other, Expand);
+  setOperationAction(ISD::VACOPY, MVT::Other, Expand);
 
   setMinFunctionAlignment(1);
 }
@@ -485,6 +491,21 @@ SDValue AVRTargetLowering::LowerSETCC(SDValue Op, SelectionDAG &DAG) const
   return DAG.getNode(AVRISD::SELECT_CC, dl, VTs, Ops, array_lengthof(Ops));
 }
 
+SDValue AVRTargetLowering::LowerVASTART(SDValue Op, SelectionDAG &DAG) const
+{
+  const MachineFunction &MF = DAG.getMachineFunction();
+  const AVRMachineFunctionInfo *AFI = MF.getInfo<AVRMachineFunctionInfo>();
+  const Value *SV = cast<SrcValueSDNode>(Op.getOperand(2))->getValue();
+  DebugLoc DL = Op.getDebugLoc();
+
+  // Vastart just stores the address of the VarArgsFrameIndex slot into the
+  // memory location argument.
+  SDValue FI = DAG.getFrameIndex(AFI->getVarArgsFrameIndex(), getPointerTy());
+
+  return DAG.getStore(Op.getOperand(0), DL, FI, Op.getOperand(1),
+                      MachinePointerInfo(SV), false, false, 0);
+}
+
 SDValue AVRTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const
 {
   switch (Op.getOpcode())
@@ -507,6 +528,8 @@ SDValue AVRTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const
     return LowerSELECT_CC(Op, DAG);
   case ISD::SETCC:
     return LowerSETCC(Op, DAG);
+  case ISD::VASTART:
+    return LowerVASTART(Op, DAG);
   }
 
   return SDValue();
@@ -746,7 +769,7 @@ static void analyzeArguments(const Function *F, const TargetData *TD,
                              const SmallVectorImpl<ISD::OutputArg> *Outs,
                              const SmallVectorImpl<ISD::InputArg> *Ins,
                              SmallVectorImpl<CCValAssign> &ArgLocs,
-                             CCState &CCInfo, bool IsCall)
+                             CCState &CCInfo, bool IsCall, bool IsVarArg)
 {
   static const uint16_t RegList8[] =
   {
@@ -761,7 +784,13 @@ static void analyzeArguments(const Function *F, const TargetData *TD,
 
   // Fill in the Args array which will contain original argument sizes.
   SmallVector<unsigned, 8> Args;
-  if (IsCall && !F)
+  if (IsVarArg && IsCall)
+  {
+    // Variadic functions do not need all the analisys below.
+    CCInfo.AnalyzeCallOperands(*Outs, CC_AVR_Vararg);
+    return;
+  }
+  else if (IsCall && !F)
   {
     parseExternFuncCallArgs(*Outs, Args);
   }
@@ -771,7 +800,8 @@ static void analyzeArguments(const Function *F, const TargetData *TD,
   }
 
   unsigned RegsLeft = array_lengthof(RegList8), ValNo = 0;
-  bool UsesStack = false;
+  // Variadic functions always use the stack.
+  bool UsesStack = (IsVarArg) ? true : false;
   for (unsigned i = 0, pos = 0, e = Args.size(); i != e; ++i)
   {
     unsigned Size = Args[i];
@@ -826,9 +856,8 @@ LowerFormalArguments(SDValue Chain, CallingConv::ID CallConv, bool isVarArg,
   CCState CCInfo(CallConv, isVarArg, DAG.getMachineFunction(),
                  getTargetMachine(), ArgLocs, *DAG.getContext());
 
-  analyzeArguments(MF.getFunction(), TD, 0, &Ins, ArgLocs, CCInfo, false);
-
-  assert(!isVarArg && "Varargs not supported yet");
+  analyzeArguments(MF.getFunction(), TD, 0, &Ins, ArgLocs, CCInfo, false,
+                   isVarArg);
 
   SDValue ArgValue;
   for (unsigned i = 0, e = ArgLocs.size(); i != e; ++i)
@@ -906,6 +935,16 @@ LowerFormalArguments(SDValue Chain, CallingConv::ID CallConv, bool isVarArg,
     }
   }
 
+  // If the function takes variable number of arguments, make a frame index for
+  // the start of the first vararg value... for expansion of llvm.va_start.
+  if (isVarArg)
+  {
+    unsigned StackSize = CCInfo.getNextStackOffset();
+    AVRMachineFunctionInfo *AFI = MF.getInfo<AVRMachineFunctionInfo>();
+
+    AFI->setVarArgsFrameIndex(MFI->CreateFixedObject(2, StackSize, true));
+  }
+
   return Chain;
 }
 
@@ -943,21 +982,21 @@ AVRTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   {
     const GlobalValue *GV = G->getGlobal();
     analyzeArguments(cast<Function>(GV), TD, &Outs, 0, ArgLocs, CCInfo,
-                     true);
+                     true, isVarArg);
 
     Callee = DAG.getTargetGlobalAddress(GV, dl, getPointerTy());
   }
   else if (const ExternalSymbolSDNode *ES =
              dyn_cast<ExternalSymbolSDNode>(Callee))
   {
-    analyzeArguments(0, TD, &Outs, 0, ArgLocs, CCInfo, true);
+    analyzeArguments(0, TD, &Outs, 0, ArgLocs, CCInfo, true, isVarArg);
 
     Callee = DAG.getTargetExternalSymbol(ES->getSymbol(), getPointerTy());
   }
   else
   {
     // If we reached this point it is an indirect call.
-    analyzeArguments(0, TD, &Outs, 0, ArgLocs, CCInfo, true);
+    analyzeArguments(0, TD, &Outs, 0, ArgLocs, CCInfo, true, isVarArg);
   }
 
   // Get a count of how many bytes are to be pushed on the stack.
