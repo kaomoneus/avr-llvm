@@ -101,7 +101,7 @@ if.end:
 
 define void @tst16(i16 %a) {
 ; CHECK: tst16:
-; CHECK: tst r24
+; CHECK: tst r25
 ; CHECK-NEXT: brmi
   %cmp = icmp sgt i16 %a, -1
   br i1 %cmp, label %if.then, label %if.else
@@ -117,7 +117,7 @@ if.end:
 
 define void @tst32(i32 %a) {
 ; CHECK: tst32:
-; CHECK: tst r24
+; CHECK: tst r25
 ; CHECK-NEXT: brmi
   %cmp = icmp sgt i32 %a, -1
   br i1 %cmp, label %if.then, label %if.else
@@ -133,7 +133,7 @@ if.end:
 
 define void @tst64(i64 %a) {
 ; CHECK: tst64:
-; CHECK: tst r24
+; CHECK: tst r25
 ; CHECK-NEXT: brmi
   %cmp = icmp sgt i64 %a, -1
   br i1 %cmp, label %if.then, label %if.else
