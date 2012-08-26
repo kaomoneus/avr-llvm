@@ -104,6 +104,24 @@ AVRTargetLowering::AVRTargetLowering(AVRTargetMachine &tm) :
   setOperationAction(ISD::VAARG, MVT::Other, Expand);
   setOperationAction(ISD::VACOPY, MVT::Other, Expand);
 
+  setOperationAction(ISD::UDIV, MVT::i8, Expand);
+  setOperationAction(ISD::UDIV, MVT::i16, Expand);
+  setOperationAction(ISD::UREM, MVT::i8, Expand);
+  setOperationAction(ISD::UREM, MVT::i16, Expand);
+  setOperationAction(ISD::SDIV, MVT::i8, Expand);
+  setOperationAction(ISD::SDIV, MVT::i16, Expand);
+  setOperationAction(ISD::SREM, MVT::i8, Expand);
+  setOperationAction(ISD::SREM, MVT::i16, Expand);
+
+  setOperationAction(ISD::SMUL_LOHI, MVT::i8, Expand);
+  setOperationAction(ISD::SMUL_LOHI, MVT::i16, Expand);
+  setOperationAction(ISD::UMUL_LOHI, MVT::i8, Expand);
+  setOperationAction(ISD::UMUL_LOHI, MVT::i16, Expand);
+  setOperationAction(ISD::MULHU, MVT::i8, Expand);
+  setOperationAction(ISD::MULHU, MVT::i16, Expand);
+  setOperationAction(ISD::MULHS, MVT::i8, Expand);
+  setOperationAction(ISD::MULHS, MVT::i16, Expand);
+
   setMinFunctionAlignment(1);
 }
 
@@ -277,7 +295,7 @@ SDValue AVRTargetLowering::getAVRCmp(SDValue LHS, SDValue RHS, ISD::CondCode CC,
           {
             // Turn lhs < rhs with lhs constant into rhs >= lhs+1, this allows
             // us to  fold the constant into the cmp instruction.
-            RHS = DAG.getConstant(C->getZExtValue() + 1, VT);
+            RHS = DAG.getConstant(C->getSExtValue() + 1, VT);
             CC = ISD::SETGE;
             break;
           }
@@ -293,7 +311,7 @@ SDValue AVRTargetLowering::getAVRCmp(SDValue LHS, SDValue RHS, ISD::CondCode CC,
     {
       if (const ConstantSDNode *C = dyn_cast<ConstantSDNode>(RHS))
       {
-        switch (C->getZExtValue())
+        switch (C->getSExtValue())
         {
         case 1:
           {
@@ -329,7 +347,7 @@ SDValue AVRTargetLowering::getAVRCmp(SDValue LHS, SDValue RHS, ISD::CondCode CC,
       // fold the constant into the cmp instruction.
       if (const ConstantSDNode *C = dyn_cast<ConstantSDNode>(RHS))
       {
-        RHS = DAG.getConstant(C->getZExtValue() + 1, VT);
+        RHS = DAG.getConstant(C->getSExtValue() + 1, VT);
         CC = ISD::SETUGE;
         break;
       }
@@ -552,10 +570,9 @@ void AVRTargetLowering::ReplaceNodeResults(SDNode *N,
       // Convert add (x, imm) into sub (x, -imm).
       if (const ConstantSDNode *C = dyn_cast<ConstantSDNode>(N->getOperand(1)))
       {
-        uint64_t Value = C->getZExtValue();
         SDValue Sub =
           DAG.getNode(ISD::SUB, dl, N->getValueType(0), N->getOperand(0),
-                      DAG.getConstant(-Value, C->getValueType(0)));
+                      DAG.getConstant(-C->getAPIntValue(), C->getValueType(0)));
         Results.push_back(Sub);
         return;
       }

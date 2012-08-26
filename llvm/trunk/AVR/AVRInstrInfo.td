@@ -76,12 +76,12 @@ def AVRasrLoop : SDNode<"AVRISD::ASRLOOP", SDTIntShiftOp>;
 
 def imm8_neg_XFORM : SDNodeXForm<imm,
 [{
-  return CurDAG->getTargetConstant(-(int)N->getZExtValue(), MVT::i8);
+  return CurDAG->getTargetConstant(-N->getAPIntValue(), MVT::i8);
 }]>;
 
 def imm16_neg_XFORM : SDNodeXForm<imm,
 [{
-  return CurDAG->getTargetConstant(-(int)N->getZExtValue(), MVT::i16);
+  return CurDAG->getTargetConstant(-N->getAPIntValue(), MVT::i16);
 }]>;
 
 def imm0_63_neg : PatLeaf<(imm),
@@ -568,8 +568,44 @@ def DECRd : FRd<0b1001,
                 "dec\t$dst",
                 [(set GPR8:$dst, (add GPR8:$src, -1)), (implicit SREG)]>;
 
+// This pseudo is used as a marker to insert a "clr r1" after the operation.
+let isCommutable = 1,
+Defs = [R1, R0, SREG] in
+def MULRdRrP : Pseudo<(outs GPR8:$dst),
+                      (ins GPR8:$src, GPR8:$src2),
+                      "mulp\t$dst, $src, $src2",
+                      [(set GPR8:$dst, (mul GPR8:$src, GPR8:$src2)),
+                       (implicit SREG)]>;
+
+let isCommutable = 1,
+Defs = [R1, R0, SREG],
+neverHasSideEffects = 1 in
+def MULRdRr : Mu1RdRr<(outs GPR8:$dst),
+                      (ins GPR8:$src, GPR8:$src2),
+                      "mul\t$src, $src2",
+                      []>;
+
+// The earlyclobber flag is required because the pseudo expansion needs $dst
+// and $src to have different registers.
+let isCommutable = 1,
+Constraints = "@earlyclobber $dst",
+Defs = [R1, R0, SREG] in
+def MULWRdRr : Pseudo<(outs DREGS:$dst),
+                      (ins DREGS:$src, DREGS:$src2),
+                      "mulw\t$dst, $src, $src2",
+                      [(set DREGS:$dst, (mul DREGS:$src, DREGS:$src2)),
+                       (implicit SREG)]>;
+
+// This instruction produces a 16bit result from two 8bit operands.
+let isCommutable = 1,
+Defs = [R1R0, SREG],
+neverHasSideEffects = 1 in
+def MUL16RdRr : Mu1RdRr<(outs DREGS:$dst),
+                        (ins GPR8:$src, GPR8:$src2),
+                        "mul\t$src, $src2",
+                        []>;
+
 /*
-def MULrr       1001 11rd dddd rrrr ok
 def MULSrr      0000 0010 dddd rrrr ok
 def MULSUrr     0000 0011 0ddd 0rrr ok
 def FMULrr      0000 0011 0ddd 1rrr ok
@@ -1137,11 +1173,15 @@ def SPM             //:TODO:
 def SPMZpi
 */
 
+let canFoldAsLoad = 1,
+isReMaterializable = 1 in
 def INRdA : FIORdA<(outs GPR8:$dst),
                    (ins i16imm:$src),
                    "in\t$dst, $src",
                    [(set GPR8:$dst, (load ioaddr8:$src))]>;
 
+let canFoldAsLoad = 1,
+isReMaterializable = 1 in
 def INWRdA : Pseudo<(outs DREGS:$dst),
                     (ins i16imm:$src),
                     "inw\t$dst, $src",
@@ -1395,13 +1435,15 @@ def STDWSPQRr : Pseudo<(outs),
                        "stdwstk\t$dst, $src",
                        [(store DREGS:$src, addr:$dst)]>;
 
-let neverHasSideEffects = 1 in
+let Uses = [SP],
+neverHasSideEffects = 1 in
 def SPREAD : Pseudo<(outs DREGS:$dst),
                     (ins GPRSP:$src),
                     "spread\t$dst, $src",
                     []>;
 
-let neverHasSideEffects = 1 in
+let Defs = [SP],
+neverHasSideEffects = 1 in
 def SPWRITE : Pseudo<(outs GPRSP:$dst),
                      (ins DREGS:$src),
                      "spwrite\t$dst, $src",
@@ -1534,3 +1576,10 @@ def : Pat<(store DREGS:$src, (i16 (AVRWrapper tglobaladdr:$dst))),
 // BlockAddress
 def : Pat<(i16 (AVRWrapper tblockaddress:$dst)),
           (LDIWRdK tblockaddress:$dst)>;
+
+// hi-reg truncation : trunc(int16 >> 8)
+//:FIXME: i think it's better to emit an extract subreg node in the DAG that
+// all this mess once we get optimal shift code
+def : Pat<(i8 (trunc (AVRlsr (AVRlsr (AVRlsr (AVRlsr (AVRlsr (AVRlsr (AVRlsr
+                     (AVRlsr DREGS:$src)))))))))),
+          (EXTRACT_SUBREG DREGS:$src, sub_hi)>;

@@ -1244,6 +1244,97 @@ bool AVRExpandPseudo::expandMI(MachineBasicBlock &MBB,
       MI.eraseFromParent();
       return true;
     }
+  case AVR::MULRdRrP:
+    {
+      // mul r25, r24
+      // mov rdest, r0
+      // clr r1
+      unsigned DstReg = MI.getOperand(0).getReg();
+      bool DstIsDead = MI.getOperand(0).isDead();
+
+      MI.setDesc(TII->get(AVR::MULRdRr));
+      MI.getOperand(0).setReg(AVR::R0);
+      MI.getOperand(3).setIsDead();
+
+      BuildMI(MBB, llvm::next(MBBI), MI.getDebugLoc(), TII->get(AVR::MOVRdRr))
+        .addReg(DstReg, RegState::Define | getDeadRegState(DstIsDead))
+        .addReg(AVR::R0, RegState::Kill);
+
+      //:TODO: clr r1
+
+      return true;
+    }
+  case AVR::MULWRdRr:
+    {
+      /*
+       %R25R24 = MULWRdRr %R23R22, %R19R18<kill>
+       mul r22,r18
+       movw r24,r0
+       mul r22,r19
+       add r25,r0
+       mul r23,r18
+       add r25,r0
+       clr r1
+       */
+      unsigned Src1LoReg, Src1HiReg, Src2LoReg, Src2HiReg;
+      unsigned DstReg = MI.getOperand(0).getReg();
+      unsigned Src1Reg = MI.getOperand(1).getReg();
+      unsigned Src2Reg = MI.getOperand(2).getReg();
+      bool DstIsDead = MI.getOperand(0).isDead();
+      bool Src1IsKill = MI.getOperand(1).isKill();
+      bool Src2IsKill = MI.getOperand(2).isKill();
+      bool ImpIsDead = MI.getOperand(5).isDead();
+      MachineInstrBuilder MIB;
+      splitRegs(TRI, Src1Reg, Src1LoReg, Src1HiReg);
+      splitRegs(TRI, Src2Reg, Src2LoReg, Src2HiReg);
+      splitRegs(TRI, DstReg, DstLoReg, DstHiReg);
+
+      MIB =
+        BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(AVR::MUL16RdRr))
+          .addReg(AVR::R1R0, RegState::Define)
+          .addReg(Src1LoReg)
+          .addReg(Src2LoReg);
+      MIB->getOperand(4).setIsDead();
+
+      BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(AVR::MOVWRdRr))
+        .addReg(DstReg, RegState::Define)
+        .addReg(AVR::R1R0, RegState::Kill);
+
+      MIB =
+        BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(AVR::MULRdRr))
+          .addReg(AVR::R0, RegState::Define)
+          .addReg(Src1LoReg, getKillRegState(Src1IsKill))
+          .addReg(Src2HiReg, getKillRegState(Src2IsKill));
+      MIB->getOperand(3).setIsDead();
+      MIB->getOperand(5).setIsDead();
+
+      MIB =
+        BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(AVR::ADDRdRr))
+          .addReg(DstHiReg, RegState::Define)
+          .addReg(DstHiReg, RegState::Kill)
+          .addReg(AVR::R0, RegState::Kill);
+      MIB->getOperand(3).setIsDead();
+
+      MIB =
+        BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(AVR::MULRdRr))
+          .addReg(AVR::R0, RegState::Define)
+          .addReg(Src1HiReg, getKillRegState(Src1IsKill))
+          .addReg(Src2LoReg, getKillRegState(Src2IsKill));
+      MIB->getOperand(3).setIsDead();
+      MIB->getOperand(5).setIsDead();
+
+      MIB =
+        BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(AVR::ADDRdRr))
+          .addReg(DstHiReg, RegState::Define | getDeadRegState(DstIsDead))
+          .addReg(DstHiReg, RegState::Kill)
+          .addReg(AVR::R0, RegState::Kill);
+
+      if (ImpIsDead) MIB->getOperand(3).setIsDead();
+
+      //:TODO: clr r1
+      MI.eraseFromParent();
+      return true;
+    }
   }
 
   return false;

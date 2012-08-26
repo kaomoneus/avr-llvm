@@ -89,7 +89,7 @@ void AVRFrameLowering::emitPrologue(MachineFunction &MF) const
 
   const MachineFrameInfo *MFI = MF.getFrameInfo();
   const AVRMachineFunctionInfo *AFI = MF.getInfo<AVRMachineFunctionInfo>();
-  uint64_t FrameSize = MFI->getStackSize() - AFI->getCalleeSavedFrameSize();
+  unsigned FrameSize = MFI->getStackSize() - AFI->getCalleeSavedFrameSize();
 
   // Skip the callee-saved push instructions.
   while ((MBBI != MBB.end())
@@ -152,7 +152,7 @@ void AVRFrameLowering::emitEpilogue(MachineFunction &MF,
   DebugLoc dl = MBBI->getDebugLoc();
   const MachineFrameInfo *MFI = MF.getFrameInfo();
   const AVRMachineFunctionInfo *AFI = MF.getInfo<AVRMachineFunctionInfo>();
-  uint64_t FrameSize = MFI->getStackSize() - AFI->getCalleeSavedFrameSize();
+  unsigned FrameSize = MFI->getStackSize() - AFI->getCalleeSavedFrameSize();
   const AVRInstrInfo &TII =
     *static_cast<const AVRInstrInfo *>(MF.getTarget().getInstrInfo());
 
