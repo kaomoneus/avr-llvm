@@ -1583,3 +1583,8 @@ def : Pat<(i16 (AVRWrapper tblockaddress:$dst)),
 def : Pat<(i8 (trunc (AVRlsr (AVRlsr (AVRlsr (AVRlsr (AVRlsr (AVRlsr (AVRlsr
                      (AVRlsr DREGS:$src)))))))))),
           (EXTRACT_SUBREG DREGS:$src, sub_hi)>;
+
+// :FIXME: DAGCombiner produces an shl node after legalization from these seq:
+// BR_JT -> (mul x, 2) -> (shl x, 1)
+def : Pat<(shl DREGS:$src1, (i8 1)),
+          (LSLWRd DREGS:$src1)>;

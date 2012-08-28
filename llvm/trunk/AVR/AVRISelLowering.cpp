@@ -123,6 +123,7 @@ AVRTargetLowering::AVRTargetLowering(AVRTargetMachine &tm) :
   setOperationAction(ISD::MULHS, MVT::i16, Expand);
 
   setMinFunctionAlignment(1);
+  setSupportJumpTables(false);
 }
 
 const char *AVRTargetLowering::getTargetNodeName(unsigned Opcode) const

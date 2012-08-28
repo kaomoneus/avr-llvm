@@ -31,15 +31,15 @@ using namespace llvm;
 /// Convert a register name to its pointer name.
 static char getPtrRegName(const char *RegName)
 {
-  if (strcmp(RegName, "r31:r30") == 0)
+  if (strcmp(RegName, "r30") == 0)
   {
     return 'Z';
   }
-  if (strcmp(RegName, "r29:r28") == 0)
+  if (strcmp(RegName, "r28") == 0)
   {
     return 'Y';
   }
-  if (strcmp(RegName, "r27:r26") == 0)
+  if (strcmp(RegName, "r26") == 0)
   {
     return 'X';
   }
