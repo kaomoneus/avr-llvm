@@ -54,6 +54,7 @@ public:
   bool addPreSched2();
   bool addPreRegAlloc();
   bool addPreEmitPass();
+  FunctionPass *createTargetRegisterAllocator(bool Optimized);
 };
 } // namespace
 
@@ -134,13 +135,8 @@ bool AVRPassConfig::addPreEmitPass()
   return false;
 }
 
-static FunctionPass *createAVRRegisterAllocator()
+FunctionPass *AVRPassConfig::createTargetRegisterAllocator(bool Optimized)
 {
+  // Unconditionally use our custom greedy register allocator.
   return createGreedyRegisterAllocator();
 }
-
-//:FIXME: make this the default regalloc instead of forcing users to specify
-// it in the cmd line
-static RegisterRegAlloc avrRegAlloc("avrgreedy",
-                                    "AVR greedy custom register allocator",
-                                    createAVRRegisterAllocator);
