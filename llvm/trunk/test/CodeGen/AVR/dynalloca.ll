@@ -60,7 +60,7 @@ define void @dynalloca2(i16 %x) {
 ; Call frame restore
 ; CHECK-NEXT: in r30, 61
 ; CHECK-NEXT: in r31, 62
-; CHECK-NEXT: adiw r31:r30, 8
+; CHECK-NEXT: adiw r30, 8
 ; CHECK-NEXT: in r0, 63
 ; CHECK-NEXT: cli
 ; CHECK-NEXT: out 62, r31

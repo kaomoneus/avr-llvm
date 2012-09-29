@@ -141,7 +141,7 @@ define void @testcallprologue() {
 ; CHECK: testcallprologue:
 ; CHECK: push r28
 ; CHECK: push r29
-; CHECK: sbiw r29:r28, 27
+; CHECK: sbiw r28, 27
 ; CHECK: ldi [[REG1:r[0-9]+]], 88
 ; CHECK: std Y+9, [[REG1]]
 ; CHECK: ldi [[REG1:r[0-9]+]], 11
@@ -170,12 +170,12 @@ define void @testcallprologue() {
 
 define i32 @icall(i32 (i32)* %foo) {
 ; CHECK: icall:
-; CHECK: movw [[REG1:r[0-9]+]]:[[REG2:r[0-9]+]], r25:r24
+; CHECK: movw [[REG:r[0-9]+]], r24
 ; CHECK: ldi r22, 147
 ; CHECK: ldi r23, 248
 ; CHECK: ldi r24, 214
 ; CHECK: ldi r25, 198
-; CHECK: movw r31:r30, [[REG1]]:[[REG2]]
+; CHECK: movw r30, [[REG]]
 ; CHECK: icall
 ; CHECK: subi r22, 251
 ; CHECK: sbci r23, 255
@@ -192,12 +192,12 @@ declare i32 @foofloat(float)
 
 define i32 @externcall(float %a, float %b) {
 ; CHECK: externcall:
-; CHECK: movw [[REG1:r[0-9]+]]:[[REG2:r[0-9]+]], r25:r24
-; CHECK: movw [[REG3:r[0-9]+]]:[[REG4:r[0-9]+]], r23:r22
-; CHECK: movw r23:r22, r19:r18
-; CHECK: movw r25:r24, r21:r20
-; CHECK: movw r19:r18, [[REG3]]:[[REG4]]
-; CHECK: movw r21:r20, [[REG1]]:[[REG2]]
+; CHECK: movw [[REG1:r[0-9]+]], r24
+; CHECK: movw [[REG2:r[0-9]+]], r22
+; CHECK: movw r22, r18
+; CHECK: movw r24, r20
+; CHECK: movw r18, [[REG2]]
+; CHECK: movw r20, [[REG1]]
 ; CHECK: call __divsf3
 ; CHECK: call foofloat
 ; CHECK: subi r22, 251

@@ -6,11 +6,11 @@ declare void @llvm.va_end(i8*)
 
 define i16 @varargs1(i8* nocapture %x, ...) {
 ; CHECK: varargs1:
-; CHECK: movw r21:r20, r29:r28
+; CHECK: movw r20, r28
 ; CHECK: subi r20, 215
 ; CHECK: sbci r21, 255
-; CHECK: movw r25:r24, r29:r28
-; CHECK: adiw r25:r24, 3
+; CHECK: movw r24, r28
+; CHECK: adiw r24, 3
 ; CHECK: ldd r22, Y+39
 ; CHECK: ldd r23, Y+40
 ; CHECK: call
@@ -53,7 +53,7 @@ define void @varargcall() {
 ; CHECK: push [[REG2]]
 ; CHECK: push [[REG1]]
 ; CHECK: call
-; CHECK: adiw r31:r30, 6
+; CHECK: adiw r30, 6
   tail call void (i16, ...)* @var1223(i16 -21555, i16 -12867, i16 -8257)
   ret void
 }

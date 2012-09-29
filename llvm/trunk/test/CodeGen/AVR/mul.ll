@@ -11,9 +11,9 @@ define i8 @mult8(i8 %a, i8 %b) {
 
 define i16 @mult16(i16 %a, i16 %b) {
 ; CHECK: mult16:
-; CHECK: movw r19:r18, r25:r24
+; CHECK: movw r18, r24
 ; CHECK: mul r22, r18
-; CHECK: movw r25:r24, r1:r0
+; CHECK: movw r24, r0
 ; CHECK: mul r22, r19
 ; CHECK: add r25, r0
 ; CHECK: mul r23, r18

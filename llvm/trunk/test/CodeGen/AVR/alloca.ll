@@ -9,11 +9,11 @@ entry:
 ; Test that Y is saved
 ; CHECK: push r28
 ; CHECK: push r29
-; CHECK: movw r25:r24, r29:r28
-; CHECK: adiw r25:r24, 17
-; CHECK: movw {{.*}}, r29:r28
+; CHECK: movw r24, r28
+; CHECK: adiw r24, 17
+; CHECK: movw {{.*}}, r28
 ; CHECK: adiw {{.*}}, 39
-; CHECK: movw r23:r22, {{.*}}
+; CHECK: movw r22, {{.*}}
 ; CHECK: pop r29
 ; CHECK: pop r28
   %p = alloca [18 x i16], align 1
@@ -28,9 +28,9 @@ entry:
 define i16 @alloca_addressof_big() {
 entry:
 ; CHECK: alloca_addressof_big:
-; CHECK: movw r25:r24, r29:r28
-; CHECK: adiw r25:r24, 17
-; CHECK: movw r23:r22, r29:r28
+; CHECK: movw r24, r28
+; CHECK: adiw r24, 17
+; CHECK: movw r22, r28
 ; CHECK: subi r22, 145
 ; CHECK: sbci r23, 255
   %p = alloca [55 x i16], align 1
@@ -46,10 +46,10 @@ define i16 @alloca_write(i16 %x) {
 entry:
 ; CHECK: alloca_write:
 ; Big offset here
-; CHECK: adiw r29:r28, 57
+; CHECK: adiw r28, 57
 ; CHECK: std Y+62, {{.*}}
 ; CHECK: std Y+63, {{.*}}
-; CHECK: sbiw r29:r28, 57
+; CHECK: sbiw r28, 57
 ; Small offset here
 ; CHECK: std Y+23, {{.*}}
 ; CHECK: std Y+24, {{.*}}

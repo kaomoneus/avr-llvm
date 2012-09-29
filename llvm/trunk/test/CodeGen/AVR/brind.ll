@@ -4,8 +4,8 @@
 
 define i8 @brind(i8 %p) {
 ; CHECK: brind:
-; CHECK: ld r30
-; CHECK: ldd r31
+; CHECK: ldi r30
+; CHECK: ldi r31
 ; CHECK: ijmp
 entry:
   %idxprom = sext i8 %p to i16

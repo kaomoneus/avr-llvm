@@ -44,7 +44,7 @@ define i16 @return16_arg(i16 %x) {
 
 define i16 @return16_arg2(i16 %x, i16 %y, i16 %z) {
 ; CHECK: return16_arg2:
-; CHECK: movw r25:r24, r21:r20
+; CHECK: movw r24, r20
     ret i16 %z
 }
 
@@ -70,8 +70,8 @@ define i32 @return32_arg2(i32 %x, i32 %y, i32 %z) {
 ; CHECK: push r15
 ; CHECK: push r16
 ; CHECK: push r17
-; CHECK: movw r23:r22, r15:r14
-; CHECK: movw r25:r24, r17:r16
+; CHECK: movw r22, r14
+; CHECK: movw r24, r16
 ; CHECK: pop r17
 ; CHECK: pop r16
 ; CHECK: pop r15
