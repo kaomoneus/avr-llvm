@@ -140,7 +140,7 @@ private:
                           DebugLoc dl, SelectionDAG &DAG,
                           SmallVectorImpl<SDValue> &InVals) const;
 private:
-  const TargetData *TD;
+  const DataLayout *TD;
   const AVRTargetMachine &TM;
 };
 

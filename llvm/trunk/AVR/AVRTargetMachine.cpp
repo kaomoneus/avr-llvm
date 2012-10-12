@@ -30,11 +30,12 @@ AVRTargetMachine::AVRTargetMachine(const Target &T, StringRef TT, StringRef CPU,
                                    CodeGenOpt::Level OL) :
   LLVMTargetMachine(T, TT, CPU, FS, Options, RM, CM, OL),
   SubTarget(TT, CPU, FS),
-  DataLayout("e-p:16:8:8-i8:8:8-i16:8:8-i32:8:8-i64:8:8-f32:8:8-f64:8:8-n8"),
+  DL("e-p:16:8:8-i8:8:8-i16:8:8-i32:8:8-i64:8:8-f32:8:8-f64:8:8-n8"),
   InstrInfo(),
   FrameLowering(),
   TLInfo(*this),
-  TSInfo(*this) {}
+  TSInfo(*this),
+  STTI(&TLInfo) {}
 
 namespace
 {
@@ -88,14 +89,26 @@ const AVRSelectionDAGInfo *AVRTargetMachine::getSelectionDAGInfo() const
   return &TSInfo;
 }
 
-const TargetData *AVRTargetMachine::getTargetData() const
+const DataLayout *AVRTargetMachine::getDataLayout() const
 {
-  return &DataLayout;
+  return &DL;
 }
 
 const AVRRegisterInfo *AVRTargetMachine::getRegisterInfo() const
 {
   return &InstrInfo.getRegisterInfo();
+}
+
+const ScalarTargetTransformInfo *
+AVRTargetMachine::getScalarTargetTransformInfo() const
+{
+  return &STTI;
+}
+
+const VectorTargetTransformInfo *
+AVRTargetMachine::getVectorTargetTransformInfo() const
+{
+  return &VTTI;
 }
 
 //===----------------------------------------------------------------------===//

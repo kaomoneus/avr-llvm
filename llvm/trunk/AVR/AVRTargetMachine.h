@@ -19,8 +19,9 @@
 #include "AVRISelLowering.h"
 #include "AVRSelectionDAGInfo.h"
 #include "AVRSubtarget.h"
-#include "llvm/Target/TargetData.h"
+#include "llvm/DataLayout.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetTransformImpl.h"
 
 namespace llvm
 {
@@ -37,18 +38,22 @@ public: // TargetMachine
   const TargetFrameLowering *getFrameLowering() const;
   const AVRTargetLowering *getTargetLowering() const;
   const AVRSelectionDAGInfo *getSelectionDAGInfo() const;
-  const TargetData *getTargetData() const;
+  const DataLayout *getDataLayout() const;
   const AVRRegisterInfo *getRegisterInfo() const;
+  const ScalarTargetTransformInfo *getScalarTargetTransformInfo() const;
+  const VectorTargetTransformInfo *getVectorTargetTransformInfo() const;
 public:
   // Pass Pipeline Configuration.
   TargetPassConfig *createPassConfig(PassManagerBase &PM);
 private:
   AVRSubtarget SubTarget;
-  const TargetData DataLayout;
+  const DataLayout DL;
   AVRInstrInfo InstrInfo;
   AVRFrameLowering FrameLowering;
   AVRTargetLowering TLInfo;
   AVRSelectionDAGInfo TSInfo;
+  ScalarTargetTransformImpl STTI;
+  VectorTargetTransformImpl VTTI;
 };
 
 } // end namespace llvm

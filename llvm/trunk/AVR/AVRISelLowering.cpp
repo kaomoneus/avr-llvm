@@ -31,7 +31,7 @@ using namespace llvm;
 AVRTargetLowering::AVRTargetLowering(AVRTargetMachine &tm) :
   TargetLowering(tm, new AVRTargetObjectFile()), TM(tm)
 {
-  TD = getTargetData();
+  TD = getDataLayout();
 
   // Set up the register classes.
   addRegisterClass(MVT::i8, &AVR::GPR8RegClass);
@@ -751,7 +751,7 @@ AVRTargetLowering::isOffsetFoldingLegal(const GlobalAddressSDNode *GA) const
 
 /// For each argument in a function store the number of pieces it is composed
 /// of.
-static void parseFunctionArgs(const Function *F, const TargetData *TD,
+static void parseFunctionArgs(const Function *F, const DataLayout *TD,
                               SmallVectorImpl<unsigned> &Out)
 {
   for (Function::const_arg_iterator I = F->arg_begin(), E = F->arg_end();
@@ -783,7 +783,7 @@ static void parseExternFuncCallArgs(const SmallVectorImpl<ISD::OutputArg> &In,
 /// to handle special constraints in the ABI like reversing the order of the
 /// pieces of splitted arguments. In addition, all pieces of a certain argument
 /// have to be passed either using registers or the stack but never mixing both.
-static void analyzeArguments(const Function *F, const TargetData *TD,
+static void analyzeArguments(const Function *F, const DataLayout *TD,
                              const SmallVectorImpl<ISD::OutputArg> *Outs,
                              const SmallVectorImpl<ISD::InputArg> *Ins,
                              SmallVectorImpl<CCValAssign> &ArgLocs,
@@ -1246,7 +1246,7 @@ AVRTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
 
   // Don't emit the ret/reti instruction when the naked attribute is present in
   // the function being compiled.
-  if (MF.getFunction()->getFnAttributes().hasNakedAttr())
+  if (MF.getFunction()->getFnAttributes().hasAttribute(Attributes::Naked))
   {
     return Chain;
   }

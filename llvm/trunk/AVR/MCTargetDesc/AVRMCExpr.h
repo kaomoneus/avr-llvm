@@ -63,7 +63,6 @@ public: // MCTargetExpr
   {
     return E->getKind() == MCExpr::Target;
   }
-  static bool classof(const AVRMCExpr *) { return true; }
 private:
   const VariantKind Kind;
   const MCExpr *Expr;
