@@ -1,7 +1,7 @@
 Index: include/llvm/Target/TargetCallingConv.h
 ===================================================================
---- include/llvm/Target/TargetCallingConv.h	(revision 159909)
-+++ include/llvm/Target/TargetCallingConv.h	(working copy)
+--- include/llvm/Target/TargetCallingConv.h     (revisión: 165770)
++++ include/llvm/Target/TargetCallingConv.h     (copia de trabajo)
 @@ -40,6 +40,8 @@
      static const uint64_t ByValAlignOffs = 6;
      static const uint64_t Split          = 1ULL << 10;
@@ -14,7 +14,7 @@ Index: include/llvm/Target/TargetCallingConv.h
 @@ -97,6 +99,13 @@
        Flags = (Flags & ~ByValSize) | (uint64_t(S) << ByValSizeOffs);
      }
- 
+
 +    unsigned getSplitPiece() const {
 +      return (unsigned)((Flags & SplitPiece) >> SplitPieceOffs);
 +    }
@@ -27,9 +27,9 @@ Index: include/llvm/Target/TargetCallingConv.h
  
 Index: lib/CodeGen/SelectionDAG/SelectionDAGBuilder.cpp
 ===================================================================
---- lib/CodeGen/SelectionDAG/SelectionDAGBuilder.cpp	(revision 159909)
-+++ lib/CodeGen/SelectionDAG/SelectionDAGBuilder.cpp	(working copy)
-@@ -6461,6 +6461,7 @@
+--- lib/CodeGen/SelectionDAG/SelectionDAGBuilder.cpp    (revisión: 165770)
++++ lib/CodeGen/SelectionDAG/SelectionDAGBuilder.cpp    (copia de trabajo)
+@@ -6519,6 +6519,7 @@
          // if it isn't first piece, alignment must be 1
          ISD::OutputArg MyFlags(Flags, Parts[j].getValueType(),
                                 i < CLI.NumFixedArgs);
@@ -37,10 +37,10 @@ Index: lib/CodeGen/SelectionDAG/SelectionDAGBuilder.cpp
          if (NumParts > 1 && j == 0)
            MyFlags.Flags.setSplit();
          else if (j != 0)
-@@ -6672,6 +6673,7 @@
-       unsigned NumRegs = TLI.getNumRegisters(*CurDAG->getContext(), VT);
+@@ -6731,6 +6732,7 @@
        for (unsigned i = 0; i != NumRegs; ++i) {
-         ISD::InputArg MyFlags(Flags, RegisterVT, isArgValueUsed);
+         ISD::InputArg MyFlags(Flags, RegisterVT, isArgValueUsed,
+                               Idx-1, i*RegisterVT.getStoreSize());
 +        MyFlags.Flags.setSplitPiece(i);
          if (NumRegs > 1 && i == 0)
            MyFlags.Flags.setSplit();

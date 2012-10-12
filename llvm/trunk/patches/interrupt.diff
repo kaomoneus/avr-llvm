@@ -1,58 +1,40 @@
 Index: include/llvm/CallingConv.h
 ===================================================================
---- include/llvm/CallingConv.h	(revision 159909)
-+++ include/llvm/CallingConv.h	(working copy)
-@@ -94,7 +94,13 @@
- 
-     /// MBLAZE_INTR - Calling convention used for MBlaze interrupt support
-     /// routines (i.e. GCC's save_volatiles attribute).
--    MBLAZE_SVOL = 74
-+    MBLAZE_SVOL = 74,
+--- include/llvm/CallingConv.h  (revisión: 165770)
++++ include/llvm/CallingConv.h  (copia de trabajo)
+@@ -112,7 +112,13 @@
+     /// Cannot have variable arguments.
+     /// Can also be called by the host.
+     /// Is externally visible.
+-    SPIR_KERNEL = 76
++    SPIR_KERNEL = 76,
 +
 +    /// AVR_INTR - Calling convention used for AVR interrupt routines.
-+    AVR_INTR = 75,
++    AVR_INTR = 77,
 +
 +    /// AVR_SIGNAL - Calling convention used for AVR signal routines.
-+    AVR_SIGNAL = 76
++    AVR_SIGNAL = 78
    };
  } // End CallingConv namespace
  
 Index: lib/VMCore/AsmWriter.cpp
 ===================================================================
---- lib/VMCore/AsmWriter.cpp	(revision 159909)
-+++ lib/VMCore/AsmWriter.cpp	(working copy)
-@@ -1533,6 +1533,8 @@
-   case CallingConv::ARM_AAPCS:    Out << "arm_aapcscc "; break;
-   case CallingConv::ARM_AAPCS_VFP:Out << "arm_aapcs_vfpcc "; break;
-   case CallingConv::MSP430_INTR:  Out << "msp430_intrcc "; break;
-+  case CallingConv::AVR_INTR:     Out << "avr_intrcc "; break;
-+  case CallingConv::AVR_SIGNAL:   Out << "avr_signalcc "; break;
-   case CallingConv::PTX_Kernel:   Out << "ptx_kernel "; break;
-   case CallingConv::PTX_Device:   Out << "ptx_device "; break;
-   default: Out << "cc" << F->getCallingConv() << " "; break;
-@@ -1834,6 +1836,8 @@
-     case CallingConv::ARM_AAPCS:    Out << " arm_aapcscc "; break;
-     case CallingConv::ARM_AAPCS_VFP:Out << " arm_aapcs_vfpcc "; break;
-     case CallingConv::MSP430_INTR:  Out << " msp430_intrcc "; break;
-+    case CallingConv::AVR_INTR:     Out << " avr_intrcc "; break;
-+    case CallingConv::AVR_SIGNAL:   Out << " avr_signalcc "; break;
-     case CallingConv::PTX_Kernel:   Out << " ptx_kernel"; break;
-     case CallingConv::PTX_Device:   Out << " ptx_device"; break;
-     default: Out << " cc" << CI->getCallingConv(); break;
-@@ -1890,6 +1894,8 @@
-     case CallingConv::ARM_AAPCS:    Out << " arm_aapcscc "; break;
-     case CallingConv::ARM_AAPCS_VFP:Out << " arm_aapcs_vfpcc "; break;
-     case CallingConv::MSP430_INTR:  Out << " msp430_intrcc "; break;
-+    case CallingConv::AVR_INTR:     Out << " avr_intrcc "; break;
-+    case CallingConv::AVR_SIGNAL:   Out << " avr_signalcc "; break;
-     case CallingConv::PTX_Kernel:   Out << " ptx_kernel"; break;
-     case CallingConv::PTX_Device:   Out << " ptx_device"; break;
-     default: Out << " cc" << II->getCallingConv(); break;
+--- lib/VMCore/AsmWriter.cpp    (revisión: 165770)
++++ lib/VMCore/AsmWriter.cpp    (copia de trabajo)
+@@ -78,6 +78,8 @@
+     case CallingConv::ARM_AAPCS:    Out << "arm_aapcscc"; break;
+     case CallingConv::ARM_AAPCS_VFP:Out << "arm_aapcs_vfpcc"; break;
+     case CallingConv::MSP430_INTR:  Out << "msp430_intrcc"; break;
++    case CallingConv::AVR_INTR:     Out << "avr_intrcc "; break;
++    case CallingConv::AVR_SIGNAL:   Out << "avr_signalcc "; break;
+     case CallingConv::PTX_Kernel:   Out << "ptx_kernel"; break;
+     case CallingConv::PTX_Device:   Out << "ptx_device"; break;
+     default:                        Out << "cc" << cc; break;
 Index: lib/AsmParser/LLParser.cpp
 ===================================================================
---- lib/AsmParser/LLParser.cpp	(revision 159909)
-+++ lib/AsmParser/LLParser.cpp	(working copy)
-@@ -1063,6 +1063,8 @@
+--- lib/AsmParser/LLParser.cpp  (revisión: 165770)
++++ lib/AsmParser/LLParser.cpp  (copia de trabajo)
+@@ -1100,6 +1100,8 @@
  ///   ::= 'arm_aapcscc'
  ///   ::= 'arm_aapcs_vfpcc'
  ///   ::= 'msp430_intrcc'
@@ -60,8 +42,8 @@ Index: lib/AsmParser/LLParser.cpp
 +///   ::= 'avr_signalcc'
  ///   ::= 'ptx_kernel'
  ///   ::= 'ptx_device'
- ///   ::= 'cc' UINT
-@@ -1080,6 +1082,8 @@
+ ///   ::= 'spir_func'
+@@ -1119,6 +1121,8 @@
    case lltok::kw_arm_aapcscc:    CC = CallingConv::ARM_AAPCS; break;
    case lltok::kw_arm_aapcs_vfpcc:CC = CallingConv::ARM_AAPCS_VFP; break;
    case lltok::kw_msp430_intrcc:  CC = CallingConv::MSP430_INTR; break;
@@ -69,12 +51,12 @@ Index: lib/AsmParser/LLParser.cpp
 +  case lltok::kw_avr_signalcc:   CC = CallingConv::AVR_SIGNAL; break;
    case lltok::kw_ptx_kernel:     CC = CallingConv::PTX_Kernel; break;
    case lltok::kw_ptx_device:     CC = CallingConv::PTX_Device; break;
-   case lltok::kw_cc: {
+   case lltok::kw_spir_kernel:    CC = CallingConv::SPIR_KERNEL; break;
 Index: lib/AsmParser/LLLexer.cpp
 ===================================================================
---- lib/AsmParser/LLLexer.cpp	(revision 159909)
-+++ lib/AsmParser/LLLexer.cpp	(working copy)
-@@ -521,6 +521,8 @@
+--- lib/AsmParser/LLLexer.cpp   (revisión: 165770)
++++ lib/AsmParser/LLLexer.cpp   (copia de trabajo)
+@@ -523,6 +523,8 @@
    KEYWORD(arm_aapcscc);
    KEYWORD(arm_aapcs_vfpcc);
    KEYWORD(msp430_intrcc);
@@ -82,17 +64,16 @@ Index: lib/AsmParser/LLLexer.cpp
 +  KEYWORD(avr_signalcc);
    KEYWORD(ptx_kernel);
    KEYWORD(ptx_device);
- 
+   KEYWORD(spir_kernel);
 Index: lib/AsmParser/LLToken.h
 ===================================================================
---- lib/AsmParser/LLToken.h	(revision 159909)
-+++ lib/AsmParser/LLToken.h	(working copy)
-@@ -77,6 +77,8 @@
+--- lib/AsmParser/LLToken.h     (revisión: 165770)
++++ lib/AsmParser/LLToken.h     (copia de trabajo)
+@@ -80,6 +80,8 @@
      kw_x86_stdcallcc, kw_x86_fastcallcc, kw_x86_thiscallcc,
      kw_arm_apcscc, kw_arm_aapcscc, kw_arm_aapcs_vfpcc,
      kw_msp430_intrcc,
 +    kw_avr_intrcc,
 +    kw_avr_signalcc,
      kw_ptx_kernel, kw_ptx_device,
- 
-     kw_signext,
+     kw_spir_kernel, kw_spir_func,
