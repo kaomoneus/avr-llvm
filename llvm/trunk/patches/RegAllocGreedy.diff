@@ -1,6 +1,6 @@
 Index: lib/CodeGen/RegAllocGreedy.cpp
 ===================================================================
---- lib/CodeGen/RegAllocGreedy.cpp      (revisión: 165770)
+--- lib/CodeGen/RegAllocGreedy.cpp      (revisión: 165997)
 +++ lib/CodeGen/RegAllocGreedy.cpp      (copia de trabajo)
 @@ -84,6 +84,9 @@
    std::priority_queue<std::pair<unsigned, unsigned> > Queue;
@@ -81,7 +81,7 @@ Index: lib/CodeGen/RegAllocGreedy.cpp
 +    // do all this work only once
 +    IsYReserved = true;
 +    // update the reserved register list
-+    RegClassInfo.runOnMachineFunction(VRM->getMachineFunction());
++    MRI->freezeReservedRegs(VRM->getMachineFunction());
 +    // finally perform the real work
 +    UndoRegYAllocation();
 +  }
