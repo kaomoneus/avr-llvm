@@ -63,7 +63,7 @@ Index: lib/CodeGen/RegAllocGreedy.cpp
  //===----------------------------------------------------------------------===//
  //                            Main Entry Point
  //===----------------------------------------------------------------------===//
-@@ -1730,11 +1760,25 @@
+@@ -1730,11 +1760,26 @@
      return PhysReg;
 
    // Finally spill VirtReg itself.
@@ -82,6 +82,7 @@ Index: lib/CodeGen/RegAllocGreedy.cpp
 +    IsYReserved = true;
 +    // update the reserved register list
 +    MRI->freezeReservedRegs(VRM->getMachineFunction());
++    RegClassInfo.runOnMachineFunction(VRM->getMachineFunction());
 +    // finally perform the real work
 +    UndoRegYAllocation();
 +  }
@@ -89,7 +90,7 @@ Index: lib/CodeGen/RegAllocGreedy.cpp
    if (VerifyEnabled)
      MF->verify(this, "After spilling");
 
-@@ -1772,5 +1816,9 @@
+@@ -1772,5 +1817,9 @@
 
    allocatePhysRegs();
    releaseMemory();
