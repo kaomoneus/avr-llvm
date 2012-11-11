@@ -55,6 +55,8 @@ AVRTargetLowering::AVRTargetLowering(AVRTargetMachine &tm) :
   setLoadExtAction(ISD::SEXTLOAD, MVT::i8, Expand);
   setLoadExtAction(ISD::ZEXTLOAD, MVT::i8, Expand);
 
+  setTruncStoreAction(MVT::i16, MVT::i8, Expand);
+
   // sub (x, imm) gets canonicalized to add (x, -imm), so for illegal types
   // revert into a sub since we don't have an add with immediate instruction.
   setOperationAction(ISD::ADD, MVT::i32, Custom);
@@ -112,6 +114,10 @@ AVRTargetLowering::AVRTargetLowering(AVRTargetMachine &tm) :
   setOperationAction(ISD::SDIV, MVT::i16, Expand);
   setOperationAction(ISD::SREM, MVT::i8, Expand);
   setOperationAction(ISD::SREM, MVT::i16, Expand);
+  setOperationAction(ISD::UDIVREM, MVT::i8, Expand);
+  setOperationAction(ISD::UDIVREM, MVT::i16, Expand);
+  setOperationAction(ISD::SDIVREM, MVT::i8, Expand);
+  setOperationAction(ISD::SDIVREM, MVT::i16, Expand);
 
   setOperationAction(ISD::SMUL_LOHI, MVT::i8, Expand);
   setOperationAction(ISD::SMUL_LOHI, MVT::i16, Expand);
