@@ -20,5 +20,11 @@ void AVRMCAsmInfo::anchor() { }
 
 AVRMCAsmInfo::AVRMCAsmInfo(const Target &T, StringRef TT)
 {
-  //:FIXME: implement
+  PointerSize = 2;
+
+  PCSymbol = ".";
+  CommentString = ";";
+  PrivateGlobalPrefix = ".L";
+
+  UsesELFSectionDirectiveForBSS = true;
 }

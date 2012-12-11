@@ -135,7 +135,8 @@ void AVRInstPrinter::print_pcrel_imm(const MCInst *MI, unsigned OpNo,
 
   if (Op.isImm())
   {
-    O << Op.getImm();
+    int64_t Imm = Op.getImm();
+    O << '.' << ((Imm >= 0) ? '+' : '-') << Imm;
     return;
   }
 
