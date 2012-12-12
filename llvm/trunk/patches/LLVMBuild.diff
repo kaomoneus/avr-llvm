@@ -1,13 +1,13 @@
 Index: lib/Target/LLVMBuild.txt
 ===================================================================
---- lib/Target/LLVMBuild.txt	(revision 159909)
-+++ lib/Target/LLVMBuild.txt	(working copy)
+--- lib/Target/LLVMBuild.txt    (revisión: 169957)
++++ lib/Target/LLVMBuild.txt    (copia de trabajo)
 @@ -16,7 +16,7 @@
  ;===------------------------------------------------------------------------===;
- 
+
  [common]
--subdirectories = ARM CellSPU CppBackend Hexagon MBlaze MSP430 NVPTX Mips PowerPC Sparc X86 XCore
-+subdirectories = ARM CellSPU CppBackend Hexagon MBlaze MSP430 NVPTX Mips PowerPC Sparc X86 XCore AVR
- 
+-subdirectories = ARM CppBackend Hexagon MBlaze MSP430 NVPTX Mips PowerPC R600 Sparc X86 XCore
++subdirectories = ARM AVR CppBackend Hexagon MBlaze MSP430 NVPTX Mips PowerPC R600 Sparc X86 XCore
+
  ; This is a special group whose required libraries are extended (by llvm-build)
  ; with the best execution engine (the native JIT, if available, or the

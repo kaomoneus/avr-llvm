@@ -1,8 +1,8 @@
 Index: lib/CodeGen/RegAllocGreedy.cpp
 ===================================================================
---- lib/CodeGen/RegAllocGreedy.cpp      (revisión: 165997)
+--- lib/CodeGen/RegAllocGreedy.cpp      (revisión: 169957)
 +++ lib/CodeGen/RegAllocGreedy.cpp      (copia de trabajo)
-@@ -84,6 +84,9 @@
+@@ -83,6 +83,9 @@
    std::priority_queue<std::pair<unsigned, unsigned> > Queue;
    unsigned NextCascade;
 
@@ -12,7 +12,7 @@ Index: lib/CodeGen/RegAllocGreedy.cpp
    // Live ranges pass through a number of stages as we try to allocate them.
    // Some of the stages may also create new live ranges:
    //
-@@ -278,6 +281,8 @@
+@@ -277,6 +280,8 @@
      SmallVectorImpl<LiveInterval*>&);
    unsigned trySplit(LiveInterval&, AllocationOrder&,
                      SmallVectorImpl<LiveInterval*>&);
@@ -21,7 +21,7 @@ Index: lib/CodeGen/RegAllocGreedy.cpp
  };
  } // end anonymous namespace
 
-@@ -303,7 +308,7 @@
+@@ -302,7 +307,7 @@
    return new RAGreedy();
  }
 
@@ -30,7 +30,7 @@ Index: lib/CodeGen/RegAllocGreedy.cpp
    initializeLiveDebugVariablesPass(*PassRegistry::getPassRegistry());
    initializeSlotIndexesPass(*PassRegistry::getPassRegistry());
    initializeLiveIntervalsPass(*PassRegistry::getPassRegistry());
-@@ -1684,7 +1689,32 @@
+@@ -1683,7 +1688,32 @@
    return tryBlockSplit(VirtReg, Order, NewVRegs);
  }
 
@@ -63,7 +63,7 @@ Index: lib/CodeGen/RegAllocGreedy.cpp
  //===----------------------------------------------------------------------===//
  //                            Main Entry Point
  //===----------------------------------------------------------------------===//
-@@ -1730,11 +1760,26 @@
+@@ -1729,11 +1759,26 @@
      return PhysReg;
 
    // Finally spill VirtReg itself.
@@ -90,7 +90,7 @@ Index: lib/CodeGen/RegAllocGreedy.cpp
    if (VerifyEnabled)
      MF->verify(this, "After spilling");
 
-@@ -1772,5 +1817,9 @@
+@@ -1771,5 +1816,9 @@
 
    allocatePhysRegs();
    releaseMemory();

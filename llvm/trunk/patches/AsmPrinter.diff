@@ -1,10 +1,10 @@
 Index: lib/CodeGen/AsmPrinter/AsmPrinter.cpp
 ===================================================================
---- lib/CodeGen/AsmPrinter/AsmPrinter.cpp	(revision 159909)
-+++ lib/CodeGen/AsmPrinter/AsmPrinter.cpp	(working copy)
-@@ -289,7 +289,10 @@
+--- lib/CodeGen/AsmPrinter/AsmPrinter.cpp       (revisión: 169957)
++++ lib/CodeGen/AsmPrinter/AsmPrinter.cpp       (copia de trabajo)
+@@ -287,7 +287,10 @@
    unsigned AlignLog = getGVAlignmentLog2(GV, *TD);
- 
+
    // Handle common and BSS local symbols (.lcomm).
 -  if (GVKind.isCommon() || GVKind.isBSSLocal()) {
 +  // AVR Specific: symbols that do not belong to the generic address space need

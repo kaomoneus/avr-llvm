@@ -1,27 +1,26 @@
 Index: include/llvm/CallingConv.h
 ===================================================================
---- include/llvm/CallingConv.h  (revisión: 165770)
+--- include/llvm/CallingConv.h  (revisión: 169957)
 +++ include/llvm/CallingConv.h  (copia de trabajo)
-@@ -112,7 +112,13 @@
-     /// Cannot have variable arguments.
-     /// Can also be called by the host.
-     /// Is externally visible.
--    SPIR_KERNEL = 76
-+    SPIR_KERNEL = 76,
-+
+@@ -119,8 +119,13 @@
+     SPIR_KERNEL = 76,
+
+     /// Intel_OCL_BI - Calling conventions for Intel OpenCL built-ins
+-    Intel_OCL_BI = 77
++    Intel_OCL_BI = 77,
+
 +    /// AVR_INTR - Calling convention used for AVR interrupt routines.
-+    AVR_INTR = 77,
++    AVR_INTR = 78,
 +
 +    /// AVR_SIGNAL - Calling convention used for AVR signal routines.
-+    AVR_SIGNAL = 78
++    AVR_SIGNAL = 79
    };
  } // End CallingConv namespace
- 
 Index: lib/VMCore/AsmWriter.cpp
 ===================================================================
---- lib/VMCore/AsmWriter.cpp    (revisión: 165770)
+--- lib/VMCore/AsmWriter.cpp    (revisión: 169957)
 +++ lib/VMCore/AsmWriter.cpp    (copia de trabajo)
-@@ -78,6 +78,8 @@
+@@ -79,6 +79,8 @@
      case CallingConv::ARM_AAPCS:    Out << "arm_aapcscc"; break;
      case CallingConv::ARM_AAPCS_VFP:Out << "arm_aapcs_vfpcc"; break;
      case CallingConv::MSP430_INTR:  Out << "msp430_intrcc"; break;
@@ -32,9 +31,9 @@ Index: lib/VMCore/AsmWriter.cpp
      default:                        Out << "cc" << cc; break;
 Index: lib/AsmParser/LLParser.cpp
 ===================================================================
---- lib/AsmParser/LLParser.cpp  (revisión: 165770)
+--- lib/AsmParser/LLParser.cpp  (revisión: 169957)
 +++ lib/AsmParser/LLParser.cpp  (copia de trabajo)
-@@ -1100,6 +1100,8 @@
+@@ -1141,6 +1141,8 @@
  ///   ::= 'arm_aapcscc'
  ///   ::= 'arm_aapcs_vfpcc'
  ///   ::= 'msp430_intrcc'
@@ -43,7 +42,7 @@ Index: lib/AsmParser/LLParser.cpp
  ///   ::= 'ptx_kernel'
  ///   ::= 'ptx_device'
  ///   ::= 'spir_func'
-@@ -1119,6 +1121,8 @@
+@@ -1160,6 +1162,8 @@
    case lltok::kw_arm_aapcscc:    CC = CallingConv::ARM_AAPCS; break;
    case lltok::kw_arm_aapcs_vfpcc:CC = CallingConv::ARM_AAPCS_VFP; break;
    case lltok::kw_msp430_intrcc:  CC = CallingConv::MSP430_INTR; break;
@@ -54,9 +53,9 @@ Index: lib/AsmParser/LLParser.cpp
    case lltok::kw_spir_kernel:    CC = CallingConv::SPIR_KERNEL; break;
 Index: lib/AsmParser/LLLexer.cpp
 ===================================================================
---- lib/AsmParser/LLLexer.cpp   (revisión: 165770)
+--- lib/AsmParser/LLLexer.cpp   (revisión: 169957)
 +++ lib/AsmParser/LLLexer.cpp   (copia de trabajo)
-@@ -523,6 +523,8 @@
+@@ -528,6 +528,8 @@
    KEYWORD(arm_aapcscc);
    KEYWORD(arm_aapcs_vfpcc);
    KEYWORD(msp430_intrcc);
@@ -67,9 +66,9 @@ Index: lib/AsmParser/LLLexer.cpp
    KEYWORD(spir_kernel);
 Index: lib/AsmParser/LLToken.h
 ===================================================================
---- lib/AsmParser/LLToken.h     (revisión: 165770)
+--- lib/AsmParser/LLToken.h     (revisión: 169957)
 +++ lib/AsmParser/LLToken.h     (copia de trabajo)
-@@ -80,6 +80,8 @@
+@@ -86,6 +86,8 @@
      kw_x86_stdcallcc, kw_x86_fastcallcc, kw_x86_thiscallcc,
      kw_arm_apcscc, kw_arm_aapcscc, kw_arm_aapcs_vfpcc,
      kw_msp430_intrcc,
@@ -77,3 +76,4 @@ Index: lib/AsmParser/LLToken.h
 +    kw_avr_signalcc,
      kw_ptx_kernel, kw_ptx_device,
      kw_spir_kernel, kw_spir_func,
+ 
