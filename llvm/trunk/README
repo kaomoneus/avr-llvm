@@ -26,10 +26,10 @@ avr target is NOT enabled by default):
 Build (CMake)
 =====
 
-Run cmake in the directory you want to use as the built directory (LLVM_OBJ_DIR)
+Run cmake in the directory you want to use as the build directory (LLVM_OBJ_DIR)
 
     <example:linux>
-  This creates the built scripts in the directory LLVM_OBJ_DIR based on
+  This creates the build scripts in the directory LLVM_OBJ_DIR based on
   files in 'llvm' and also makes an Eclipse project file. You can then run
   make from the command line to build or open Eclipse to edit/build.
 
@@ -40,14 +40,14 @@ Run cmake in the directory you want to use as the built directory (LLVM_OBJ_DIR)
 
 
     <example:windows>
-  This creates the built scripts in the directory LLVM_OBJ_DIR based on
+  This creates the build scripts in the directory LLVM_OBJ_DIR based on
   files in 'llvm' and also creates a Visual Studio 9 2008 project.
 
   > cmake -G "Visual Studio 9 2008" -DLLVM_TARGETS_TO_BUILD="AVR" ..\llvm
 
 
     <example:windows:msys>
-  This creates, from the msys shell, the built scripts in the directory
+  This creates, from the msys shell, the build scripts in the directory
   LLVM_OBJ_DIR based on files in 'llvm' and also creates an Eclipse project.
 
   $ cmake -G"Eclipse CDT4 - Unix Makefiles" -DLLVM_TARGETS_TO_BUILD=all -DCMAKE_BUILD_TYPE=Debug -DLLVM_BUILD_TOOLS=ON -DLLVM_BUILD_EXAMPLES=OFF
