@@ -778,8 +778,10 @@ static void parseExternFuncCallArgs(const SmallVectorImpl<ISD::OutputArg> &In,
   for (unsigned i = 0, e = In.size(); i != e; )
   {
     unsigned Size = 0;
-    while ((i != e) && (In[i].Flags.getSplitPiece() == Size))
+    unsigned Offset = 0;
+    while ((i != e) && (In[i].PartOffset == Offset))
     {
+      Offset += In[i].VT.getStoreSize();
       ++i;
       ++Size;
     }

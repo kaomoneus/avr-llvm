@@ -35,7 +35,8 @@ AVRTargetMachine::AVRTargetMachine(const Target &T, StringRef TT, StringRef CPU,
   FrameLowering(),
   TLInfo(*this),
   TSInfo(*this),
-  STTI(&TLInfo) {}
+  STTI(&TLInfo),
+  VTTI(&TLInfo) {}
 
 namespace
 {
