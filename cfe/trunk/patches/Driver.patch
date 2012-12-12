@@ -1,13 +1,13 @@
 Index: lib/Driver/Driver.cpp
 ===================================================================
---- lib/Driver/Driver.cpp	(revision 156247)
+--- lib/Driver/Driver.cpp	(revision 169962)
 +++ lib/Driver/Driver.cpp	(working copy)
-@@ -57,7 +57,7 @@
+@@ -53,7 +53,7 @@
      CCLogDiagnosticsFilename(0), CCCIsCXX(false),
      CCCIsCPP(false),CCCEcho(false), CCCPrintBindings(false),
      CCPrintOptions(false), CCPrintHeaders(false), CCLogDiagnostics(false),
 -    CCGenDiagnostics(false), CCCGenericGCCName(""), CheckInputsExist(true),
 +    CCGenDiagnostics(false), CCCGenericGCCName("avr-gcc"), CheckInputsExist(true),
-     CCCUseClang(true), CCCUseClangCXX(true), CCCUseClangCPP(true),
      CCCUsePCH(true), SuppressMissingInputWarning(false) {
-   if (IsProduction) {
+ 
+   Name = llvm::sys::path::stem(ClangExecutable);

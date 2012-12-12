@@ -1,3 +1,22 @@
+Index: include/llvm/CallingConv.h
+===================================================================
+--- include/llvm/CallingConv.h	(revision 167785)
++++ include/llvm/CallingConv.h	(working copy)
+@@ -115,8 +115,13 @@
+     SPIR_KERNEL = 76,
+ 
+     /// Intel_OCL_BI - Calling conventions for Intel OpenCL built-ins
+-    Intel_OCL_BI = 77
++    Intel_OCL_BI = 77,
+ 
++    /// AVR_INTR - Calling convention used for AVR interrupt routines.
++    AVR_INTR = 78,
++
++    /// AVR_SIGNAL - Calling convention used for AVR signal routines.
++    AVR_SIGNAL = 79
+   };
+ } // End CallingConv namespace
+
 Index: include/clang/Basic/Attr.td
 ===================================================================
 --- include/clang/Basic/Attr.td	(revision 159909)
@@ -201,7 +220,7 @@ Index: lib/CodeGen/TargetInfo.cpp
 +      }
 +
 +      // Step 2: Add attributes goodness.
-+      F->addFnAttr(llvm::Attribute::NoInline);
++      F->addFnAttr(llvm::Attributes::NoInline);
 +    }
 +  } else
 +    // Global variables that do not belong to the generic address space and
