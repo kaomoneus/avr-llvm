@@ -1,11 +1,11 @@
 Index: cmake/config-ix.cmake
 ===================================================================
---- cmake/config-ix.cmake	(revision 159909)
+--- cmake/config-ix.cmake	(revision 167743)
 +++ cmake/config-ix.cmake	(working copy)
-@@ -323,6 +323,8 @@
-   set(LLVM_NATIVE_ARCH XCore)
- elseif (LLVM_NATIVE_ARCH MATCHES "msp430")
+@@ -333,6 +333,8 @@
    set(LLVM_NATIVE_ARCH MSP430)
+ elseif (LLVM_NATIVE_ARCH MATCHES "hexagon")
+   set(LLVM_NATIVE_ARCH Hexagon)
 +elseif (LLVM_NATIVE_ARCH MATCHES "avr")
 +  set(LLVM_NATIVE_ARCH AVR)
  else ()
@@ -13,7 +13,7 @@ Index: cmake/config-ix.cmake
  endif ()
 Index: CMakeLists.txt
 ===================================================================
---- CMakeLists.txt	(revision 159909)
+--- CMakeLists.txt	(revision 167743)
 +++ CMakeLists.txt	(working copy)
 @@ -74,6 +74,7 @@
  set(LLVM_LIBDIR_SUFFIX "" CACHE STRING "Define suffix of library directory name (32/64)" )
