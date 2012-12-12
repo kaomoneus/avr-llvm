@@ -30,10 +30,10 @@ define i8 @calli8_reg() {
 
 define i8 @calli8_stack() {
 ; CHECK: calli8_stack:
-; CHECK: ldi [[REG:r[0-9]+]], 11
-; CHECK: push [[REG]]
-; CHECK: ldi [[REG:r[0-9]+]], 10
-; CHECK: push [[REG]]
+; CHECK: ldi [[REG1:r[0-9]+]], 10
+; CHECK: ldi [[REG2:r[0-9]+]], 11
+; CHECK: push [[REG2]]
+; CHECK: push [[REG1]]
 ; CHECK: call foo8_3
     %result1 = call i8 @foo8_3(i8 1, i8 2, i8 3, i8 4, i8 5, i8 6, i8 7, i8 8, i8 9, i8 10, i8 11)
     ret i8 %result1
