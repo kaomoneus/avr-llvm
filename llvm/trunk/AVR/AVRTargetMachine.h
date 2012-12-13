@@ -15,8 +15,8 @@
 #define __INCLUDE_AVRTARGETMACHINE_H__
 
 #include "AVRFrameLowering.h"
-#include "AVRInstrInfo.h"
 #include "AVRISelLowering.h"
+#include "AVRInstrInfo.h"
 #include "AVRSelectionDAGInfo.h"
 #include "AVRSubtarget.h"
 #include "llvm/DataLayout.h"

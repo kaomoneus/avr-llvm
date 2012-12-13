@@ -17,8 +17,8 @@
 #include "MCTargetDesc/AVRMCExpr.h"
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/MC/MCInst.h"
-#include "llvm/Target/Mangler.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Target/Mangler.h"
 
 using namespace llvm;
 

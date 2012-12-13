@@ -17,13 +17,13 @@
 #include "AVRMachineFunctionInfo.h"
 #include "AVRTargetMachine.h"
 #include "AVRTargetObjectFile.h"
-#include "llvm/Function.h"
 #include "llvm/CodeGen/CallingConvLower.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/SelectionDAG.h"
 #include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
+#include "llvm/Function.h"
 #include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;

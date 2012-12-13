@@ -14,12 +14,12 @@
 #include "AVRRegisterInfo.h"
 #include "AVR.h"
 #include "AVRInstrInfo.h"
-#include "llvm/Function.h"
+#include "llvm/ADT/BitVector.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
+#include "llvm/Function.h"
 #include "llvm/Target/TargetFrameLowering.h"
-#include "llvm/ADT/BitVector.h"
 
 #define GET_REGINFO_TARGET_DESC
 #include "AVRGenRegisterInfo.inc"
