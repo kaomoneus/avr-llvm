@@ -16,8 +16,8 @@ entry:
 ; CHECK: movw r22, {{.*}}
 ; CHECK: pop r29
 ; CHECK: pop r28
-  %p = alloca [18 x i16], align 1
-  %k = alloca [14 x i16], align 1
+  %p = alloca [18 x i16]
+  %k = alloca [14 x i16]
   %arrayidx = getelementptr inbounds [14 x i16]* %k, i16 0, i16 8
   %arrayidx1 = getelementptr inbounds [18 x i16]* %p, i16 0, i16 5
   %call = call i16 @allocate(i16* %arrayidx, i16* %arrayidx1)
@@ -33,8 +33,8 @@ entry:
 ; CHECK: movw r22, r28
 ; CHECK: subi r22, 145
 ; CHECK: sbci r23, 255
-  %p = alloca [55 x i16], align 1
-  %k = alloca [14 x i16], align 1
+  %p = alloca [55 x i16]
+  %k = alloca [14 x i16]
   %arrayidx = getelementptr inbounds [14 x i16]* %k, i16 0, i16 8
   %arrayidx1 = getelementptr inbounds [55 x i16]* %p, i16 0, i16 41
   %call = call i16 @allocate(i16* %arrayidx, i16* %arrayidx1)
@@ -53,12 +53,12 @@ entry:
 ; Small offset here
 ; CHECK: std Y+23, {{.*}}
 ; CHECK: std Y+24, {{.*}}
-  %p = alloca [15 x i16], align 1
-  %k = alloca [14 x i16], align 1
+  %p = alloca [15 x i16]
+  %k = alloca [14 x i16]
   %arrayidx = getelementptr inbounds [15 x i16]* %p, i16 0, i16 45
-  store i16 22, i16* %arrayidx, align 1
+  store i16 22, i16* %arrayidx
   %arrayidx1 = getelementptr inbounds [14 x i16]* %k, i16 0, i16 11
-  store i16 42, i16* %arrayidx1, align 1
+  store i16 42, i16* %arrayidx1
   %arrayidx2 = getelementptr inbounds [14 x i16]* %k, i16 0, i16 0
   %arrayidx3 = getelementptr inbounds [15 x i16]* %p, i16 0, i16 0
   %call = call i16 @allocate(i16* %arrayidx2, i16* %arrayidx3)
@@ -75,9 +75,9 @@ define void @alloca_write_huge() {
 ; CHECK: std Y+63, {{.*}}
 ; CHECK: subi r28, 215
 ; CHECK: sbci r29, 0
-  %k = alloca [140 x i16], align 1
+  %k = alloca [140 x i16]
   %arrayidx = getelementptr inbounds [140 x i16]* %k, i16 0, i16 138
-  store i16 22, i16* %arrayidx, align 1
+  store i16 22, i16* %arrayidx
   %arraydecay = getelementptr inbounds [140 x i16]* %k, i16 0, i16 0
   call i16 @allocate(i16* %arraydecay, i16* null)
   ret void
