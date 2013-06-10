@@ -23,7 +23,7 @@
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/SelectionDAG.h"
 #include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
-#include "llvm/Function.h"
+#include "llvm/IR/Function.h"
 #include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
@@ -1256,7 +1256,8 @@ AVRTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
 
   // Don't emit the ret/reti instruction when the naked attribute is present in
   // the function being compiled.
-  if (MF.getFunction()->getFnAttributes().hasAttribute(Attributes::Naked))
+  if (MF.getFunction()->getAttributes().
+      hasAttribute(AttributeSet::FunctionIndex, Attribute::Naked))
   {
     return Chain;
   }

@@ -34,9 +34,7 @@ AVRTargetMachine::AVRTargetMachine(const Target &T, StringRef TT, StringRef CPU,
   InstrInfo(),
   FrameLowering(),
   TLInfo(*this),
-  TSInfo(*this),
-  STTI(&TLInfo),
-  VTTI(&TLInfo) {}
+  TSInfo(*this) {}
 
 namespace
 {
@@ -98,18 +96,6 @@ const DataLayout *AVRTargetMachine::getDataLayout() const
 const AVRRegisterInfo *AVRTargetMachine::getRegisterInfo() const
 {
   return &InstrInfo.getRegisterInfo();
-}
-
-const ScalarTargetTransformInfo *
-AVRTargetMachine::getScalarTargetTransformInfo() const
-{
-  return &STTI;
-}
-
-const VectorTargetTransformInfo *
-AVRTargetMachine::getVectorTargetTransformInfo() const
-{
-  return &VTTI;
 }
 
 //===----------------------------------------------------------------------===//

@@ -8,8 +8,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "AVRTargetObjectFile.h"
-#include "llvm/DerivedTypes.h"
-#include "llvm/GlobalValue.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/GlobalValue.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCSectionELF.h"
 #include "llvm/Support/ELF.h"
