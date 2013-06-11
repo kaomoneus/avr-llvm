@@ -44,6 +44,7 @@ public:
     UnknownArch,
 
     arm,     // ARM; arm, armv.*, xscale
+    avr,     // AVR: avr
     hexagon, // Hexagon: hexagon
     mips,    // MIPS: mips, mipsallegrex
     mipsel,  // MIPSEL: mipsel, mipsallegrexel
@@ -72,6 +73,7 @@ public:
     UnknownVendor,
 
     Apple,
+    Atmel,
     PC,
     SCEI,
     BGP,

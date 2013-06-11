@@ -20,6 +20,7 @@ const char *Triple::getArchTypeName(ArchType Kind) {
   case UnknownArch: return "unknown";
 
   case arm:     return "arm";
+  case avr:     return "avr";
   case hexagon: return "hexagon";
   case mips:    return "mips";
   case mipsel:  return "mipsel";
@@ -55,6 +56,8 @@ const char *Triple::getArchTypePrefix(ArchType Kind) {
 
   case arm:
   case thumb:   return "arm";
+
+  case avr:     return "avr";
 
   case ppc64:
   case ppc:     return "ppc";
@@ -92,6 +95,7 @@ const char *Triple::getVendorTypeName(VendorType Kind) {
   case UnknownVendor: return "unknown";
 
   case Apple: return "apple";
+  case Atmel: return "atmel";
   case PC: return "pc";
   case SCEI: return "scei";
   case BGP: return "bgp";
@@ -152,6 +156,7 @@ const char *Triple::getEnvironmentTypeName(EnvironmentType Kind) {
 Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
   return StringSwitch<Triple::ArchType>(Name)
     .Case("arm", arm)
+    .Case("avr", avr)
     .Case("mips", mips)
     .Case("mipsel", mipsel)
     .Case("mips64", mips64)
@@ -195,6 +200,7 @@ const char *Triple::getArchNameForAssembler() {
     .Cases("armv5", "armv5e", "thumbv5", "thumbv5e", "armv5")
     .Cases("armv6", "thumbv6", "armv6")
     .Cases("armv7", "thumbv7", "armv7")
+    .Case("avr", "avr")
     .Case("r600", "r600")
     .Case("nvptx", "nvptx")
     .Case("nvptx64", "nvptx64")
@@ -220,6 +226,7 @@ static Triple::ArchType parseArch(StringRef ArchName) {
     .StartsWith("armv", Triple::arm)
     .Case("thumb", Triple::thumb)
     .StartsWith("thumbv", Triple::thumb)
+    .Case("avr", Triple::avr)
     .Case("msp430", Triple::msp430)
     .Cases("mips", "mipseb", "mipsallegrex", Triple::mips)
     .Cases("mipsel", "mipsallegrexel", Triple::mipsel)
@@ -243,6 +250,7 @@ static Triple::ArchType parseArch(StringRef ArchName) {
 static Triple::VendorType parseVendor(StringRef VendorName) {
   return StringSwitch<Triple::VendorType>(VendorName)
     .Case("apple", Triple::Apple)
+    .Case("atmel", Triple::Atmel)
     .Case("pc", Triple::PC)
     .Case("scei", Triple::SCEI)
     .Case("bgp", Triple::BGP)
@@ -653,6 +661,7 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
   case llvm::Triple::UnknownArch:
     return 0;
 
+  case llvm::Triple::avr:
   case llvm::Triple::msp430:
     return 16;
 
@@ -702,6 +711,7 @@ Triple Triple::get32BitArchVariant() const {
   Triple T(*this);
   switch (getArch()) {
   case Triple::UnknownArch:
+  case Triple::avr:
   case Triple::msp430:
     T.setArch(UnknownArch);
     break;
@@ -742,6 +752,7 @@ Triple Triple::get64BitArchVariant() const {
   case Triple::UnknownArch:
   case Triple::amdil:
   case Triple::arm:
+  case Triple::avr:
   case Triple::hexagon:
   case Triple::le32:
   case Triple::mblaze:
