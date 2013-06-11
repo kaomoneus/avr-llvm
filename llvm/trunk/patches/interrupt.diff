@@ -16,6 +16,7 @@ Index: include/llvm/CallingConv.h
 +    AVR_SIGNAL = 79
    };
  } // End CallingConv namespace
+
 Index: lib/VMCore/AsmWriter.cpp
 ===================================================================
 --- lib/VMCore/AsmWriter.cpp    (revisión: 169957)
