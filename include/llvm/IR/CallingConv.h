@@ -119,8 +119,13 @@ namespace CallingConv {
     SPIR_KERNEL = 76,
 
     /// Intel_OCL_BI - Calling conventions for Intel OpenCL built-ins
-    Intel_OCL_BI = 77
+    Intel_OCL_BI = 77,
 
+    /// AVR_INTR - Calling convention used for AVR interrupt routines.
+    AVR_INTR = 78,
+
+    /// AVR_SIGNAL - Calling convention used for AVR signal routines.
+    AVR_SIGNAL = 79
   };
 } // End CallingConv namespace
 
