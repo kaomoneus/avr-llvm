@@ -45,6 +45,14 @@ public:
 
   void printOperand(const MachineInstr *MI, unsigned OpNo, raw_ostream &O,
                     const char *Modifier = 0);
+  virtual bool PrintAsmOperand(const MachineInstr *MI, unsigned OpNum,
+                               unsigned AsmVariant, const char *ExtraCode,
+                               raw_ostream &O) LLVM_OVERRIDE;
+  // TODO
+//  virtual bool PrintAsmMemoryOperand(const MachineInstr *MI, unsigned OpNum,
+//                                     unsigned AsmVariant, const char *ExtraCode,
+//                                     raw_ostream &O) LLVM_OVERRIDE;
+
 public: // AsmPrinter
   void EmitInstruction(const MachineInstr *MI);
 };
@@ -80,6 +88,20 @@ void AVRAsmPrinter::printOperand(const MachineInstr *MI, unsigned OpNo,
     llvm_unreachable("Not implemented yet!");
   }
 }
+
+bool AVRAsmPrinter::PrintAsmOperand(const MachineInstr *MI, unsigned OpNum,
+                                    unsigned AsmVariant, const char *ExtraCode,
+                                    raw_ostream &O) {
+  // Default asm printer could only deal with some extra codes,
+  // so try it first.
+  bool Error = AsmPrinter::PrintAsmOperand(MI, OpNum, AsmVariant, ExtraCode, O);
+  if (Error && ExtraCode && ExtraCode[0])
+    if (ExtraCode[1] != 0) return true; // Unknown modifier.
+
+  printOperand(MI, OpNum, O);
+  return false;
+}
+
 
 //===----------------------------------------------------------------------===//
 void AVRAsmPrinter::EmitInstruction(const MachineInstr *MI)

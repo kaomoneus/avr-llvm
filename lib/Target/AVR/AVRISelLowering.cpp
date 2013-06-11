@@ -1463,3 +1463,42 @@ AVRTargetLowering::EmitInstrWithCustomInserter(MachineInstr *MI,
   MI->eraseFromParent();   // The pseudo instruction is gone now.
   return BB;
 }
+
+//===----------------------------------------------------------------------===//
+//  Inline Asm Support
+//===----------------------------------------------------------------------===//
+
+AVRTargetLowering::ConstraintType
+AVRTargetLowering::getConstraintType(const std::string &Constraint) const {
+  // TODO: We place AVR specific contraints here.
+  return TargetLowering::getConstraintType(Constraint);
+}
+
+AVRTargetLowering::ConstraintWeight
+AVRTargetLowering::getSingleConstraintMatchWeight(
+    AsmOperandInfo &info, const char *constraint) const {
+  // TODO: When we add some AVR specific contraints - implement its weight
+  // properly.
+  return TargetLowering::getSingleConstraintMatchWeight(info, constraint);
+}
+
+std::pair<unsigned, const TargetRegisterClass*> AVRTargetLowering::
+getRegForInlineAsmConstraint(const std::string &Constraint, EVT VT) const
+{
+  if (Constraint.size() == 1) {
+    switch (Constraint[0]) {
+    case 'r':
+      // We support i8 and i16 only.
+      if (VT == MVT::i16 || VT == MVT::i8)
+        return std::make_pair(0U, &AVR::GPR8RegClass);
+      // Fall through
+    default:
+      // This will generate an error message
+      return std::make_pair(0u, static_cast<const TargetRegisterClass*>(0));
+    }
+  }
+  return TargetLowering::getRegForInlineAsmConstraint(Constraint, VT);
+}
+
+
+

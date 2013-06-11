@@ -112,6 +112,20 @@ public: // TargetLowering
                                                  MachineBasicBlock *MBB) const;
   MachineBasicBlock *EmitShiftInstr(MachineInstr *MI,
                                     MachineBasicBlock *BB) const;
+
+  // Inline Asm support
+  // Impelementation of TargetLowering hooks.
+
+  ConstraintType getConstraintType(const std::string &Constraint) const;
+
+  ConstraintWeight getSingleConstraintMatchWeight(
+    AsmOperandInfo &info, const char *constraint) const;
+
+  std::pair<unsigned, const TargetRegisterClass*>
+            getRegForInlineAsmConstraint(const std::string &Constraint,
+            EVT VT) const;
+
+
 private:
   SDValue getAVRCmp(SDValue LHS, SDValue RHS, ISD::CondCode CC, SDValue &AVRcc,
                     SelectionDAG &DAG, DebugLoc dl) const;
