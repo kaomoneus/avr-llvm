@@ -1,0 +1,28 @@
+pre
+{
+  border-style:solid;
+  border-width:1px;
+  border-color: #333333;
+  background-color: #eee;
+  padding:0.5em;
+  margin-left:1em;
+  width:80em;
+}
+img
+{
+  border-style:none;
+}
+dd
+{
+  padding-bottom:0.5em;
+}
+#footer img
+{
+  float:right;
+}
+#footer ul
+{
+  list-style-type:none;
+  padding-left:0;
+  margin-left:0;
+}
