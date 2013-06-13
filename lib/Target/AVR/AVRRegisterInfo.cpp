@@ -68,6 +68,22 @@ BitVector AVRRegisterInfo::getReservedRegs(const MachineFunction &MF) const
   return Reserved;
 }
 
+const TargetRegisterClass *
+AVRRegisterInfo::getLargestLegalSuperClass(const TargetRegisterClass *RC) const
+{
+  if (RC->hasType(MVT::i16))
+  {
+    return &AVR::DREGSRegClass;
+  }
+
+  if (RC->hasType(MVT::i8))
+  {
+    return &AVR::GPR8RegClass;
+  }
+
+  llvm_unreachable("Invalid register size");
+}
+
 /// Replace pseudo store instructions that pass arguments through the stack with
 /// real instructions. If insertPushes is true then all instructions are
 /// replaced with push instructions, otherwise regular std instructions are

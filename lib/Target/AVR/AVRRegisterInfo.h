@@ -34,6 +34,9 @@ public: // TargetRegisterInfo
   const uint32_t *getCallPreservedMask(CallingConv::ID CC) const;
   BitVector getReservedRegs(const MachineFunction &MF) const;
 
+  const TargetRegisterClass *
+  getLargestLegalSuperClass(const TargetRegisterClass *RC) const;
+
   /// Stack Frame Processing Methods
   void eliminateFrameIndex(MachineBasicBlock::iterator MI, int SPAdj,
                            RegScavenger *RS = NULL) const;
