@@ -352,16 +352,29 @@ void AVRRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
       AddOffset = -AddOffset;
     }
 
+    // It is possible that the spiller places this frame instruction in between
+    // a compare and branch, invalidating the contents of SREG set by the
+    // compare instruction because of the add/sub pairs. Conservatively save and
+    // restore SREG before and after each add/sub pair.
+    BuildMI(MBB, II, dl, TII.get(AVR::INRdA), AVR::R0)
+      .addImm(0x3f);
+
     MachineInstr *New =
       BuildMI(MBB, II, dl, TII.get(AddOpc), AVR::R29R28)
         .addReg(AVR::R29R28, RegState::Kill)
         .addImm(AddOffset);
     New->getOperand(3).setIsDead();
 
+    // Restore SREG.
+    BuildMI(MBB, llvm::next(II), dl, TII.get(AVR::OUTARr))
+      .addImm(0x3f)
+      .addReg(AVR::R0, RegState::Kill);
+
+    // No need to set SREG as dead here otherwise if the next instruction is a
+    // cond branch it will be using a dead register.
     New = BuildMI(MBB, llvm::next(II), dl, TII.get(SubOpc), AVR::R29R28)
             .addReg(AVR::R29R28, RegState::Kill)
             .addImm(Offset - 63 + 1);
-    New->getOperand(3).setIsDead();
 
     Offset = 62;
   }
