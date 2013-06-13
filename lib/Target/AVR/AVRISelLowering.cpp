@@ -1470,31 +1470,121 @@ AVRTargetLowering::EmitInstrWithCustomInserter(MachineInstr *MI,
 
 AVRTargetLowering::ConstraintType
 AVRTargetLowering::getConstraintType(const std::string &Constraint) const {
-  // TODO: We place AVR specific contraints here.
+  if (Constraint.size() == 1) {
+    switch (Constraint[0]) {
+    case 'a':
+    case 'b':
+    case 'd':
+    case 'l':
+    case 'e':
+    case 'q':
+    case 'r':
+    case 't':
+    case 'w':
+    case 'x':
+    case 'y':
+    case 'z':
+      return C_RegisterClass;
+    case 'Q':
+      return C_Memory;
+    case 'G':
+    case 'I':
+    case 'J':
+    case 'K':
+    case 'L':
+    case 'M':
+    case 'N':
+    case 'O':
+    case 'P':
+    case 'R':
+      return C_Other;
+    }
+  }
   return TargetLowering::getConstraintType(Constraint);
 }
 
 AVRTargetLowering::ConstraintWeight
 AVRTargetLowering::getSingleConstraintMatchWeight(
     AsmOperandInfo &info, const char *constraint) const {
-  // TODO: When we add some AVR specific contraints - implement its weight
-  // properly.
-  return TargetLowering::getSingleConstraintMatchWeight(info, constraint);
+
+  ConstraintWeight weight = CW_Invalid;
+  Value *CallOperandVal = info.CallOperandVal;
+
+  // If we don't have a value, we can't do a match,
+  // but allow it at the lowest weight.
+  // (this behaviour has been copied from ARM backend)
+  if (CallOperandVal == NULL)
+    return CW_Default;
+
+  Type *type = CallOperandVal->getType();
+
+  // Look at the constraint type.
+  switch (*constraint) {
+  default:
+    weight = TargetLowering::getSingleConstraintMatchWeight(info, constraint);
+    break;
+
+  case 'd':
+  case 'r':
+  case 'l':
+    weight = CW_Register;
+    break;
+
+  case 'a':
+  case 'b':
+  case 'e':
+  case 'q':
+  case 't':
+  case 'w':
+  case 'x':
+  case 'y':
+  case 'z':
+    weight = CW_SpecificReg;
+    break;
+
+  case 'G':
+    if (type->isFloatingPointTy())
+      weight = CW_Register;
+    break;
+  case 'I':
+  case 'J':
+  case 'K':
+  case 'L':
+  case 'M':
+  case 'N':
+  case 'O':
+  case 'P':
+  case 'R':
+    weight = CW_Default;
+    break;
+  }
+  return weight;
 }
 
 std::pair<unsigned, const TargetRegisterClass*> AVRTargetLowering::
 getRegForInlineAsmConstraint(const std::string &Constraint, EVT VT) const
 {
+  // We support i8 and i16 only.
+  if (VT != MVT::i16 && VT != MVT::i8)
+    return std::make_pair(0u, static_cast<TargetRegisterClass*>(0));
+
   if (Constraint.size() == 1) {
     switch (Constraint[0]) {
-    case 'r':
-      // We support i8 and i16 only.
-      if (VT == MVT::i16 || VT == MVT::i8)
+    case 'a': // Simple upper registers r16..r23.
+    case 'b': // Base pointer registers: y, z.
+    case 'd': // Upper register r16..r32.
+    case 'l': // Lower registers r0..r15.
+    case 'e': // Pointer register pairs: x, y, z.
+    case 'q': // Stack pointer register: SPH:SPL.
+    case 'r': // Any register: r0..r31.
         return std::make_pair(0U, &AVR::GPR8RegClass);
-      // Fall through
-    default:
-      // This will generate an error message
-      return std::make_pair(0u, static_cast<const TargetRegisterClass*>(0));
+
+    case 't': // Temporary register: r0.
+    case 'w': // Special upper register pairs: r24, r26, r28, r30.
+    case 'x': // Pointer register pair X: r27:r26.
+    case 'y': // Pointer register pair Y: r29:r28.
+    case 'z': // Pointer register pair Z: r31:r30.
+      break;
     }
   }
   return TargetLowering::getRegForInlineAsmConstraint(Constraint, VT);
