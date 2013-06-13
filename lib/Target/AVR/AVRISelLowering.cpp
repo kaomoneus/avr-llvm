@@ -1571,20 +1571,29 @@ getRegForInlineAsmConstraint(const std::string &Constraint, EVT VT) const
   if (Constraint.size() == 1) {
     switch (Constraint[0]) {
     case 'a': // Simple upper registers r16..r23.
+      return std::make_pair(0U, &AVR::simplehGPR8RegClass);
     case 'b': // Base pointer registers: y, z.
+      return std::make_pair(0U, &AVR::PTRDISPREGSRegClass);
     case 'd': // Upper register r16..r32.
+      return std::make_pair(0U, &AVR::hGPR8RegClass);
     case 'l': // Lower registers r0..r15.
+      return std::make_pair(0U, &AVR::lGPR8RegClass);
     case 'e': // Pointer register pairs: x, y, z.
+      return std::make_pair(0U, &AVR::PTRREGSRegClass);
     case 'q': // Stack pointer register: SPH:SPL.
+      return std::make_pair(0U, &AVR::GPRSPRegClass);
     case 'r': // Any register: r0..r31.
-        return std::make_pair(0U, &AVR::GPR8RegClass);
-
+      return std::make_pair(0U, &AVR::GPR8RegClass);
     case 't': // Temporary register: r0.
+      return std::make_pair((unsigned)AVR::R0, &AVR::GPR8RegClass);
     case 'w': // Special upper register pairs: r24, r26, r28, r30.
+      return std::make_pair(0U, &AVR::specialUpperGPR8RegClass);
     case 'x': // Pointer register pair X: r27:r26.
+      return std::make_pair((unsigned)AVR::R27R26, &AVR::PTRREGSRegClass);
     case 'y': // Pointer register pair Y: r29:r28.
+      return std::make_pair((unsigned)AVR::R29R28, &AVR::PTRREGSRegClass);
     case 'z': // Pointer register pair Z: r31:r30.
-      break;
+      return std::make_pair((unsigned)AVR::R31R30, &AVR::PTRREGSRegClass);
     }
   }
   return TargetLowering::getRegForInlineAsmConstraint(Constraint, VT);
