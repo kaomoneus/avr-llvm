@@ -1469,9 +1469,12 @@ AVRTargetLowering::EmitInstrWithCustomInserter(MachineInstr *MI,
 //===----------------------------------------------------------------------===//
 
 AVRTargetLowering::ConstraintType
-AVRTargetLowering::getConstraintType(const std::string &Constraint) const {
-  if (Constraint.size() == 1) {
-    switch (Constraint[0]) {
+AVRTargetLowering::getConstraintType(const std::string &Constraint) const
+{
+  if (Constraint.size() == 1)
+  {
+    switch (Constraint[0])
+    {
     case 'a':
     case 'b':
     case 'd':
@@ -1505,7 +1508,8 @@ AVRTargetLowering::getConstraintType(const std::string &Constraint) const {
 
 AVRTargetLowering::ConstraintWeight
 AVRTargetLowering::getSingleConstraintMatchWeight(
-    AsmOperandInfo &info, const char *constraint) const {
+    AsmOperandInfo &info, const char *constraint) const
+{
 
   ConstraintWeight weight = CW_Invalid;
   Value *CallOperandVal = info.CallOperandVal;
@@ -1514,12 +1518,15 @@ AVRTargetLowering::getSingleConstraintMatchWeight(
   // but allow it at the lowest weight.
   // (this behaviour has been copied from ARM backend)
   if (CallOperandVal == NULL)
+  {
     return CW_Default;
+  }
 
   Type *type = CallOperandVal->getType();
 
   // Look at the constraint type.
-  switch (*constraint) {
+  switch (*constraint)
+  {
   default:
     weight = TargetLowering::getSingleConstraintMatchWeight(info, constraint);
     break;
@@ -1544,7 +1551,9 @@ AVRTargetLowering::getSingleConstraintMatchWeight(
 
   case 'G':
     if (type->isFloatingPointTy())
+    {
       weight = CW_Register;
+    }
     break;
   case 'I':
   case 'J':
@@ -1566,10 +1575,14 @@ getRegForInlineAsmConstraint(const std::string &Constraint, EVT VT) const
 {
   // We support i8 and i16 only.
   if (VT != MVT::i16 && VT != MVT::i8)
+  {
     return std::make_pair(0u, static_cast<TargetRegisterClass*>(0));
+  }
 
-  if (Constraint.size() == 1) {
-    switch (Constraint[0]) {
+  if (Constraint.size() == 1)
+  {
+    switch (Constraint[0])
+    {
     case 'a': // Simple upper registers r16..r23.
       return std::make_pair(0U, &AVR::simplehGPR8RegClass);
     case 'b': // Base pointer registers: y, z.
