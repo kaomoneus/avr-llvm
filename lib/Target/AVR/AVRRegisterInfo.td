@@ -109,7 +109,7 @@ def hGPR8 : RegisterClass<"AVR", [i8], 8, (sub GPR8, lGPR8)>;
 def simplehGPR8 : RegisterClass<"AVR", [i8], 8, (trunc hGPR8, 8)>;
 
 // Special upper registers
-def specialUpperGPR8 : RegisterClass<"AVR", [i16], 8,
+def specialUpperGPR8 : RegisterClass<"AVR", [i8], 8,
   (
     add R24, R26, R28, R30
   )>;
