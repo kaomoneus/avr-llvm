@@ -125,10 +125,9 @@ public: // TargetLowering
             getRegForInlineAsmConstraint(const std::string &Constraint,
             EVT VT) const;
 
-  // TODO:
-  //  void LowerAsmOperandForConstraint(SDValue Op, std::string &Constraint,
-  //                                            std::vector<SDValue> &Ops,
-  //                                            SelectionDAG &DAG) const;
+  void LowerAsmOperandForConstraint(SDValue Op, std::string &Constraint,
+                                    std::vector<SDValue> &Ops,
+                                    SelectionDAG &DAG) const;
 
 private:
   SDValue getAVRCmp(SDValue LHS, SDValue RHS, ISD::CondCode CC, SDValue &AVRcc,

@@ -1606,5 +1606,110 @@ getRegForInlineAsmConstraint(const std::string &Constraint, EVT VT) const
   return TargetLowering::getRegForInlineAsmConstraint(Constraint, VT);
 }
 
+void AVRTargetLowering::LowerAsmOperandForConstraint(SDValue Op,
+                                                     std::string &Constraint,
+                                                     std::vector<SDValue>&Ops,
+                                                     SelectionDAG &DAG) const
+{
+  SDValue Result(0, 0);
+  EVT Ty = Op.getValueType();
+
+  // Currently only support length 1 constraints.
+  if (Constraint.length() != 1) return;
+
+  char ConstraintLetter = Constraint[0];
+  switch (ConstraintLetter)
+  {
+  default: break;
+  // Deal with integers first:
+  case 'I':
+  case 'J':
+  case 'K':
+  case 'L':
+  case 'M':
+  case 'N':
+  case 'O':
+  case 'P':
+  case 'R':
+  {
+    ConstantSDNode *C = dyn_cast<ConstantSDNode>(Op);
+    if (!C)
+      return;
+
+    int64_t CVal64 = C->getSExtValue();
+    uint64_t CUVal64 = C->getZExtValue();
+
+    switch (ConstraintLetter) {
+    case 'I': // 0..63,
+      if (CVal64 < 0 || CVal64 > 63)
+        return;
+      Result = DAG.getTargetConstant(CVal64, Ty);
+      break;
+    case 'J': // -63..0
+      if (CVal64 < -63 || CVal64 > 0)
+        return;
+      Result = DAG.getTargetConstant(CVal64, Ty);
+      break;
+    case 'K': // 2
+      if (CVal64 != 2)
+        return;
+      Result = DAG.getTargetConstant(CVal64, Ty);
+      break;
+    case 'L': // 0
+      if (CVal64 != 0)
+        return;
+      Result = DAG.getTargetConstant(CVal64, Ty);
+      break;
+    case 'M': // 0..255
+      if (C->getAPIntValue().getActiveBits() > 8)
+        return;
+      // i8 type may be printed as negative number,
+      // e.g. 254 would be printed as -2,
+      // so we force it to i16 at least.
+      if (Ty.getSimpleVT() == MVT::i8)
+        Ty = EVT(MVT::i16);
+      Result = DAG.getTargetConstant(CUVal64, Ty);
+      break;
+    case 'N': // -1
+      if (CVal64 != -1)
+        return;
+      Result = DAG.getTargetConstant(CVal64, Ty);
+      break;
+    case 'O': // 8, 16, 24
+      if (CVal64 != 8 && CVal64 != 16 && CVal64 != 24)
+        return;
+      Result = DAG.getTargetConstant(CVal64, Ty);
+      break;
+    case 'P': // 1
+      if (CVal64 != 1)
+        return;
+      Result = DAG.getTargetConstant(CVal64, Ty);
+      break;
+    case 'R': // -6..5
+      if (CVal64 < -6 || CVal64 > 5)
+        return;
+      Result = DAG.getTargetConstant(CVal64, Ty);
+      break;
+    }
+    break;
+  }
+  case 'G':
+    ConstantFPSDNode * C = dyn_cast<ConstantFPSDNode>(Op);
+    if (!C->isZero())
+      return;
+    // Soften float to i8 0
+    Result = DAG.getTargetConstant(0, MVT::i8);
+    break;
+  }
+
+  if (Result.getNode()) {
+    Ops.push_back(Result);
+    return;
+  }
+
+  return TargetLowering::LowerAsmOperandForConstraint(Op, Constraint, Ops, DAG);
+}
+
+
 
 
