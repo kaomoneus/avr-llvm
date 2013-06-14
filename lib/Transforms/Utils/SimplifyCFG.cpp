@@ -59,6 +59,10 @@ static cl::opt<bool>
 SinkCommon("simplifycfg-sink-common", cl::Hidden, cl::init(true),
        cl::desc("Sink common instructions down to the end block"));
 
+static cl::opt<bool>
+HoistCondStores("simplifycfg-hoist-cond-stores", cl::Hidden, cl::init(true),
+       cl::desc("Hoist conditional stores if an unconditional store preceeds"));
+
 STATISTIC(NumBitMaps, "Number of switch instructions turned into bitmaps");
 STATISTIC(NumLookupTables, "Number of switch instructions turned into lookup tables");
 STATISTIC(NumSinkCommons, "Number of common instructions sunk down to the end block");
@@ -277,7 +281,7 @@ static Value *GetIfCondition(BasicBlock *BB, BasicBlock *&IfTrue,
   return BI->getCondition();
 }
 
-/// ComputeSpeculuationCost - Compute an abstract "cost" of speculating the
+/// ComputeSpeculationCost - Compute an abstract "cost" of speculating the
 /// given instruction, which is assumed to be safe to speculate. 1 means
 /// cheap, 2 means less cheap, and UINT_MAX means prohibitively expensive.
 static unsigned ComputeSpeculationCost(const User *I) {
@@ -529,9 +533,7 @@ Value *SimplifyCFGOpt::isValueEqualityComparison(TerminatorInst *TI) {
   } else if (BranchInst *BI = dyn_cast<BranchInst>(TI))
     if (BI->isConditional() && BI->getCondition()->hasOneUse())
       if (ICmpInst *ICI = dyn_cast<ICmpInst>(BI->getCondition()))
-        if ((ICI->getPredicate() == ICmpInst::ICMP_EQ ||
-             ICI->getPredicate() == ICmpInst::ICMP_NE) &&
-            GetConstantInt(ICI->getOperand(1), TD))
+        if (ICI->isEquality() && GetConstantInt(ICI->getOperand(1), TD))
           CV = ICI->getOperand(0);
 
   // Unwrap any lossless ptrtoint cast.
@@ -1079,9 +1081,9 @@ static bool HoistThenElseCodeToIf(BranchInst *BI) {
       (isa<InvokeInst>(I1) && !isSafeToHoistInvoke(BB1, BB2, I1, I2)))
     return false;
 
-  // If we get here, we can hoist at least one instruction.
   BasicBlock *BIParent = BI->getParent();
 
+  bool Changed = false;
   do {
     // If we are hoisting the terminator instruction, don't move one (making a
     // broken BB), instead clone it, and remove BI.
@@ -1096,6 +1098,7 @@ static bool HoistThenElseCodeToIf(BranchInst *BI) {
       I2->replaceAllUsesWith(I1);
     I1->intersectOptionalDataWith(I2);
     I2->eraseFromParent();
+    Changed = true;
 
     I1 = BB1_Itr++;
     I2 = BB2_Itr++;
@@ -1115,7 +1118,23 @@ static bool HoistThenElseCodeToIf(BranchInst *BI) {
 HoistTerminator:
   // It may not be possible to hoist an invoke.
   if (isa<InvokeInst>(I1) && !isSafeToHoistInvoke(BB1, BB2, I1, I2))
-    return true;
+    return Changed;
+
+  for (succ_iterator SI = succ_begin(BB1), E = succ_end(BB1); SI != E; ++SI) {
+    PHINode *PN;
+    for (BasicBlock::iterator BBI = SI->begin();
+         (PN = dyn_cast<PHINode>(BBI)); ++BBI) {
+      Value *BB1V = PN->getIncomingValueForBlock(BB1);
+      Value *BB2V = PN->getIncomingValueForBlock(BB2);
+      if (BB1V == BB2V)
+        continue;
+
+      if (isa<ConstantExpr>(BB1V) && !isSafeToSpeculativelyExecute(BB1V))
+        return Changed;
+      if (isa<ConstantExpr>(BB2V) && !isSafeToSpeculativelyExecute(BB2V))
+        return Changed;
+    }
+  }
 
   // Okay, it is safe to hoist the terminator.
   Instruction *NT = I1->clone();
@@ -1332,149 +1351,267 @@ static bool SinkThenElseCodeToEnd(BranchInst *BI1) {
   return Changed;
 }
 
-/// SpeculativelyExecuteBB - Given a conditional branch that goes to BB1
-/// and an BB2 and the only successor of BB1 is BB2, hoist simple code
-/// (for now, restricted to a single instruction that's side effect free) from
-/// the BB1 into the branch block to speculatively execute it.
+/// \brief Determine if we can hoist sink a sole store instruction out of a
+/// conditional block.
 ///
-/// Turn
-/// BB:
-///     %t1 = icmp
-///     br i1 %t1, label %BB1, label %BB2
-/// BB1:
-///     %t3 = add %t2, c
+/// We are looking for code like the following:
+///   BrBB:
+///     store i32 %add, i32* %arrayidx2
+///     ... // No other stores or function calls (we could be calling a memory
+///     ... // function).
+///     %cmp = icmp ult %x, %y
+///     br i1 %cmp, label %EndBB, label %ThenBB
+///   ThenBB:
+///     store i32 %add5, i32* %arrayidx2
+///     br label EndBB
+///   EndBB:
+///     ...
+///   We are going to transform this into:
+///   BrBB:
+///     store i32 %add, i32* %arrayidx2
+///     ... //
+///     %cmp = icmp ult %x, %y
+///     %add.add5 = select i1 %cmp, i32 %add, %add5
+///     store i32 %add.add5, i32* %arrayidx2
+///     ...
+///
+/// \return The pointer to the value of the previous store if the store can be
+///         hoisted into the predecessor block. 0 otherwise.
+static Value *isSafeToSpeculateStore(Instruction *I, BasicBlock *BrBB,
+                                     BasicBlock *StoreBB, BasicBlock *EndBB) {
+  StoreInst *StoreToHoist = dyn_cast<StoreInst>(I);
+  if (!StoreToHoist)
+    return 0;
+
+  // Volatile or atomic.
+  if (!StoreToHoist->isSimple())
+    return 0;
+
+  Value *StorePtr = StoreToHoist->getPointerOperand();
+
+  // Look for a store to the same pointer in BrBB.
+  unsigned MaxNumInstToLookAt = 10;
+  for (BasicBlock::reverse_iterator RI = BrBB->rbegin(),
+       RE = BrBB->rend(); RI != RE && (--MaxNumInstToLookAt); ++RI) {
+    Instruction *CurI = &*RI;
+
+    // Could be calling an instruction that effects memory like free().
+    if (CurI->mayHaveSideEffects() && !isa<StoreInst>(CurI))
+      return 0;
+
+    StoreInst *SI = dyn_cast<StoreInst>(CurI);
+    // Found the previous store make sure it stores to the same location.
+    if (SI && SI->getPointerOperand() == StorePtr)
+      // Found the previous store, return its value operand.
+      return SI->getValueOperand();
+    else if (SI)
+      return 0; // Unknown store.
+  }
+
+  return 0;
+}
+
+/// \brief Speculate a conditional basic block flattening the CFG.
+///
+/// Note that this is a very risky transform currently. Speculating
+/// instructions like this is most often not desirable. Instead, there is an MI
+/// pass which can do it with full awareness of the resource constraints.
+/// However, some cases are "obvious" and we should do directly. An example of
+/// this is speculating a single, reasonably cheap instruction.
+///
+/// There is only one distinct advantage to flattening the CFG at the IR level:
+/// it makes very common but simplistic optimizations such as are common in
+/// instcombine and the DAG combiner more powerful by removing CFG edges and
+/// modeling their effects with easier to reason about SSA value graphs.
+///
+///
+/// An illustration of this transform is turning this IR:
+/// \code
+///   BB:
+///     %cmp = icmp ult %x, %y
+///     br i1 %cmp, label %EndBB, label %ThenBB
+///   ThenBB:
+///     %sub = sub %x, %y
 ///     br label BB2
-/// BB2:
-/// =>
-/// BB:
-///     %t1 = icmp
-///     %t4 = add %t2, c
-///     %t3 = select i1 %t1, %t2, %t3
-static bool SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *BB1) {
-  // Only speculatively execution a single instruction (not counting the
-  // terminator) for now.
-  Instruction *HInst = NULL;
-  Instruction *Term = BB1->getTerminator();
-  for (BasicBlock::iterator BBI = BB1->begin(), BBE = BB1->end();
-       BBI != BBE; ++BBI) {
-    Instruction *I = BBI;
-    // Skip debug info.
-    if (isa<DbgInfoIntrinsic>(I)) continue;
-    if (I == Term) break;
-
-    if (HInst)
-      return false;
-    HInst = I;
-  }
-
-  BasicBlock *BIParent = BI->getParent();
-
-  // Check the instruction to be hoisted, if there is one.
-  if (HInst) {
-    // Don't hoist the instruction if it's unsafe or expensive.
-    if (!isSafeToSpeculativelyExecute(HInst))
-      return false;
-    if (ComputeSpeculationCost(HInst) > PHINodeFoldingThreshold)
-      return false;
-
-    // Do not hoist the instruction if any of its operands are defined but not
-    // used in this BB. The transformation will prevent the operand from
-    // being sunk into the use block.
-    for (User::op_iterator i = HInst->op_begin(), e = HInst->op_end();
-         i != e; ++i) {
-      Instruction *OpI = dyn_cast<Instruction>(*i);
-      if (OpI && OpI->getParent() == BIParent &&
-          !OpI->mayHaveSideEffects() &&
-          !OpI->isUsedInBasicBlock(BIParent))
-        return false;
-    }
-  }
-
+///   EndBB:
+///     %phi = phi [ %sub, %ThenBB ], [ 0, %EndBB ]
+///     ...
+/// \endcode
+///
+/// Into this IR:
+/// \code
+///   BB:
+///     %cmp = icmp ult %x, %y
+///     %sub = sub %x, %y
+///     %cond = select i1 %cmp, 0, %sub
+///     ...
+/// \endcode
+///
+/// \returns true if the conditional block is removed.
+static bool SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB) {
   // Be conservative for now. FP select instruction can often be expensive.
   Value *BrCond = BI->getCondition();
   if (isa<FCmpInst>(BrCond))
     return false;
 
-  // If BB1 is actually on the false edge of the conditional branch, remember
+  BasicBlock *BB = BI->getParent();
+  BasicBlock *EndBB = ThenBB->getTerminator()->getSuccessor(0);
+
+  // If ThenBB is actually on the false edge of the conditional branch, remember
   // to swap the select operands later.
   bool Invert = false;
-  if (BB1 != BI->getSuccessor(0)) {
-    assert(BB1 == BI->getSuccessor(1) && "No edge from 'if' block?");
+  if (ThenBB != BI->getSuccessor(0)) {
+    assert(ThenBB == BI->getSuccessor(1) && "No edge from 'if' block?");
     Invert = true;
   }
+  assert(EndBB == BI->getSuccessor(!Invert) && "No edge from to end block");
 
-  // Collect interesting PHIs, and scan for hazards.
-  SmallSetVector<std::pair<Value *, Value *>, 4> PHIs;
-  BasicBlock *BB2 = BB1->getTerminator()->getSuccessor(0);
-  for (BasicBlock::iterator I = BB2->begin();
-       PHINode *PN = dyn_cast<PHINode>(I); ++I) {
-    Value *BB1V = PN->getIncomingValueForBlock(BB1);
-    Value *BIParentV = PN->getIncomingValueForBlock(BIParent);
+  // Keep a count of how many times instructions are used within CondBB when
+  // they are candidates for sinking into CondBB. Specifically:
+  // - They are defined in BB, and
+  // - They have no side effects, and
+  // - All of their uses are in CondBB.
+  SmallDenseMap<Instruction *, unsigned, 4> SinkCandidateUseCounts;
 
-    // Skip PHIs which are trivial.
-    if (BB1V == BIParentV)
+  unsigned SpeculationCost = 0;
+  Value *SpeculatedStoreValue = 0;
+  StoreInst *SpeculatedStore = 0;
+  for (BasicBlock::iterator BBI = ThenBB->begin(),
+                            BBE = llvm::prior(ThenBB->end());
+       BBI != BBE; ++BBI) {
+    Instruction *I = BBI;
+    // Skip debug info.
+    if (isa<DbgInfoIntrinsic>(I))
       continue;
 
-    // Check for safety.
-    if (ConstantExpr *CE = dyn_cast<ConstantExpr>(BB1V)) {
-      // An unfolded ConstantExpr could end up getting expanded into
-      // Instructions. Don't speculate this and another instruction at
-      // the same time.
-      if (HInst)
-        return false;
-      if (!isSafeToSpeculativelyExecute(CE))
-        return false;
-      if (ComputeSpeculationCost(CE) > PHINodeFoldingThreshold)
+    // Only speculatively execution a single instruction (not counting the
+    // terminator) for now.
+    ++SpeculationCost;
+    if (SpeculationCost > 1)
+      return false;
+
+    // Don't hoist the instruction if it's unsafe or expensive.
+    if (!isSafeToSpeculativelyExecute(I) &&
+        !(HoistCondStores &&
+          (SpeculatedStoreValue = isSafeToSpeculateStore(I, BB, ThenBB,
+                                                         EndBB))))
+      return false;
+    if (!SpeculatedStoreValue &&
+        ComputeSpeculationCost(I) > PHINodeFoldingThreshold)
+      return false;
+
+    // Store the store speculation candidate.
+    if (SpeculatedStoreValue)
+      SpeculatedStore = cast<StoreInst>(I);
+
+    // Do not hoist the instruction if any of its operands are defined but not
+    // used in BB. The transformation will prevent the operand from
+    // being sunk into the use block.
+    for (User::op_iterator i = I->op_begin(), e = I->op_end();
+         i != e; ++i) {
+      Instruction *OpI = dyn_cast<Instruction>(*i);
+      if (!OpI || OpI->getParent() != BB ||
+          OpI->mayHaveSideEffects())
+        continue; // Not a candidate for sinking.
+
+      ++SinkCandidateUseCounts[OpI];
+    }
+  }
+
+  // Consider any sink candidates which are only used in CondBB as costs for
+  // speculation. Note, while we iterate over a DenseMap here, we are summing
+  // and so iteration order isn't significant.
+  for (SmallDenseMap<Instruction *, unsigned, 4>::iterator I =
+           SinkCandidateUseCounts.begin(), E = SinkCandidateUseCounts.end();
+       I != E; ++I)
+    if (I->first->getNumUses() == I->second) {
+      ++SpeculationCost;
+      if (SpeculationCost > 1)
         return false;
     }
 
-    // Ok, we may insert a select for this PHI.
-    PHIs.insert(std::make_pair(BB1V, BIParentV));
+  // Check that the PHI nodes can be converted to selects.
+  bool HaveRewritablePHIs = false;
+  for (BasicBlock::iterator I = EndBB->begin();
+       PHINode *PN = dyn_cast<PHINode>(I); ++I) {
+    Value *OrigV = PN->getIncomingValueForBlock(BB);
+    Value *ThenV = PN->getIncomingValueForBlock(ThenBB);
+
+    // FIXME: Try to remove some of the duplication with HoistThenElseCodeToIf.
+    // Skip PHIs which are trivial.
+    if (ThenV == OrigV)
+      continue;
+
+    HaveRewritablePHIs = true;
+    ConstantExpr *OrigCE = dyn_cast<ConstantExpr>(OrigV);
+    ConstantExpr *ThenCE = dyn_cast<ConstantExpr>(ThenV);
+    if (!OrigCE && !ThenCE)
+      continue; // Known safe and cheap.
+
+    if ((ThenCE && !isSafeToSpeculativelyExecute(ThenCE)) ||
+        (OrigCE && !isSafeToSpeculativelyExecute(OrigCE)))
+      return false;
+    unsigned OrigCost = OrigCE ? ComputeSpeculationCost(OrigCE) : 0;
+    unsigned ThenCost = ThenCE ? ComputeSpeculationCost(ThenCE) : 0;
+    if (OrigCost + ThenCost > 2 * PHINodeFoldingThreshold)
+      return false;
+
+    // Account for the cost of an unfolded ConstantExpr which could end up
+    // getting expanded into Instructions.
+    // FIXME: This doesn't account for how many operations are combined in the
+    // constant expression.
+    ++SpeculationCost;
+    if (SpeculationCost > 1)
+      return false;
   }
 
   // If there are no PHIs to process, bail early. This helps ensure idempotence
   // as well.
-  if (PHIs.empty())
+  if (!HaveRewritablePHIs && !(HoistCondStores && SpeculatedStoreValue))
     return false;
 
   // If we get here, we can hoist the instruction and if-convert.
-  DEBUG(dbgs() << "SPECULATIVELY EXECUTING BB" << *BB1 << "\n";);
+  DEBUG(dbgs() << "SPECULATIVELY EXECUTING BB" << *ThenBB << "\n";);
 
-  // Hoist the instruction.
-  if (HInst)
-    BIParent->getInstList().splice(BI, BB1->getInstList(), HInst);
+  // Insert a select of the value of the speculated store.
+  if (SpeculatedStoreValue) {
+    IRBuilder<true, NoFolder> Builder(BI);
+    Value *TrueV = SpeculatedStore->getValueOperand();
+    Value *FalseV = SpeculatedStoreValue;
+    if (Invert)
+      std::swap(TrueV, FalseV);
+    Value *S = Builder.CreateSelect(BrCond, TrueV, FalseV, TrueV->getName() +
+                                    "." + FalseV->getName());
+    SpeculatedStore->setOperand(0, S);
+  }
+
+  // Hoist the instructions.
+  BB->getInstList().splice(BI, ThenBB->getInstList(), ThenBB->begin(),
+                           llvm::prior(ThenBB->end()));
 
   // Insert selects and rewrite the PHI operands.
   IRBuilder<true, NoFolder> Builder(BI);
-  for (unsigned i = 0, e = PHIs.size(); i != e; ++i) {
-    Value *TrueV = PHIs[i].first;
-    Value *FalseV = PHIs[i].second;
+  for (BasicBlock::iterator I = EndBB->begin();
+       PHINode *PN = dyn_cast<PHINode>(I); ++I) {
+    unsigned OrigI = PN->getBasicBlockIndex(BB);
+    unsigned ThenI = PN->getBasicBlockIndex(ThenBB);
+    Value *OrigV = PN->getIncomingValue(OrigI);
+    Value *ThenV = PN->getIncomingValue(ThenI);
+
+    // Skip PHIs which are trivial.
+    if (OrigV == ThenV)
+      continue;
 
     // Create a select whose true value is the speculatively executed value and
-    // false value is the previously determined FalseV.
-    SelectInst *SI;
+    // false value is the preexisting value. Swap them if the branch
+    // destinations were inverted.
+    Value *TrueV = ThenV, *FalseV = OrigV;
     if (Invert)
-      SI = cast<SelectInst>
-        (Builder.CreateSelect(BrCond, FalseV, TrueV,
-                              FalseV->getName() + "." + TrueV->getName()));
-    else
-      SI = cast<SelectInst>
-        (Builder.CreateSelect(BrCond, TrueV, FalseV,
-                              TrueV->getName() + "." + FalseV->getName()));
-
-    // Make the PHI node use the select for all incoming values for "then" and
-    // "if" blocks.
-    for (BasicBlock::iterator I = BB2->begin();
-         PHINode *PN = dyn_cast<PHINode>(I); ++I) {
-      unsigned BB1I = PN->getBasicBlockIndex(BB1);
-      unsigned BIParentI = PN->getBasicBlockIndex(BIParent);
-      Value *BB1V = PN->getIncomingValue(BB1I);
-      Value *BIParentV = PN->getIncomingValue(BIParentI);
-      if (TrueV == BB1V && FalseV == BIParentV) {
-        PN->setIncomingValue(BB1I, SI);
-        PN->setIncomingValue(BIParentI, SI);
-      }
-    }
+      std::swap(TrueV, FalseV);
+    Value *V = Builder.CreateSelect(BrCond, TrueV, FalseV,
+                                    TrueV->getName() + "." + FalseV->getName());
+    PN->setIncomingValue(OrigI, V);
+    PN->setIncomingValue(ThenI, V);
   }
 
   ++NumSpeculations;
@@ -2758,9 +2895,20 @@ bool SimplifyCFGOpt::SimplifyResume(ResumeInst *RI, IRBuilder<> &Builder) {
       return false;
 
   // Turn all invokes that unwind here into calls and delete the basic block.
+  bool InvokeRequiresTableEntry = false;
+  bool Changed = false;
   for (pred_iterator PI = pred_begin(BB), PE = pred_end(BB); PI != PE;) {
     InvokeInst *II = cast<InvokeInst>((*PI++)->getTerminator());
+
+    if (II->hasFnAttr(Attribute::UWTable)) {
+      // Don't remove an `invoke' instruction if the ABI requires an entry into
+      // the table.
+      InvokeRequiresTableEntry = true;
+      continue;
+    }
+
     SmallVector<Value*, 8> Args(II->op_begin(), II->op_end() - 3);
+
     // Insert a call instruction before the invoke.
     CallInst *Call = CallInst::Create(II->getCalledValue(), Args, "", II);
     Call->takeName(II);
@@ -2780,11 +2928,14 @@ bool SimplifyCFGOpt::SimplifyResume(ResumeInst *RI, IRBuilder<> &Builder) {
 
     // Finally, delete the invoke instruction!
     II->eraseFromParent();
+    Changed = true;
   }
 
-  // The landingpad is now unreachable.  Zap it.
-  BB->eraseFromParent();
-  return true;
+  if (!InvokeRequiresTableEntry)
+    // The landingpad is now unreachable.  Zap it.
+    BB->eraseFromParent();
+
+  return Changed;
 }
 
 bool SimplifyCFGOpt::SimplifyReturn(ReturnInst *RI, IRBuilder<> &Builder) {
@@ -3028,7 +3179,12 @@ static bool TurnSwitchRangeIntoICmp(SwitchInst *SI, IRBuilder<> &Builder) {
   Value *Sub = SI->getCondition();
   if (!Offset->isNullValue())
     Sub = Builder.CreateAdd(Sub, Offset, Sub->getName()+".off");
-  Value *Cmp = Builder.CreateICmpULT(Sub, NumCases, "switch");
+  Value *Cmp;
+  // If NumCases overflowed, then all possible values jump to the successor.
+  if (NumCases->isNullValue() && SI->getNumCases() != 0)
+    Cmp = ConstantInt::getTrue(SI->getContext());
+  else
+    Cmp = Builder.CreateICmpULT(Sub, NumCases, "switch");
   BranchInst *NewBI = Builder.CreateCondBr(
       Cmp, SI->case_begin().getCaseSuccessor(), SI->getDefaultDest());
 
@@ -3382,7 +3538,8 @@ SwitchLookupTable::SwitchLookupTable(Module &M,
                                      ConstantInt *Offset,
                const SmallVector<std::pair<ConstantInt*, Constant*>, 4>& Values,
                                      Constant *DefaultValue,
-                                     const DataLayout *TD) {
+                                     const DataLayout *TD)
+    : SingleValue(0), BitMap(0), BitMapElementTy(0), Array(0) {
   assert(Values.size() && "Can't build lookup table without values!");
   assert(TableSize >= Values.size() && "Can't fit values in table!");
 
@@ -3506,7 +3663,7 @@ bool SwitchLookupTable::WouldFitInRegister(const DataLayout *TD,
 }
 
 /// ShouldBuildLookupTable - Determine whether a lookup table should be built
-/// for this switch, based on the number of caes, size of the table and the
+/// for this switch, based on the number of cases, size of the table and the
 /// types of the results.
 static bool ShouldBuildLookupTable(SwitchInst *SI,
                                    uint64_t TableSize,
@@ -3912,11 +4069,13 @@ static bool passingValueIsAlwaysUndefined(Value *V, Instruction *I) {
 
     // Load from null is undefined.
     if (LoadInst *LI = dyn_cast<LoadInst>(Use))
-      return LI->getPointerAddressSpace() == 0;
+      if (!LI->isVolatile())
+        return LI->getPointerAddressSpace() == 0;
 
     // Store to null is undefined.
     if (StoreInst *SI = dyn_cast<StoreInst>(Use))
-      return SI->getPointerAddressSpace() == 0 && SI->getPointerOperand() == I;
+      if (!SI->isVolatile())
+        return SI->getPointerAddressSpace() == 0 && SI->getPointerOperand() == I;
   }
   return false;
 }

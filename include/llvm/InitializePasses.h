@@ -31,6 +31,10 @@ void initializeTransformUtils(PassRegistry&);
 /// ScalarOpts library.
 void initializeScalarOpts(PassRegistry&);
 
+/// initializeObjCARCOpts - Initialize all passes linked into the ObjCARCOpts
+/// library.
+void initializeObjCARCOpts(PassRegistry&);
+
 /// initializeVectorization - Initialize all passes linked into the
 /// Vectorize library.
 void initializeVectorization(PassRegistry&);
@@ -77,6 +81,8 @@ void initializeBoundsCheckingPass(PassRegistry&);
 void initializeBranchFolderPassPass(PassRegistry&);
 void initializeBranchProbabilityInfoPass(PassRegistry&);
 void initializeBreakCriticalEdgesPass(PassRegistry&);
+void initializeCallGraphPrinterPass(PassRegistry&);
+void initializeCallGraphViewerPass(PassRegistry&);
 void initializeCFGOnlyPrinterPass(PassRegistry&);
 void initializeCFGOnlyViewerPass(PassRegistry&);
 void initializeCFGPrinterPass(PassRegistry&);
@@ -85,7 +91,6 @@ void initializeCFGViewerPass(PassRegistry&);
 void initializeCalculateSpillWeightsPass(PassRegistry&);
 void initializeCallGraphAnalysisGroup(PassRegistry&);
 void initializeCodeGenPreparePass(PassRegistry&);
-void initializeCodePlacementOptPass(PassRegistry&);
 void initializeConstantMergePass(PassRegistry&);
 void initializeConstantPropagationPass(PassRegistry&);
 void initializeMachineCopyPropagationPass(PassRegistry&);
@@ -95,6 +100,7 @@ void initializeDAEPass(PassRegistry&);
 void initializeDAHPass(PassRegistry&);
 void initializeDCEPass(PassRegistry&);
 void initializeDSEPass(PassRegistry&);
+void initializeDebugIRPass(PassRegistry&);
 void initializeDeadInstEliminationPass(PassRegistry&);
 void initializeDeadMachineInstructionElimPass(PassRegistry&);
 void initializeDependenceAnalysisPass(PassRegistry&);
@@ -118,7 +124,6 @@ void initializeEarlyCSEPass(PassRegistry&);
 void initializeExpandISelPseudosPass(PassRegistry&);
 void initializeFindUsedTypesPass(PassRegistry&);
 void initializeFunctionAttrsPass(PassRegistry&);
-void initializeGCInfoDeleterPass(PassRegistry&);
 void initializeGCMachineCodeAnalysisPass(PassRegistry&);
 void initializeGCModuleInfoPass(PassRegistry&);
 void initializeGVNPass(PassRegistry&);
@@ -130,6 +135,7 @@ void initializeIPSCCPPass(PassRegistry&);
 void initializeIVUsersPass(PassRegistry&);
 void initializeIfConverterPass(PassRegistry&);
 void initializeIndVarSimplifyPass(PassRegistry&);
+void initializeInlineCostAnalysisPass(PassRegistry&);
 void initializeInstCombinerPass(PassRegistry&);
 void initializeInstCountPass(PassRegistry&);
 void initializeInstNamerPass(PassRegistry&);
@@ -207,9 +213,9 @@ void initializePostDomViewerPass(PassRegistry&);
 void initializePostDominatorTreePass(PassRegistry&);
 void initializePostRASchedulerPass(PassRegistry&);
 void initializePreVerifierPass(PassRegistry&);
-void initializePrintDbgInfoPass(PassRegistry&);
 void initializePrintFunctionPassPass(PassRegistry&);
 void initializePrintModulePassPass(PassRegistry&);
+void initializePrintBasicBlockPassPass(PassRegistry&);
 void initializeProcessImplicitDefsPass(PassRegistry&);
 void initializeProfileEstimatorPassPass(PassRegistry&);
 void initializeProfileInfoAnalysisGroup(PassRegistry&);
@@ -266,6 +272,7 @@ void initializeInstSimplifierPass(PassRegistry&);
 void initializeUnpackMachineBundlesPass(PassRegistry&);
 void initializeFinalizeMachineBundlesPass(PassRegistry&);
 void initializeLoopVectorizePass(PassRegistry&);
+void initializeSLPVectorizerPass(PassRegistry&);
 void initializeBBVectorizePass(PassRegistry&);
 void initializeMachineFunctionPrinterPassPass(PassRegistry&);
 }

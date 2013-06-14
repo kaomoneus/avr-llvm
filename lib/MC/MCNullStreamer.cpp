@@ -19,21 +19,25 @@ namespace {
 
   class MCNullStreamer : public MCStreamer {
   public:
-    MCNullStreamer(MCContext &Context) : MCStreamer(Context) {}
+    MCNullStreamer(MCContext &Context) : MCStreamer(SK_NullStreamer, Context) {}
 
     /// @name MCStreamer Interface
     /// @{
 
+    virtual void InitToTextSection() {
+    }
+
     virtual void InitSections() {
     }
 
-    virtual void ChangeSection(const MCSection *Section) {
+    virtual void ChangeSection(const MCSection *Section,
+                               const MCExpr *Subsection) {
     }
 
     virtual void EmitLabel(MCSymbol *Symbol) {
       assert(Symbol->isUndefined() && "Cannot define a symbol twice!");
-      assert(getCurrentSection() && "Cannot emit before setting section!");
-      Symbol->setSection(*getCurrentSection());
+      assert(getCurrentSection().first &&"Cannot emit before setting section!");
+      Symbol->setSection(*getCurrentSection().first);
     }
     virtual void EmitDebugLabel(MCSymbol *Symbol) {
       EmitLabel(Symbol);
@@ -86,7 +90,7 @@ namespace {
 
     virtual void EmitFileDirective(StringRef Filename) {}
     virtual bool EmitDwarfFileDirective(unsigned FileNo, StringRef Directory,
-                                        StringRef Filename) {
+                                        StringRef Filename, unsigned CUID = 0) {
       return false;
     }
     virtual void EmitDwarfLocDirective(unsigned FileNo, unsigned Line,
@@ -106,6 +110,11 @@ namespace {
     }
 
     /// @}
+
+    static bool classof(const MCStreamer *S) {
+      return S->getKind() == SK_NullStreamer;
+    }
+
   };
 
 }

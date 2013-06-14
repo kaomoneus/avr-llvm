@@ -38,7 +38,8 @@ def FeatureNEON : SubtargetFeature<"neon", "HasNEON", "true",
 def FeatureThumb2 : SubtargetFeature<"thumb2", "HasThumb2", "true",
                                      "Enable Thumb2 instructions">;
 def FeatureNoARM  : SubtargetFeature<"noarm", "NoARM", "true",
-                                     "Does not support ARM mode execution">;
+                                     "Does not support ARM mode execution",
+                                     [ModeThumb]>;
 def FeatureFP16   : SubtargetFeature<"fp16", "HasFP16", "true",
                                      "Enable half-precision floating point">;
 def FeatureVFP4   : SubtargetFeature<"vfp4", "HasVFPv4", "true",
@@ -59,6 +60,10 @@ def FeatureSlowFPBrcc : SubtargetFeature<"slow-fp-brcc", "SlowFPBrcc", "true",
                                          "FP compare + branch is slow">;
 def FeatureVFPOnlySP : SubtargetFeature<"fp-only-sp", "FPOnlySP", "true",
                           "Floating point unit supports single precision only">;
+def FeaturePerfMon : SubtargetFeature<"perfmon", "HasPerfMon", "true",
+                           "Enable support for Performance Monitor extensions">;
+def FeatureTrustZone : SubtargetFeature<"trustzone", "HasTrustZone", "true",
+                          "Enable support for TrustZone security extensions">;
 
 // Some processors have FP multiply-accumulate instructions that don't
 // play nicely with other VFP / NEON instructions, and it's generally better
@@ -110,6 +115,11 @@ def FeatureMP : SubtargetFeature<"mp", "HasMPExtension", "true",
 def FeatureMClass : SubtargetFeature<"mclass", "IsMClass", "true",
                                      "Is microcontroller profile ('M' series)">;
 
+// Special TRAP encoding for NaCl, which looks like a TRAP in Thumb too.
+// See ARMInstrInfo.td for details.
+def FeatureNaClTrap : SubtargetFeature<"nacl-trap", "UseNaClTrap", "true",
+                                       "NaCl trap">;
+
 // ARM ISAs.
 def HasV4TOps   : SubtargetFeature<"v4t", "HasV4TOps", "true",
                                    "Support ARM v4T instructions">;
@@ -127,7 +137,7 @@ def HasV6T2Ops  : SubtargetFeature<"v6t2", "HasV6T2Ops", "true",
                                    [HasV6Ops, FeatureThumb2]>;
 def HasV7Ops    : SubtargetFeature<"v7", "HasV7Ops", "true",
                                    "Support ARM v7 instructions",
-                                   [HasV6T2Ops]>;
+                                   [HasV6T2Ops, FeaturePerfMon]>;
 
 //===----------------------------------------------------------------------===//
 // ARM Processors supported.
@@ -138,35 +148,38 @@ include "ARMSchedule.td"
 // ARM processor families.
 def ProcA5      : SubtargetFeature<"a5", "ARMProcFamily", "CortexA5",
                                    "Cortex-A5 ARM processors",
-                                   [FeatureSlowFPBrcc, FeatureNEONForFP,
-                                    FeatureHasSlowFPVMLx, FeatureVMLxForwarding,
-                                    FeatureT2XtPk]>;
+                                   [FeatureSlowFPBrcc, FeatureHasSlowFPVMLx,
+                                    FeatureVMLxForwarding, FeatureT2XtPk,
+                                    FeatureTrustZone]>;
 def ProcA8      : SubtargetFeature<"a8", "ARMProcFamily", "CortexA8",
                                    "Cortex-A8 ARM processors",
-                                   [FeatureSlowFPBrcc, FeatureNEONForFP,
-                                    FeatureHasSlowFPVMLx, FeatureVMLxForwarding,
-                                    FeatureT2XtPk]>;
+                                   [FeatureSlowFPBrcc, FeatureHasSlowFPVMLx,
+                                    FeatureVMLxForwarding, FeatureT2XtPk,
+                                    FeatureTrustZone]>;
 def ProcA9      : SubtargetFeature<"a9", "ARMProcFamily", "CortexA9",
                                    "Cortex-A9 ARM processors",
                                    [FeatureVMLxForwarding,
                                     FeatureT2XtPk, FeatureFP16,
-                                    FeatureAvoidPartialCPSR]>;
+                                    FeatureAvoidPartialCPSR,
+                                    FeatureTrustZone]>;
 def ProcSwift   : SubtargetFeature<"swift", "ARMProcFamily", "Swift",
                                    "Swift ARM processors",
                                    [FeatureNEONForFP, FeatureT2XtPk,
                                     FeatureVFP4, FeatureMP, FeatureHWDiv,
                                     FeatureHWDivARM, FeatureAvoidPartialCPSR,
                                     FeatureAvoidMOVsShOp,
-                                    FeatureHasSlowFPVMLx]>;
+                                    FeatureHasSlowFPVMLx, FeatureTrustZone]>;
 
 // FIXME: It has not been determined if A15 has these features.
 def ProcA15      : SubtargetFeature<"a15", "ARMProcFamily", "CortexA15",
                                    "Cortex-A15 ARM processors",
                                    [FeatureT2XtPk, FeatureFP16,
-                                    FeatureAvoidPartialCPSR]>;
+                                    FeatureAvoidPartialCPSR,
+                                    FeatureTrustZone]>;
 def ProcR5      : SubtargetFeature<"r5", "ARMProcFamily", "CortexR5",
                                    "Cortex-R5 ARM processors",
-                                   [FeatureSlowFPBrcc, FeatureHWDivARM,
+                                   [FeatureSlowFPBrcc,
+                                    FeatureHWDiv, FeatureHWDivARM,
                                     FeatureHasSlowFPVMLx,
                                     FeatureAvoidPartialCPSR,
                                     FeatureT2XtPk]>;

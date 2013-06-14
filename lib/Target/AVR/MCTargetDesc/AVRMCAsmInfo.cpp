@@ -18,9 +18,9 @@ using namespace llvm;
 
 void AVRMCAsmInfo::anchor() { }
 
-AVRMCAsmInfo::AVRMCAsmInfo(const Target &T, StringRef TT)
+AVRMCAsmInfo::AVRMCAsmInfo(StringRef TT)
 {
-  PointerSize = 2;
+  PointerSize = CalleeSaveStackSlotSize = 2;
 
   PCSymbol = ".";
   CommentString = ";";

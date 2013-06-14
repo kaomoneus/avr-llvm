@@ -151,10 +151,6 @@ ADDITIONAL OPTIONS
 
  List the discovered test suites as part of the standard output.
 
-.. option:: --no-tcl-as-sh
-
- Run Tcl scripts internally (instead of converting to shell scripts).
-
 .. option:: --repeat=N
 
  Run each test ``N`` times.  Currently this is primarily useful for timing
@@ -287,7 +283,7 @@ executed, two important global variables are predefined:
  discover and run tests in the test suite.  Generally this will be a builtin test
  format available from the *lit.formats* module.
 
- **test_src_root** The filesystem path to the test suite root.  For out-of-dir
+ **test_source_root** The filesystem path to the test suite root.  For out-of-dir
  builds this is the directory that will be scanned for tests.
 
  **test_exec_root** For out-of-dir builds, the path to the test suite root inside
@@ -298,14 +294,13 @@ executed, two important global variables are predefined:
  tests in the suite.
 
  **suffixes** For **lit** test formats which scan directories for tests, this
- variable is a list of suffixes to identify test files.  Used by: *ShTest*,
- *TclTest*.
+ variable is a list of suffixes to identify test files.  Used by: *ShTest*.
 
  **substitutions** For **lit** test formats which substitute variables into a test
- script, the list of substitutions to perform.  Used by: *ShTest*, *TclTest*.
+ script, the list of substitutions to perform.  Used by: *ShTest*.
 
  **unsupported** Mark an unsupported directory, all tests within it will be
- reported as unsupported.  Used by: *ShTest*, *TclTest*.
+ reported as unsupported.  Used by: *ShTest*.
 
  **parent** The parent configuration, this is the config object for the directory
  containing the test suite, or None.
@@ -325,7 +320,7 @@ TEST DISCOVERY
 ~~~~~~~~~~~~~~
 
 Once test suites are located, :program:`lit` recursively traverses the source
-directory (following *test_src_root*) looking for tests.  When :program:`lit`
+directory (following *test_source_root*) looking for tests.  When :program:`lit`
 enters a sub-directory, it first checks to see if a nested test suite is
 defined in that directory.  If so, it loads that test suite recursively,
 otherwise it instantiates a local test config for the directory (see

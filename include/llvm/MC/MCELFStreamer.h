@@ -28,15 +28,20 @@ class MCSymbolData;
 class raw_ostream;
 
 class MCELFStreamer : public MCObjectStreamer {
-public:
-  MCELFStreamer(MCContext &Context, MCAsmBackend &TAB,
+protected:
+  MCELFStreamer(StreamerKind Kind, MCContext &Context, MCAsmBackend &TAB,
                 raw_ostream &OS, MCCodeEmitter *Emitter)
-    : MCObjectStreamer(Context, TAB, OS, Emitter) {}
+      : MCObjectStreamer(Kind, Context, TAB, OS, Emitter) {}
 
-  MCELFStreamer(MCContext &Context, MCAsmBackend &TAB,
-                raw_ostream &OS, MCCodeEmitter *Emitter,
-                MCAssembler *Assembler)
-    : MCObjectStreamer(Context, TAB, OS, Emitter, Assembler) {}
+public:
+  MCELFStreamer(MCContext &Context, MCAsmBackend &TAB, raw_ostream &OS,
+                MCCodeEmitter *Emitter)
+      : MCObjectStreamer(SK_ELFStreamer, Context, TAB, OS, Emitter) {}
+
+  MCELFStreamer(MCContext &Context, MCAsmBackend &TAB, raw_ostream &OS,
+                MCCodeEmitter *Emitter, MCAssembler *Assembler)
+      : MCObjectStreamer(SK_ELFStreamer, Context, TAB, OS, Emitter,
+                         Assembler) {}
 
   virtual ~MCELFStreamer();
 
@@ -44,7 +49,9 @@ public:
   /// @{
 
   virtual void InitSections();
-  virtual void ChangeSection(const MCSection *Section);
+  virtual void InitToTextSection();
+  virtual void ChangeSection(const MCSection *Section,
+                             const MCExpr *Subsection);
   virtual void EmitLabel(MCSymbol *Symbol);
   virtual void EmitDebugLabel(MCSymbol *Symbol);
   virtual void EmitAssemblerFlag(MCAssemblerFlag Flag);
@@ -58,6 +65,8 @@ public:
   virtual void EmitCOFFSymbolStorageClass(int StorageClass);
   virtual void EmitCOFFSymbolType(int Type);
   virtual void EndCOFFSymbolDef();
+
+  virtual MCSymbolData &getOrCreateSymbolData(MCSymbol *Symbol);
 
   virtual void EmitELFSize(MCSymbol *Symbol, const MCExpr *Value);
 
@@ -79,6 +88,10 @@ public:
 
   virtual void FinishImpl();
   /// @}
+
+  static bool classof(const MCStreamer *S) {
+    return S->getKind() == SK_ELFStreamer || S->getKind() == SK_ARMELFStreamer;
+  }
 
 private:
   virtual void EmitInstToFragment(const MCInst &Inst);

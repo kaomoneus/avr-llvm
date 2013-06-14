@@ -49,6 +49,7 @@ X86_32TargetMachine::X86_32TargetMachine(const Target &T, StringRef TT,
     TLInfo(*this),
     TSInfo(*this),
     JITInfo(*this) {
+  initAsmInfo();
 }
 
 void X86_64TargetMachine::anchor() { }
@@ -59,12 +60,17 @@ X86_64TargetMachine::X86_64TargetMachine(const Target &T, StringRef TT,
                                          Reloc::Model RM, CodeModel::Model CM,
                                          CodeGenOpt::Level OL)
   : X86TargetMachine(T, TT, CPU, FS, Options, RM, CM, OL, true),
-    DL("e-p:64:64-s:64-f64:64:64-i64:64:64-f80:128:128-f128:128:128-"
-               "n8:16:32:64-S128"),
+    // The x32 ABI dictates the ILP32 programming model for x64.
+    DL(getSubtargetImpl()->isTarget64BitILP32() ?
+        "e-p:32:32-s:64-f64:64:64-i64:64:64-f80:128:128-f128:128:128-"
+        "n8:16:32:64-S128" :
+        "e-p:64:64-s:64-f64:64:64-i64:64:64-f80:128:128-f128:128:128-"
+        "n8:16:32:64-S128"),
     InstrInfo(*this),
     TLInfo(*this),
     TSInfo(*this),
     JITInfo(*this) {
+  initAsmInfo();
 }
 
 /// X86TargetMachine ctor - Create an X86 target.
@@ -151,6 +157,7 @@ public:
   }
 
   virtual bool addInstSelector();
+  virtual bool addILPOpts();
   virtual bool addPreRegAlloc();
   virtual bool addPostRegAlloc();
   virtual bool addPreEmitPass();
@@ -158,12 +165,7 @@ public:
 } // namespace
 
 TargetPassConfig *X86TargetMachine::createPassConfig(PassManagerBase &PM) {
-  X86PassConfig *PC = new X86PassConfig(this, PM);
-
-  if (X86EarlyIfConv && Subtarget.hasCMov())
-    PC->enablePass(&EarlyIfConverterID);
-
-  return PC;
+  return new X86PassConfig(this, PM);
 }
 
 bool X86PassConfig::addInstSelector() {
@@ -178,6 +180,14 @@ bool X86PassConfig::addInstSelector() {
   if (!getX86Subtarget().is64Bit())
     addPass(createGlobalBaseRegPass());
 
+  return false;
+}
+
+bool X86PassConfig::addILPOpts() {
+  if (X86EarlyIfConv && getX86Subtarget().hasCMov()) {
+    addPass(&EarlyIfConverterID);
+    return true;
+  }
   return false;
 }
 
@@ -205,6 +215,11 @@ bool X86PassConfig::addPreEmitPass() {
   if (getOptLevel() != CodeGenOpt::None &&
       getX86Subtarget().padShortFunctions()) {
     addPass(createX86PadShortFunctions());
+    ShouldPrint = true;
+  }
+  if (getOptLevel() != CodeGenOpt::None &&
+      getX86Subtarget().LEAusesAG()){
+    addPass(createX86FixupLEAs());
     ShouldPrint = true;
   }
 

@@ -23,8 +23,8 @@ class AVRReg<bits<6> num, string n, list<Register> subregs = []>
 // subregister indices
 let Namespace = "AVR" in
 {
-  def sub_lo : SubRegIndex;
-  def sub_hi : SubRegIndex;
+  def sub_lo : SubRegIndex<8>;
+  def sub_hi : SubRegIndex<8, 8>;
 }
 
 //===----------------------------------------------------------------------===//
@@ -71,7 +71,7 @@ let SubRegIndices = [sub_lo, sub_hi],
 CoveredBySubRegs = 1 in
 {
   // 16 bit register pairs
-  def SP     : AVRReg<32, "SP",      [SPL, SPH]>, DwarfRegNum<[32]>;
+  def SP     : AVRReg<32, "SP",  [SPL, SPH]>, DwarfRegNum<[32]>;
   def R31R30 : AVRReg<30, "r30", [R30, R31]>, DwarfRegNum<[30]>;
   def R29R28 : AVRReg<28, "r28", [R28, R29]>, DwarfRegNum<[28]>;
   def R27R26 : AVRReg<26, "r26", [R26, R27]>, DwarfRegNum<[26]>;

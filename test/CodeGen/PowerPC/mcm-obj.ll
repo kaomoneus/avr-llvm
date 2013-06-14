@@ -1,5 +1,7 @@
 ; RUN: llc -O0 -mcpu=pwr7 -code-model=medium -filetype=obj %s -o - | \
-; RUN: elf-dump --dump-section-data | FileCheck %s
+; RUN: llvm-readobj -r | FileCheck -check-prefix=MEDIUM %s
+; RUN: llc -O0 -mcpu=pwr7 -code-model=large -filetype=obj %s -o - | \
+; RUN: llvm-readobj -r | FileCheck -check-prefix=LARGE %s
 
 ; FIXME: When asm-parse is available, could make this an assembly test.
 
@@ -19,15 +21,15 @@ entry:
 ; Verify generation of R_PPC64_TOC16_HA and R_PPC64_TOC16_LO_DS for
 ; accessing external variable ei.
 ;
-; CHECK:       '.rela.text'
-; CHECK:       Relocation 0
-; CHECK-NEXT:  'r_offset'
-; CHECK-NEXT:  'r_sym', 0x[[SYM1:[0-9]+]]
-; CHECK-NEXT:  'r_type', 0x00000032
-; CHECK:       Relocation 1
-; CHECK-NEXT:  'r_offset'
-; CHECK-NEXT:  'r_sym', 0x[[SYM1]]
-; CHECK-NEXT:  'r_type', 0x00000040
+; MEDIUM:      Relocations [
+; MEDIUM:        Section (2) .rela.text {
+; MEDIUM-NEXT:     0x{{[0-9,A-F]+}} R_PPC64_TOC16_HA [[SYM1:[^ ]+]]
+; MEDIUM-NEXT:     0x{{[0-9,A-F]+}} R_PPC64_TOC16_LO_DS [[SYM1]]
+;
+; LARGE:       Relocations [
+; LARGE:         Section (2) .rela.text {
+; LARGE-NEXT:      0x{{[0-9,A-F]+}} R_PPC64_TOC16_HA [[SYM1:[^ ]+]]
+; LARGE-NEXT:      0x{{[0-9,A-F]+}} R_PPC64_TOC16_LO_DS [[SYM1]]
 
 @test_fn_static.si = internal global i32 0, align 4
 
@@ -42,14 +44,14 @@ entry:
 ; Verify generation of R_PPC64_TOC16_HA and R_PPC64_TOC16_LO for
 ; accessing function-scoped variable si.
 ;
-; CHECK:       Relocation 2
-; CHECK-NEXT:  'r_offset'
-; CHECK-NEXT:  'r_sym', 0x[[SYM2:[0-9]+]]
-; CHECK-NEXT:  'r_type', 0x00000032
-; CHECK:       Relocation 3
-; CHECK-NEXT:  'r_offset'
-; CHECK-NEXT:  'r_sym', 0x[[SYM2]]
-; CHECK-NEXT:  'r_type', 0x00000030
+; MEDIUM-NEXT:     0x{{[0-9,A-F]+}} R_PPC64_TOC16_HA [[SYM2:[^ ]+]]
+; MEDIUM-NEXT:     0x{{[0-9,A-F]+}} R_PPC64_TOC16_LO [[SYM2]]
+;
+; Verify generation of R_PPC64_TOC16_HA and R_PPC64_TOC16_LO_DS for
+; accessing function-scoped variable si.
+;
+; LARGE-NEXT:      0x{{[0-9,A-F]+}} R_PPC64_TOC16_HA [[SYM2:[^ ]+]]
+; LARGE-NEXT:      0x{{[0-9,A-F]+}} R_PPC64_TOC16_LO_DS [[SYM2]]
 
 @gi = global i32 5, align 4
 
@@ -64,14 +66,14 @@ entry:
 ; Verify generation of R_PPC64_TOC16_HA and R_PPC64_TOC16_LO for
 ; accessing file-scope variable gi.
 ;
-; CHECK:       Relocation 4
-; CHECK-NEXT:  'r_offset'
-; CHECK-NEXT:  'r_sym', 0x[[SYM3:[0-9]+]]
-; CHECK-NEXT:  'r_type', 0x00000032
-; CHECK:       Relocation 5
-; CHECK-NEXT:  'r_offset'
-; CHECK-NEXT:  'r_sym', 0x[[SYM3]]
-; CHECK-NEXT:  'r_type', 0x00000030
+; MEDIUM-NEXT:     0x{{[0-9,A-F]+}} R_PPC64_TOC16_HA [[SYM3:[^ ]+]]
+; MEDIUM-NEXT:     0x{{[0-9,A-F]+}} R_PPC64_TOC16_LO [[SYM3]]
+;
+; Verify generation of R_PPC64_TOC16_HA and R_PPC64_TOC16_LO_DS for
+; accessing file-scope variable gi.
+;
+; LARGE-NEXT:      0x{{[0-9,A-F]+}} R_PPC64_TOC16_HA [[SYM3:[^ ]+]]
+; LARGE-NEXT:      0x{{[0-9,A-F]+}} R_PPC64_TOC16_LO_DS [[SYM3]]
 
 define double @test_double_const() nounwind {
 entry:
@@ -81,14 +83,14 @@ entry:
 ; Verify generation of R_PPC64_TOC16_HA and R_PPC64_TOC16_LO for
 ; accessing a constant.
 ;
-; CHECK:       Relocation 6
-; CHECK-NEXT:  'r_offset'
-; CHECK-NEXT:  'r_sym', 0x[[SYM4:[0-9]+]]
-; CHECK-NEXT:  'r_type', 0x00000032
-; CHECK:       Relocation 7
-; CHECK-NEXT:  'r_offset'
-; CHECK-NEXT:  'r_sym', 0x[[SYM4]]
-; CHECK-NEXT:  'r_type', 0x00000030
+; MEDIUM-NEXT:     0x{{[0-9,A-F]+}} R_PPC64_TOC16_HA [[SYM4:[^ ]+]]
+; MEDIUM-NEXT:     0x{{[0-9,A-F]+}} R_PPC64_TOC16_LO [[SYM4]]
+;
+; Verify generation of R_PPC64_TOC16_HA and R_PPC64_TOC16_LO_DS for
+; accessing a constant.
+;
+; LARGE-NEXT:      0x{{[0-9,A-F]+}} R_PPC64_TOC16_HA [[SYM4:[^ ]+]]
+; LARGE-NEXT:      0x{{[0-9,A-F]+}} R_PPC64_TOC16_LO_DS [[SYM4]]
 
 define signext i32 @test_jump_table(i32 signext %i) nounwind {
 entry:
@@ -137,14 +139,11 @@ sw.epilog:                                        ; preds = %sw.bb3, %sw.default
 ; Verify generation of R_PPC64_TOC16_HA and R_PPC64_TOC16_LO_DS for
 ; accessing a jump table address.
 ;
-; CHECK:       Relocation 8
-; CHECK-NEXT:  'r_offset'
-; CHECK-NEXT:  'r_sym', 0x[[SYM5:[0-9]+]]
-; CHECK-NEXT:  'r_type', 0x00000032
-; CHECK:       Relocation 9
-; CHECK-NEXT:  'r_offset'
-; CHECK-NEXT:  'r_sym', 0x[[SYM5]]
-; CHECK-NEXT:  'r_type', 0x00000040
+; MEDIUM-NEXT:     0x{{[0-9,A-F]+}} R_PPC64_TOC16_HA [[SYM5:[^ ]+]]
+; MEDIUM-NEXT:     0x{{[0-9,A-F]+}} R_PPC64_TOC16_LO_DS [[SYM5]]
+;
+; LARGE-NEXT:      0x{{[0-9,A-F]+}} R_PPC64_TOC16_HA [[SYM5:[^ ]+]]
+; LARGE-NEXT:      0x{{[0-9,A-F]+}} R_PPC64_TOC16_LO_DS [[SYM5]]
 
 @ti = common global i32 0, align 4
 
@@ -159,14 +158,11 @@ entry:
 ; Verify generation of R_PPC64_TOC16_HA and R_PPC64_TOC16_LO_DS for
 ; accessing tentatively declared variable ti.
 ;
-; CHECK:       Relocation 10
-; CHECK-NEXT:  'r_offset'
-; CHECK-NEXT:  'r_sym', 0x[[SYM6:[0-9]+]]
-; CHECK-NEXT:  'r_type', 0x00000032
-; CHECK:       Relocation 11
-; CHECK-NEXT:  'r_offset'
-; CHECK-NEXT:  'r_sym', 0x[[SYM6]]
-; CHECK-NEXT:  'r_type', 0x00000040
+; MEDIUM-NEXT:     0x{{[0-9,A-F]+}} R_PPC64_TOC16_HA [[SYM6:[^ ]+]]
+; MEDIUM-NEXT:     0x{{[0-9,A-F]+}} R_PPC64_TOC16_LO_DS [[SYM6]]
+;
+; LARGE-NEXT:      0x{{[0-9,A-F]+}} R_PPC64_TOC16_HA [[SYM6:[^ ]+]]
+; LARGE-NEXT:      0x{{[0-9,A-F]+}} R_PPC64_TOC16_LO_DS [[SYM6]]
 
 define i8* @test_fnaddr() nounwind {
 entry:
@@ -182,12 +178,8 @@ declare signext i32 @foo(i32 signext)
 ; Verify generation of R_PPC64_TOC16_HA and R_PPC64_TOC16_LO_DS for
 ; accessing function address foo.
 ;
-; CHECK:       Relocation 12
-; CHECK-NEXT:  'r_offset'
-; CHECK-NEXT:  'r_sym', 0x[[SYM7:[0-9]+]]
-; CHECK-NEXT:  'r_type', 0x00000032
-; CHECK:       Relocation 13
-; CHECK-NEXT:  'r_offset'
-; CHECK-NEXT:  'r_sym', 0x[[SYM7]]
-; CHECK-NEXT:  'r_type', 0x00000040
-
+; MEDIUM-NEXT:     0x{{[0-9,A-F]+}} R_PPC64_TOC16_HA [[SYM7:[^ ]+]]
+; MEDIUM-NEXT:     0x{{[0-9,A-F]+}} R_PPC64_TOC16_LO_DS [[SYM7]]
+;
+; LARGE-NEXT:      0x{{[0-9,A-F]+}} R_PPC64_TOC16_HA [[SYM7:[^ ]+]]
+; LARGE-NEXT:      0x{{[0-9,A-F]+}} R_PPC64_TOC16_LO_DS [[SYM7]]

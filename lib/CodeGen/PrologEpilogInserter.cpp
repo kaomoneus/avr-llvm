@@ -35,10 +35,10 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetFrameLowering.h"
 #include "llvm/Target/TargetInstrInfo.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Target/TargetOptions.h"
 #include "llvm/Target/TargetRegisterInfo.h"
 #include <climits>
 
@@ -46,6 +46,11 @@ using namespace llvm;
 
 char PEI::ID = 0;
 char &llvm::PrologEpilogCodeInserterID = PEI::ID;
+
+static cl::opt<unsigned>
+WarnStackSize("warn-stack-size", cl::Hidden, cl::init((unsigned)-1),
+              cl::desc("Warn for stack size bigger than the given"
+                       " number"));
 
 INITIALIZE_PASS_BEGIN(PEI, "prologepilog",
                 "Prologue/Epilogue Insertion", false, false)
@@ -56,7 +61,6 @@ INITIALIZE_PASS_END(PEI, "prologepilog",
                     "Prologue/Epilogue Insertion & Frame Finalization",
                     false, false)
 
-STATISTIC(NumVirtualFrameRegs, "Number of virtual frame regs encountered");
 STATISTIC(NumScavengedRegs, "Number of frame index regs scavenged");
 STATISTIC(NumBytesStackSpace,
           "Number of bytes used for stack in all functions");
@@ -102,7 +106,7 @@ bool PEI::runOnMachineFunction(MachineFunction &Fn) {
 
   // Allow the target machine to make final modifications to the function
   // before the frame layout is finalized.
-  TFI->processFunctionBeforeFrameFinalized(Fn);
+  TFI->processFunctionBeforeFrameFinalized(Fn, RS);
 
   // Calculate actual frame offsets for all abstract stack objects...
   calculateFrameObjectOffsets(Fn);
@@ -130,6 +134,13 @@ bool PEI::runOnMachineFunction(MachineFunction &Fn) {
   // Clear any vregs created by virtual scavenging.
   Fn.getRegInfo().clearVirtRegs();
 
+  // Warn on stack size when we exceeds the given limit.
+  MachineFrameInfo *MFI = Fn.getFrameInfo();
+  if (WarnStackSize.getNumOccurrences() > 0 &&
+      WarnStackSize < MFI->getStackSize())
+    errs() << "warning: Stack size limit exceeded (" << MFI->getStackSize()
+           << ") in " << Fn.getName()  << ".\n";
+
   delete RS;
   clearAllSets();
   return true;
@@ -139,7 +150,6 @@ bool PEI::runOnMachineFunction(MachineFunction &Fn) {
 /// variables for the function's frame information and eliminate call frame
 /// pseudo instructions.
 void PEI::calculateCallsInformation(MachineFunction &Fn) {
-  const TargetRegisterInfo *RegInfo = Fn.getTarget().getRegisterInfo();
   const TargetInstrInfo &TII = *Fn.getTarget().getInstrInfo();
   const TargetFrameLowering *TFI = Fn.getTarget().getFrameLowering();
   MachineFrameInfo *MFI = Fn.getFrameInfo();
@@ -186,7 +196,7 @@ void PEI::calculateCallsInformation(MachineFunction &Fn) {
     // here. The sub/add sp instruction pairs are still inserted, but we don't
     // need to track the SP adjustment for frame index elimination.
     if (TFI->canSimplifyCallFramePseudos(Fn))
-      RegInfo->eliminateCallFramePseudoInstr(Fn, *I->getParent(), I);
+      TFI->eliminateCallFramePseudoInstr(Fn, *I->getParent(), I);
   }
 }
 
@@ -550,9 +560,11 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &Fn) {
   const TargetRegisterInfo *RegInfo = Fn.getTarget().getRegisterInfo();
   if (RS && TFI.hasFP(Fn) && RegInfo->useFPForScavengingIndex(Fn) &&
       !RegInfo->needsStackRealignment(Fn)) {
-    int SFI = RS->getScavengingFrameIndex();
-    if (SFI >= 0)
-      AdjustStackOffset(MFI, SFI, StackGrowsDown, Offset, MaxAlign);
+    SmallVector<int, 2> SFIs;
+    RS->getScavengingFrameIndices(SFIs);
+    for (SmallVector<int, 2>::iterator I = SFIs.begin(),
+         IE = SFIs.end(); I != IE; ++I)
+      AdjustStackOffset(MFI, *I, StackGrowsDown, Offset, MaxAlign);
   }
 
   // FIXME: Once this is working, then enable flag will change to a target
@@ -595,7 +607,7 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &Fn) {
         continue;
       if (i >= MinCSFrameIndex && i <= MaxCSFrameIndex)
         continue;
-      if (RS && (int)i == RS->getScavengingFrameIndex())
+      if (RS && RS->isScavengingFrameIndex((int)i))
         continue;
       if (MFI->isDeadObjectIndex(i))
         continue;
@@ -617,7 +629,7 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &Fn) {
       continue;
     if (i >= MinCSFrameIndex && i <= MaxCSFrameIndex)
       continue;
-    if (RS && (int)i == RS->getScavengingFrameIndex())
+    if (RS && RS->isScavengingFrameIndex((int)i))
       continue;
     if (MFI->isDeadObjectIndex(i))
       continue;
@@ -633,9 +645,11 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &Fn) {
   // stack pointer.
   if (RS && (!TFI.hasFP(Fn) || RegInfo->needsStackRealignment(Fn) ||
              !RegInfo->useFPForScavengingIndex(Fn))) {
-    int SFI = RS->getScavengingFrameIndex();
-    if (SFI >= 0)
-      AdjustStackOffset(MFI, SFI, StackGrowsDown, Offset, MaxAlign);
+    SmallVector<int, 2> SFIs;
+    RS->getScavengingFrameIndices(SFIs);
+    for (SmallVector<int, 2>::iterator I = SFIs.begin(),
+         IE = SFIs.end(); I != IE; ++I)
+      AdjustStackOffset(MFI, *I, StackGrowsDown, Offset, MaxAlign);
   }
 
   if (!TFI.targetHandlesStackFrameRounding()) {
@@ -693,6 +707,14 @@ void PEI::insertPrologEpilogCode(MachineFunction &Fn) {
   // space in small chunks instead of one large contiguous block.
   if (Fn.getTarget().Options.EnableSegmentedStacks)
     TFI.adjustForSegmentedStacks(Fn);
+
+  // Emit additional code that is required to explicitly handle the stack in
+  // HiPE native code (if needed) when loaded in the Erlang/OTP runtime. The
+  // approach is rather similar to that of Segmented Stacks, but it uses a
+  // different conditional check and another BIF for allocating more stack
+  // space.
+  if (Fn.getFunction()->getCallingConv() == CallingConv::HiPE)
+    TFI.adjustForHiPEPrologue(Fn);
 }
 
 /// replaceFrameIndices - Replace all MO_FrameIndex operands with physical
@@ -739,7 +761,7 @@ void PEI::replaceFrameIndices(MachineFunction &Fn) {
 
         MachineBasicBlock::iterator PrevI = BB->end();
         if (I != BB->begin()) PrevI = prior(I);
-        TRI.eliminateCallFramePseudoInstr(Fn, *BB, I);
+        TFI->eliminateCallFramePseudoInstr(Fn, *BB, I);
 
         // Visit the instructions created by eliminateCallFramePseudoInstr().
         if (PrevI == BB->end())
@@ -751,33 +773,35 @@ void PEI::replaceFrameIndices(MachineFunction &Fn) {
 
       MachineInstr *MI = I;
       bool DoIncr = true;
-      for (unsigned i = 0, e = MI->getNumOperands(); i != e; ++i)
-        if (MI->getOperand(i).isFI()) {
-          // Some instructions (e.g. inline asm instructions) can have
-          // multiple frame indices and/or cause eliminateFrameIndex
-          // to insert more than one instruction. We need the register
-          // scavenger to go through all of these instructions so that
-          // it can update its register information. We keep the
-          // iterator at the point before insertion so that we can
-          // revisit them in full.
-          bool AtBeginning = (I == BB->begin());
-          if (!AtBeginning) --I;
+      for (unsigned i = 0, e = MI->getNumOperands(); i != e; ++i) {
+        if (!MI->getOperand(i).isFI())
+            continue;
 
-          // If this instruction has a FrameIndex operand, we need to
-          // use that target machine register info object to eliminate
-          // it.
-          TRI.eliminateFrameIndex(MI, SPAdj,
-                                  FrameIndexVirtualScavenging ?  NULL : RS);
+        // Some instructions (e.g. inline asm instructions) can have
+        // multiple frame indices and/or cause eliminateFrameIndex
+        // to insert more than one instruction. We need the register
+        // scavenger to go through all of these instructions so that
+        // it can update its register information. We keep the
+        // iterator at the point before insertion so that we can
+        // revisit them in full.
+        bool AtBeginning = (I == BB->begin());
+        if (!AtBeginning) --I;
 
-          // Reset the iterator if we were at the beginning of the BB.
-          if (AtBeginning) {
-            I = BB->begin();
-            DoIncr = false;
-          }
+        // If this instruction has a FrameIndex operand, we need to
+        // use that target machine register info object to eliminate
+        // it.
+        TRI.eliminateFrameIndex(MI, SPAdj, i,
+                                FrameIndexVirtualScavenging ?  NULL : RS);
 
-          MI = 0;
-          break;
+        // Reset the iterator if we were at the beginning of the BB.
+        if (AtBeginning) {
+          I = BB->begin();
+          DoIncr = false;
         }
+
+        MI = 0;
+        break;
+      }
 
       if (DoIncr && I != BB->end()) ++I;
 
@@ -808,14 +832,28 @@ void PEI::scavengeFrameVirtualRegs(MachineFunction &Fn) {
        E = Fn.end(); BB != E; ++BB) {
     RS->enterBasicBlock(BB);
 
-    unsigned VirtReg = 0;
-    unsigned ScratchReg = 0;
     int SPAdj = 0;
 
     // The instruction stream may change in the loop, so check BB->end()
     // directly.
     for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end(); ) {
+      // We might end up here again with a NULL iterator if we scavenged a
+      // register for which we inserted spill code for definition by what was
+      // originally the first instruction in BB.
+      if (I == MachineBasicBlock::iterator(NULL))
+        I = BB->begin();
+
       MachineInstr *MI = I;
+      MachineBasicBlock::iterator J = llvm::next(I);
+      MachineBasicBlock::iterator P = I == BB->begin() ?
+        MachineBasicBlock::iterator(NULL) : llvm::prior(I);
+
+      // RS should process this instruction before we might scavenge at this
+      // location. This is because we might be replacing a virtual register
+      // defined by this instruction, and if so, registers killed by this
+      // instruction are available, and defined registers are not.
+      RS->forward(I);
+
       for (unsigned i = 0, e = MI->getNumOperands(); i != e; ++i) {
         if (MI->getOperand(i).isReg()) {
           MachineOperand &MO = MI->getOperand(i);
@@ -825,29 +863,47 @@ void PEI::scavengeFrameVirtualRegs(MachineFunction &Fn) {
           if (!TargetRegisterInfo::isVirtualRegister(Reg))
             continue;
 
-          ++NumVirtualFrameRegs;
+          // When we first encounter a new virtual register, it
+          // must be a definition.
+          assert(MI->getOperand(i).isDef() &&
+                 "frame index virtual missing def!");
+          // Scavenge a new scratch register
+          const TargetRegisterClass *RC = Fn.getRegInfo().getRegClass(Reg);
+          unsigned ScratchReg = RS->scavengeRegister(RC, J, SPAdj);
 
-          // Have we already allocated a scratch register for this virtual?
-          if (Reg != VirtReg) {
-            // When we first encounter a new virtual register, it
-            // must be a definition.
-            assert(MI->getOperand(i).isDef() &&
-                   "frame index virtual missing def!");
-            // Scavenge a new scratch register
-            VirtReg = Reg;
-            const TargetRegisterClass *RC = Fn.getRegInfo().getRegClass(Reg);
-            ScratchReg = RS->scavengeRegister(RC, I, SPAdj);
-            ++NumScavengedRegs;
-          }
+          ++NumScavengedRegs;
+
           // Replace this reference to the virtual register with the
           // scratch register.
           assert (ScratchReg && "Missing scratch register!");
-          MI->getOperand(i).setReg(ScratchReg);
+          Fn.getRegInfo().replaceRegWith(Reg, ScratchReg);
 
+          // Because this instruction was processed by the RS before this
+          // register was allocated, make sure that the RS now records the
+          // register as being used.
+          RS->setUsed(ScratchReg);
         }
       }
-      RS->forward(I);
-      ++I;
+
+      // If the scavenger needed to use one of its spill slots, the
+      // spill code will have been inserted in between I and J. This is a
+      // problem because we need the spill code before I: Move I to just
+      // prior to J.
+      if (I != llvm::prior(J)) {
+        BB->splice(J, BB, I);
+
+        // Before we move I, we need to prepare the RS to visit I again.
+        // Specifically, RS will assert if it sees uses of registers that
+        // it believes are undefined. Because we have already processed
+        // register kills in I, when it visits I again, it will believe that
+        // those registers are undefined. To avoid this situation, unprocess
+        // the instruction I.
+        assert(RS->getCurrentPosition() == I &&
+          "The register scavenger has an unexpected position");
+        I = P;
+        RS->unprocess(P);
+      } else
+        ++I;
     }
   }
 }

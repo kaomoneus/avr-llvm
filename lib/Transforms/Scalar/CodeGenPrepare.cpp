@@ -18,6 +18,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/ADT/ValueMap.h"
 #include "llvm/Analysis/DominatorInternals.h"
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/Analysis/InstructionSimplify.h"
@@ -88,7 +89,7 @@ namespace {
     /// Keeps track of non-local addresses that have been sunk into a block.
     /// This allows us to avoid inserting duplicate code for blocks with
     /// multiple load/stores of the same address.
-    DenseMap<Value*, Value*> SunkAddrs;
+    ValueMap<Value*, Value*> SunkAddrs;
 
     /// ModifiedDT - If CFG is modified in anyway, dominator tree may need to
     /// be updated.
@@ -154,7 +155,7 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
 
   /// This optimization identifies DIV instructions that can be
   /// profitably bypassed and carried out with a shorter, faster divide.
-  if (TLI && TLI->isSlowDivBypassed()) {
+  if (!OptSize && TLI && TLI->isSlowDivBypassed()) {
     const DenseMap<unsigned int, unsigned int> &BypassWidths =
        TLI->getBypassSlowDivWidths();
     for (Function::iterator I = F.begin(); I != F.end(); I++)
@@ -729,9 +730,9 @@ bool CodeGenPrepare::DupRetToEnableTailCallOpts(BasicBlock *BB) {
   // It's not safe to eliminate the sign / zero extension of the return value.
   // See llvm::isInTailCallPosition().
   const Function *F = BB->getParent();
-  Attribute CallerRetAttr = F->getAttributes().getRetAttributes();
-  if (CallerRetAttr.hasAttribute(Attribute::ZExt) ||
-      CallerRetAttr.hasAttribute(Attribute::SExt))
+  AttributeSet CallerAttrs = F->getAttributes();
+  if (CallerAttrs.hasAttribute(AttributeSet::ReturnIndex, Attribute::ZExt) ||
+      CallerAttrs.hasAttribute(AttributeSet::ReturnIndex, Attribute::SExt))
     return false;
 
   // Make sure there are no instructions between the PHI and return, or that the
@@ -788,10 +789,10 @@ bool CodeGenPrepare::DupRetToEnableTailCallOpts(BasicBlock *BB) {
 
     // Conservatively require the attributes of the call to match those of the
     // return. Ignore noalias because it doesn't affect the call sequence.
-    Attribute CalleeRetAttr = CS.getAttributes().getRetAttributes();
-    if (AttrBuilder(CalleeRetAttr).
+    AttributeSet CalleeAttrs = CS.getAttributes();
+    if (AttrBuilder(CalleeAttrs, AttributeSet::ReturnIndex).
           removeAttribute(Attribute::NoAlias) !=
-        AttrBuilder(CallerRetAttr).
+        AttrBuilder(CalleeAttrs, AttributeSet::ReturnIndex).
           removeAttribute(Attribute::NoAlias))
       continue;
 
@@ -1653,10 +1654,6 @@ bool CodeGenPrepare::OptimizeMemoryInst(Instruction *MemoryInst, Value *Addr,
       // start of the block.
       CurInstIterator = BB->begin();
       SunkAddrs.clear();
-    } else {
-      // This address is now available for reassignment, so erase the table
-      // entry; we don't want to match some completely different instruction.
-      SunkAddrs[Addr] = 0;
     }
   }
   ++NumMemoryInsts;
@@ -1761,7 +1758,7 @@ bool CodeGenPrepare::OptimizeExtUses(Instruction *I) {
   if (!DefIsLiveOut)
     return false;
 
-  // Make sure non of the uses are PHI nodes.
+  // Make sure none of the uses are PHI nodes.
   for (Value::use_iterator UI = Src->use_begin(), E = Src->use_end();
        UI != E; ++UI) {
     Instruction *User = cast<Instruction>(*UI);

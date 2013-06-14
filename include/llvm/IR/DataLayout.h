@@ -22,6 +22,8 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Type.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/DataTypes.h"
 
@@ -100,7 +102,7 @@ private:
 
   SmallVector<unsigned char, 8> LegalIntWidths; ///< Legal Integers.
 
-  /// Alignments- Where the primitive type alignment data is stored.
+  /// Alignments - Where the primitive type alignment data is stored.
   ///
   /// @sa init().
   /// @note Could support multiple size pointer alignments, e.g., 32-bit
@@ -169,16 +171,21 @@ public:
   /// Initialize target data from properties stored in the module.
   explicit DataLayout(const Module *M);
 
-  DataLayout(const DataLayout &TD) :
+  DataLayout(const DataLayout &DL) :
     ImmutablePass(ID),
-    LittleEndian(TD.isLittleEndian()),
-    LegalIntWidths(TD.LegalIntWidths),
-    Alignments(TD.Alignments),
-    Pointers(TD.Pointers),
+    LittleEndian(DL.isLittleEndian()),
+    StackNaturalAlign(DL.StackNaturalAlign),
+    LegalIntWidths(DL.LegalIntWidths),
+    Alignments(DL.Alignments),
+    Pointers(DL.Pointers),
     LayoutMap(0)
   { }
 
   ~DataLayout();  // Not virtual, do not subclass this class
+
+  /// DataLayout is an immutable pass, but holds state.  This allows the pass
+  /// manager to clear its mutable state.
+  bool doFinalization(Module &M);
 
   /// Parse a data layout string (with fallback to default values). Ensure that
   /// the data layout pass is registered.
@@ -283,7 +290,7 @@ public:
   /// getTypeSizeInBits - Return the number of bits necessary to hold the
   /// specified type.  For example, returns 36 for i36 and 80 for x86_fp80.
   /// The type passed must have a size (Type::isSized() must return true).
-  uint64_t getTypeSizeInBits(Type* Ty) const;
+  uint64_t getTypeSizeInBits(Type *Ty) const;
 
   /// getTypeStoreSize - Return the maximum number of bytes that may be
   /// overwritten by storing the specified type.  For example, returns 5
@@ -303,7 +310,7 @@ public:
   /// of the specified type, including alignment padding.  This is the amount
   /// that alloca reserves for this type.  For example, returns 12 or 16 for
   /// x86_fp80, depending on alignment.
-  uint64_t getTypeAllocSize(Type* Ty) const {
+  uint64_t getTypeAllocSize(Type *Ty) const {
     // Round up to the next alignment boundary.
     return RoundUpAlignment(getTypeStoreSize(Ty), getABITypeAlignment(Ty));
   }
@@ -312,7 +319,7 @@ public:
   /// objects of the specified type, including alignment padding; always a
   /// multiple of 8.  This is the amount that alloca reserves for this type.
   /// For example, returns 96 or 128 for x86_fp80, depending on alignment.
-  uint64_t getTypeAllocSizeInBits(Type* Ty) const {
+  uint64_t getTypeAllocSizeInBits(Type *Ty) const {
     return 8*getTypeAllocSize(Ty);
   }
 
@@ -324,11 +331,9 @@ public:
   /// an integer type of the specified bitwidth.
   unsigned getABIIntegerTypeAlignment(unsigned BitWidth) const;
 
-
   /// getCallFrameTypeAlignment - Return the minimum ABI-required alignment
   /// for the specified type when it is part of a call frame.
   unsigned getCallFrameTypeAlignment(Type *Ty) const;
-
 
   /// getPrefTypeAlignment - Return the preferred stack/global alignment for
   /// the specified type.  This is always at least as good as the ABI alignment.
@@ -336,7 +341,6 @@ public:
 
   /// getPreferredTypeAlignmentShift - Return the preferred alignment for the
   /// specified type, returned as log2 of the value (a shift amount).
-  ///
   unsigned getPreferredTypeAlignmentShift(Type *Ty) const;
 
   /// getIntPtrType - Return an integer type with size at least as big as that
@@ -348,9 +352,12 @@ public:
   /// type.
   Type *getIntPtrType(Type *) const;
 
+  /// getSmallestLegalIntType - Return the smallest integer type with size at
+  /// least as big as Width bits.
+  Type *getSmallestLegalIntType(LLVMContext &C, unsigned Width = 0) const;
+
   /// getIndexedOffset - return the offset from the beginning of the type for
   /// the specified indices.  This is used to implement getelementptr.
-  ///
   uint64_t getIndexedOffset(Type *Ty, ArrayRef<Value *> Indices) const;
 
   /// getStructLayout - Return a StructLayout object, indicating the alignment
@@ -419,8 +426,51 @@ public:
 
 private:
   friend class DataLayout;   // Only DataLayout can create this class
-  StructLayout(StructType *ST, const DataLayout &TD);
+  StructLayout(StructType *ST, const DataLayout &DL);
 };
+
+
+// The implementation of this method is provided inline as it is particularly
+// well suited to constant folding when called on a specific Type subclass.
+inline uint64_t DataLayout::getTypeSizeInBits(Type *Ty) const {
+  assert(Ty->isSized() && "Cannot getTypeInfo() on a type that is unsized!");
+  switch (Ty->getTypeID()) {
+  case Type::LabelTyID:
+    return getPointerSizeInBits(0);
+  case Type::PointerTyID:
+    return getPointerSizeInBits(cast<PointerType>(Ty)->getAddressSpace());
+  case Type::ArrayTyID: {
+    ArrayType *ATy = cast<ArrayType>(Ty);
+    return ATy->getNumElements() *
+           getTypeAllocSizeInBits(ATy->getElementType());
+  }
+  case Type::StructTyID:
+    // Get the layout annotation... which is lazily created on demand.
+    return getStructLayout(cast<StructType>(Ty))->getSizeInBits();
+  case Type::IntegerTyID:
+    return cast<IntegerType>(Ty)->getBitWidth();
+  case Type::HalfTyID:
+    return 16;
+  case Type::FloatTyID:
+    return 32;
+  case Type::DoubleTyID:
+  case Type::X86_MMXTyID:
+    return 64;
+  case Type::PPC_FP128TyID:
+  case Type::FP128TyID:
+    return 128;
+    // In memory objects this is always aligned to a higher boundary, but
+  // only 80 bits contain information.
+  case Type::X86_FP80TyID:
+    return 80;
+  case Type::VectorTyID: {
+    VectorType *VTy = cast<VectorType>(Ty);
+    return VTy->getNumElements() * getTypeSizeInBits(VTy->getElementType());
+  }
+  default:
+    llvm_unreachable("DataLayout::getTypeSizeInBits(): Unsupported type");
+  }
+}
 
 } // End llvm namespace
 

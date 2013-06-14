@@ -16,6 +16,7 @@
 
 #include "llvm/Support/AlignOf.h"
 #include "llvm/Support/Compiler.h"
+#include "llvm/Support/MathExtras.h"
 #include "llvm/Support/type_traits.h"
 #include <algorithm>
 #include <cassert>
@@ -145,16 +146,20 @@ public:
   }
 
   reference front() {
+    assert(!empty());
     return begin()[0];
   }
   const_reference front() const {
+    assert(!empty());
     return begin()[0];
   }
 
   reference back() {
+    assert(!empty());
     return end()[-1];
   }
   const_reference back() const {
+    assert(!empty());
     return end()[-1];
   }
 };
@@ -263,7 +268,8 @@ template <typename T, bool isPodLike>
 void SmallVectorTemplateBase<T, isPodLike>::grow(size_t MinSize) {
   size_t CurCapacity = this->capacity();
   size_t CurSize = this->size();
-  size_t NewCapacity = 2*CurCapacity + 1; // Always grow, even from zero.
+  // Always grow, even from zero.  
+  size_t NewCapacity = size_t(NextPowerOf2(CurCapacity+2));
   if (NewCapacity < MinSize)
     NewCapacity = MinSize;
   T *NewElts = static_cast<T*>(malloc(NewCapacity*sizeof(T)));

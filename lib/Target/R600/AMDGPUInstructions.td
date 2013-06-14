@@ -13,8 +13,8 @@
 //===----------------------------------------------------------------------===//
 
 class AMDGPUInst <dag outs, dag ins, string asm, list<dag> pattern> : Instruction {
-  field bits<16> AMDILOp = 0;
-  field bits<3> Gen = 0;
+  field bit isRegisterLoad = 0;
+  field bit isRegisterStore = 0;
 
   let Namespace = "AMDGPU";
   let OutOperandList = outs;
@@ -22,8 +22,9 @@ class AMDGPUInst <dag outs, dag ins, string asm, list<dag> pattern> : Instructio
   let AsmString = asm;
   let Pattern = pattern;
   let Itinerary = NullALU;
-  let TSFlags{42-40} = Gen;
-  let TSFlags{63-48} = AMDILOp;
+
+  let TSFlags{63} = isRegisterLoad;
+  let TSFlags{62} = isRegisterStore;
 }
 
 class AMDGPUShaderInst <dag outs, dag ins, string asm, list<dag> pattern>
@@ -76,6 +77,11 @@ def COND_LE : PatLeaf <
                      case ISD::SETLE: return true;}}}]
 >;
 
+def COND_NULL : PatLeaf <
+  (cond),
+  [{return false;}]
+>;
+
 //===----------------------------------------------------------------------===//
 // Load/Store Pattern Fragments
 //===----------------------------------------------------------------------===//
@@ -84,10 +90,15 @@ def zextloadi8_global : PatFrag<(ops node:$ptr), (zextloadi8 node:$ptr), [{
     return isGlobalLoad(dyn_cast<LoadSDNode>(N));
 }]>;
 
+def zextloadi8_constant : PatFrag<(ops node:$ptr), (zextloadi8 node:$ptr), [{
+    return isGlobalLoad(dyn_cast<LoadSDNode>(N));
+}]>;
+
 class Constants {
 int TWO_PI = 0x40c90fdb;
 int PI = 0x40490fdb;
 int TWO_PI_INV = 0x3e22f983;
+int FP_UINT_MAX_PLUS_1 = 0x4f800000;	// 1 << 32 in floating point encoding
 }
 def CONST : Constants;
 
@@ -101,87 +112,197 @@ def FP_ONE : PatLeaf <
   [{return N->isExactlyValue(1.0);}]
 >;
 
-let isCodeGenOnly = 1, isPseudo = 1, usesCustomInserter = 1  in {
+let isCodeGenOnly = 1, isPseudo = 1 in {
+
+let usesCustomInserter = 1  in {
 
 class CLAMP <RegisterClass rc> : AMDGPUShaderInst <
   (outs rc:$dst),
   (ins rc:$src0),
   "CLAMP $dst, $src0",
-  [(set rc:$dst, (int_AMDIL_clamp rc:$src0, (f32 FP_ZERO), (f32 FP_ONE)))]
+  [(set f32:$dst, (int_AMDIL_clamp f32:$src0, (f32 FP_ZERO), (f32 FP_ONE)))]
 >;
 
 class FABS <RegisterClass rc> : AMDGPUShaderInst <
   (outs rc:$dst),
   (ins rc:$src0),
   "FABS $dst, $src0",
-  [(set rc:$dst, (fabs rc:$src0))]
+  [(set f32:$dst, (fabs f32:$src0))]
 >;
 
 class FNEG <RegisterClass rc> : AMDGPUShaderInst <
   (outs rc:$dst),
   (ins rc:$src0),
   "FNEG $dst, $src0",
-  [(set rc:$dst, (fneg rc:$src0))]
+  [(set f32:$dst, (fneg f32:$src0))]
 >;
 
-def SHADER_TYPE : AMDGPUShaderInst <
-  (outs),
-  (ins i32imm:$type),
-  "SHADER_TYPE $type",
-  [(int_AMDGPU_shader_type imm:$type)]
->;
+} // usesCustomInserter = 1
 
-} // End isCodeGenOnly = 1, isPseudo = 1, hasCustomInserter = 1
+multiclass RegisterLoadStore <RegisterClass dstClass, Operand addrClass,
+                    ComplexPattern addrPat> {
+  def RegisterLoad : AMDGPUShaderInst <
+    (outs dstClass:$dst),
+    (ins addrClass:$addr, i32imm:$chan),
+    "RegisterLoad $dst, $addr",
+    [(set i32:$dst, (AMDGPUregister_load addrPat:$addr, (i32 timm:$chan)))]
+  > {
+    let isRegisterLoad = 1;
+  }
+
+  def RegisterStore : AMDGPUShaderInst <
+    (outs),
+    (ins dstClass:$val, addrClass:$addr, i32imm:$chan),
+    "RegisterStore $val, $addr",
+    [(AMDGPUregister_store i32:$val, addrPat:$addr, (i32 timm:$chan))]
+  > {
+    let isRegisterStore = 1;
+  }
+}
+
+} // End isCodeGenOnly = 1, isPseudo = 1
 
 /* Generic helper patterns for intrinsics */
 /* -------------------------------------- */
 
-class POW_Common <AMDGPUInst log_ieee, AMDGPUInst exp_ieee, AMDGPUInst mul,
-                  RegisterClass rc> : Pat <
-  (fpow rc:$src0, rc:$src1),
-  (exp_ieee (mul rc:$src1, (log_ieee rc:$src0)))
+class POW_Common <AMDGPUInst log_ieee, AMDGPUInst exp_ieee, AMDGPUInst mul>
+  : Pat <
+  (fpow f32:$src0, f32:$src1),
+  (exp_ieee (mul f32:$src1, (log_ieee f32:$src0)))
 >;
 
 /* Other helper patterns */
 /* --------------------- */
 
 /* Extract element pattern */
-class Extract_Element <ValueType sub_type, ValueType vec_type,
-                     RegisterClass vec_class, int sub_idx, 
-                     SubRegIndex sub_reg>: Pat<
-  (sub_type (vector_extract (vec_type vec_class:$src), sub_idx)),
-  (EXTRACT_SUBREG vec_class:$src, sub_reg)
+class Extract_Element <ValueType sub_type, ValueType vec_type, int sub_idx, 
+                       SubRegIndex sub_reg>
+  : Pat<
+  (sub_type (vector_extract vec_type:$src, sub_idx)),
+  (EXTRACT_SUBREG $src, sub_reg)
 >;
 
 /* Insert element pattern */
 class Insert_Element <ValueType elem_type, ValueType vec_type,
-                      RegisterClass elem_class, RegisterClass vec_class,
-                      int sub_idx, SubRegIndex sub_reg> : Pat <
-
-  (vec_type (vector_insert (vec_type vec_class:$vec),
-                           (elem_type elem_class:$elem), sub_idx)),
-  (INSERT_SUBREG vec_class:$vec, elem_class:$elem, sub_reg)
+                      int sub_idx, SubRegIndex sub_reg>
+  : Pat <
+  (vector_insert vec_type:$vec, elem_type:$elem, sub_idx),
+  (INSERT_SUBREG $vec, $elem, sub_reg)
 >;
 
 // Vector Build pattern
-class Vector_Build <ValueType vecType, RegisterClass vectorClass,
-                    ValueType elemType, RegisterClass elemClass> : Pat <
-  (vecType (build_vector (elemType elemClass:$x), (elemType elemClass:$y),
-                         (elemType elemClass:$z), (elemType elemClass:$w))),
-  (INSERT_SUBREG (INSERT_SUBREG (INSERT_SUBREG (INSERT_SUBREG
-  (vecType (IMPLICIT_DEF)), elemClass:$x, sel_x), elemClass:$y, sel_y),
-                            elemClass:$z, sel_z), elemClass:$w, sel_w)
+class Vector1_Build <ValueType vecType, ValueType elemType,
+                     RegisterClass rc> : Pat <
+  (vecType (build_vector elemType:$src)),
+  (vecType (COPY_TO_REGCLASS $src, rc))
 >;
 
+class Vector2_Build <ValueType vecType, ValueType elemType> : Pat <
+  (vecType (build_vector elemType:$sub0, elemType:$sub1)),
+  (INSERT_SUBREG (INSERT_SUBREG
+    (vecType (IMPLICIT_DEF)), $sub0, sub0), $sub1, sub1)
+>;
+
+class Vector4_Build <ValueType vecType, ValueType elemType> : Pat <
+  (vecType (build_vector elemType:$x, elemType:$y, elemType:$z, elemType:$w)),
+  (INSERT_SUBREG (INSERT_SUBREG (INSERT_SUBREG (INSERT_SUBREG
+    (vecType (IMPLICIT_DEF)), $x, sub0), $y, sub1), $z, sub2), $w, sub3)
+>;
+
+class Vector8_Build <ValueType vecType, ValueType elemType> : Pat <
+  (vecType (build_vector elemType:$sub0, elemType:$sub1,
+                         elemType:$sub2, elemType:$sub3,
+                         elemType:$sub4, elemType:$sub5,
+                         elemType:$sub6, elemType:$sub7)),
+  (INSERT_SUBREG (INSERT_SUBREG (INSERT_SUBREG (INSERT_SUBREG
+    (INSERT_SUBREG (INSERT_SUBREG (INSERT_SUBREG (INSERT_SUBREG
+    (vecType (IMPLICIT_DEF)), $sub0, sub0), $sub1, sub1),
+                              $sub2, sub2), $sub3, sub3),
+                              $sub4, sub4), $sub5, sub5),
+                              $sub6, sub6), $sub7, sub7)
+>;
+
+class Vector16_Build <ValueType vecType, ValueType elemType> : Pat <
+  (vecType (build_vector elemType:$sub0, elemType:$sub1,
+                         elemType:$sub2, elemType:$sub3,
+                         elemType:$sub4, elemType:$sub5,
+                         elemType:$sub6, elemType:$sub7,
+                         elemType:$sub8, elemType:$sub9,
+                         elemType:$sub10, elemType:$sub11,
+                         elemType:$sub12, elemType:$sub13,
+                         elemType:$sub14, elemType:$sub15)),
+  (INSERT_SUBREG (INSERT_SUBREG (INSERT_SUBREG (INSERT_SUBREG
+    (INSERT_SUBREG (INSERT_SUBREG (INSERT_SUBREG (INSERT_SUBREG
+    (INSERT_SUBREG (INSERT_SUBREG (INSERT_SUBREG (INSERT_SUBREG
+    (INSERT_SUBREG (INSERT_SUBREG (INSERT_SUBREG (INSERT_SUBREG
+    (vecType (IMPLICIT_DEF)), $sub0, sub0), $sub1, sub1),
+                            $sub2, sub2), $sub3, sub3),
+                            $sub4, sub4), $sub5, sub5),
+                            $sub6, sub6), $sub7, sub7),
+                            $sub8, sub8), $sub9, sub9),
+                            $sub10, sub10), $sub11, sub11),
+                            $sub12, sub12), $sub13, sub13),
+                            $sub14, sub14), $sub15, sub15)
+>;
+
+// XXX: Convert to new syntax and use COPY_TO_REG, once the DFAPacketizer
+// can handle COPY instructions.
 // bitconvert pattern
 class BitConvert <ValueType dt, ValueType st, RegisterClass rc> : Pat <
   (dt (bitconvert (st rc:$src0))),
   (dt rc:$src0)
 >;
 
+// XXX: Convert to new syntax and use COPY_TO_REG, once the DFAPacketizer
+// can handle COPY instructions.
 class DwordAddrPat<ValueType vt, RegisterClass rc> : Pat <
   (vt (AMDGPUdwordaddr (vt rc:$addr))),
   (vt rc:$addr)
+>;
+
+// BFI_INT patterns
+
+multiclass BFIPatterns <Instruction BFI_INT> {
+
+  // Definition from ISA doc:
+  // (y & x) | (z & ~x)
+  def : Pat <
+    (or (and i32:$y, i32:$x), (and i32:$z, (not i32:$x))),
+    (BFI_INT $x, $y, $z)
+  >;
+
+  // SHA-256 Ch function
+  // z ^ (x & (y ^ z))
+  def : Pat <
+    (xor i32:$z, (and i32:$x, (xor i32:$y, i32:$z))),
+    (BFI_INT $x, $y, $z)
+  >;
+
+}
+
+// SHA-256 Ma patterns
+
+// ((x & z) | (y & (x | z))) -> BFI_INT (XOR x, y), z, y
+class SHA256MaPattern <Instruction BFI_INT, Instruction XOR> : Pat <
+  (or (and i32:$x, i32:$z), (and i32:$y, (or i32:$x, i32:$z))),
+  (BFI_INT (XOR i32:$x, i32:$y), i32:$z, i32:$y)
+>;
+
+// Bitfield extract patterns
+
+def legalshift32 : ImmLeaf <i32, [{return Imm >=0 && Imm < 32;}]>;
+def bfemask : PatLeaf <(imm), [{return isMask_32(N->getZExtValue());}],
+                            SDNodeXForm<imm, [{ return CurDAG->getTargetConstant(CountTrailingOnes_32(N->getZExtValue()), MVT::i32);}]>>;
+
+class BFEPattern <Instruction BFE> : Pat <
+  (and (srl i32:$x, legalshift32:$y), bfemask:$z),
+  (BFE $x, $y, $z)
+>;
+
+// rotr pattern
+class ROTRPattern <Instruction BIT_ALIGN> : Pat <
+  (rotr i32:$src0, i32:$src1),
+  (BIT_ALIGN $src0, $src0, $src1)
 >;
 
 include "R600Instructions.td"

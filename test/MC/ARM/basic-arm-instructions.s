@@ -143,11 +143,15 @@ Lforward:
 
         adr r1, #-0x0
         adr r1, #-0x12000000
+        adr r1, #-0x80000001
         adr r1, #0x12000000
+        adr r1, #0x80000001
 
 @ CHECK: adr	r1, #-0                 @ encoding: [0x00,0x10,0x4f,0xe2]
 @ CHECK: adr	r1, #-301989888         @ encoding: [0x12,0x14,0x4f,0xe2]
+@ CHECK: adr	r1, #2147483647         @ encoding: [0x06,0x11,0x4f,0xe2]
 @ CHECK: adr	r1, #301989888          @ encoding: [0x12,0x14,0x8f,0xe2]
+@ CHECK: adr	r1, #-2147483647        @ encoding: [0x06,0x11,0x8f,0xe2]
 
 
 @------------------------------------------------------------------------------
@@ -774,9 +778,13 @@ Lforward:
 @------------------------------------------------------------------------------
         isb sy
         isb
+        isb #15
+        isb #1
 
 @ CHECK: isb sy                         @ encoding: [0x6f,0xf0,0x7f,0xf5]
 @ CHECK: isb sy                         @ encoding: [0x6f,0xf0,0x7f,0xf5]
+@ CHECK: isb sy                         @ encoding: [0x6f,0xf0,0x7f,0xf5]
+@ CHECK: isb #0x1                       @ encoding: [0x61,0xf0,0x7f,0xf5]
 
 
 @------------------------------------------------------------------------------
@@ -1058,10 +1066,18 @@ Lforward:
 @ MRC/MRC2
 @------------------------------------------------------------------------------
         mrc  p14, #0, r1, c1, c2, #4
+        mrc  p15, #7, apsr_nzcv, c15, c6, #6
+        mrc  p15, #7, pc, c15, c6, #6
         mrc2  p14, #0, r1, c1, c2, #4
+        mrc2  p10, #7, apsr_nzcv, c15, c0, #1
+        mrc2  p10, #7, pc, c15, c0, #1
 
-@ CHECK: mrc  p14, #0, r1, c1, c2, #4   @ encoding: [0x92,0x1e,0x11,0xee]
-@ CHECK: mrc2  p14, #0, r1, c1, c2, #4  @ encoding: [0x92,0x1e,0x11,0xfe]
+@ CHECK: mrc  p14, #0, r1, c1, c2, #4             @ encoding: [0x92,0x1e,0x11,0xee]
+@ CHECK: mrc  p15, #7, apsr_nzcv, c15, c6, #6     @ encoding: [0xd6,0xff,0xff,0xee]
+@ CHECK: mrc  p15, #7, pc, c15, c6, #6            @ encoding: [0xd6,0xff,0xff,0xee]
+@ CHECK: mrc2  p14, #0, r1, c1, c2, #4            @ encoding: [0x92,0x1e,0x11,0xfe]
+@ CHECK: mrc2  p10, #7, apsr_nzcv, c15, c0, #1    @ encoding: [0x30,0xfa,0xff,0xfe]
+@ CHECK: mrc2  p10, #7, pc, c15, c0, #1           @ encoding: [0x30,0xfa,0xff,0xfe]
 
 @------------------------------------------------------------------------------
 @ MRRC/MRRC2
@@ -1633,6 +1649,30 @@ Lforward:
 @ CHECK: rsc	r6, r6, r7, ror r9      @ encoding: [0x77,0x69,0xe6,0xe0]
 
 @------------------------------------------------------------------------------
+@ RRX/RRXS
+@------------------------------------------------------------------------------
+
+         rrx r0, r1
+	 rrx sp, pc
+	 rrx pc, lr
+	 rrx lr, sp
+
+@ CHECK: rrx	r0, r1                  @ encoding: [0x61,0x00,0xa0,0xe1]
+@ CHECK: rrx	sp, pc                  @ encoding: [0x6f,0xd0,0xa0,0xe1]
+@ CHECK: rrx	pc, lr                  @ encoding: [0x6e,0xf0,0xa0,0xe1]
+@ CHECK: rrx	lr, sp                  @ encoding: [0x6d,0xe0,0xa0,0xe1]
+
+         rrxs r0, r1
+	 rrxs sp, pc
+	 rrxs pc, lr
+	 rrxs lr, sp
+
+@CHECK: rrxs	r0, r1                  @ encoding: [0x61,0x00,0xb0,0xe1]
+@CHECK: rrxs	sp, pc                  @ encoding: [0x6f,0xd0,0xb0,0xe1]
+@CHECK: rrxs	pc, lr                  @ encoding: [0x6e,0xf0,0xb0,0xe1]
+@CHECK: rrxs	lr, sp                  @ encoding: [0x6d,0xe0,0xb0,0xe1]
+
+@ ------------------------------------------------------------------------------
 @ SADD16/SADD8
 @------------------------------------------------------------------------------
         sadd16 r1, r2, r3
@@ -1733,9 +1773,13 @@ Lforward:
 @ SETEND
 @------------------------------------------------------------------------------
         setend be
+        setend BE
         setend le
+        setend LE
 
 @ CHECK: setend	be                      @ encoding: [0x00,0x02,0x01,0xf1]
+@ CHECK: setend	be                      @ encoding: [0x00,0x02,0x01,0xf1]
+@ CHECK: setend	le                      @ encoding: [0x00,0x00,0x01,0xf1]
 @ CHECK: setend	le                      @ encoding: [0x00,0x00,0x01,0xf1]
 
 
@@ -1785,15 +1829,6 @@ Lforward:
 @ CHECK: shsub16gt	r4, r8, r2      @ encoding: [0x72,0x4f,0x38,0xc6]
 @ CHECK: shsub8	r4, r8, r2              @ encoding: [0xf2,0x4f,0x38,0xe6]
 @ CHECK: shsub8gt	r4, r8, r2      @ encoding: [0xf2,0x4f,0x38,0xc6]
-
-@------------------------------------------------------------------------------
-@ SMC
-@------------------------------------------------------------------------------
-        smc #0xf
-        smceq #0
-
-@ CHECK: smc	#15                     @ encoding: [0x7f,0x00,0x60,0xe1]
-@ CHECK: smceq	#0                      @ encoding: [0x70,0x00,0x60,0x01]
 
 @------------------------------------------------------------------------------
 @ SMLABB/SMLABT/SMLATB/SMLATT
@@ -2087,6 +2122,49 @@ Lforward:
 @ CHECK: srsia	sp, #5                  @ encoding: [0x05,0x05,0xcd,0xf8]
 @ CHECK: srsia	sp!, #5                 @ encoding: [0x05,0x05,0xed,0xf8]
 
+@ Compatibility aliases.
+        srsda #5
+        srsdb #1
+        srsia #0
+        srsib #15
+
+        srsda #31!
+        srsdb #19!
+        srsia #2!
+        srsib #14!
+
+        srsfa #11
+        srsea #10
+        srsfd #9
+        srsed #5
+
+        srsfa #5!
+        srsea #5!
+        srsfd #5!
+        srsed #5!
+
+        srs #5
+        srs #5!
+
+@ CHECK: srsda	sp, #5                  @ encoding: [0x05,0x05,0x4d,0xf8]
+@ CHECK: srsdb	sp, #1                  @ encoding: [0x01,0x05,0x4d,0xf9]
+@ CHECK: srsia	sp, #0                  @ encoding: [0x00,0x05,0xcd,0xf8]
+@ CHECK: srsib	sp, #15                 @ encoding: [0x0f,0x05,0xcd,0xf9]
+@ CHECK: srsda	sp!, #31                @ encoding: [0x1f,0x05,0x6d,0xf8]
+@ CHECK: srsdb	sp!, #19                @ encoding: [0x13,0x05,0x6d,0xf9]
+@ CHECK: srsia	sp!, #2                 @ encoding: [0x02,0x05,0xed,0xf8]
+@ CHECK: srsib	sp!, #14                @ encoding: [0x0e,0x05,0xed,0xf9]
+@ CHECK: srsda	sp, #11                 @ encoding: [0x0b,0x05,0x4d,0xf8]
+@ CHECK: srsdb	sp, #10                 @ encoding: [0x0a,0x05,0x4d,0xf9]
+@ CHECK: srsia	sp, #9                  @ encoding: [0x09,0x05,0xcd,0xf8]
+@ CHECK: srsib	sp, #5                  @ encoding: [0x05,0x05,0xcd,0xf9]
+@ CHECK: srsda	sp!, #5                 @ encoding: [0x05,0x05,0x6d,0xf8]
+@ CHECK: srsdb	sp!, #5                 @ encoding: [0x05,0x05,0x6d,0xf9]
+@ CHECK: srsia	sp!, #5                 @ encoding: [0x05,0x05,0xed,0xf8]
+@ CHECK: srsib	sp!, #5                 @ encoding: [0x05,0x05,0xed,0xf9]
+@ CHECK: srsia	sp, #5                  @ encoding: [0x05,0x05,0xcd,0xf8]
+@ CHECK: srsia	sp!, #5                 @ encoding: [0x05,0x05,0xed,0xf8]
+
 
 @------------------------------------------------------------------------------
 @ SSAT
@@ -2271,7 +2349,7 @@ Lforward:
         strpl	r3, [r10, #0]!
 
 @ CHECK: strpl	r3, [r10, #-0]!         @ encoding: [0x00,0x30,0x2a,0x55]
-@ CHECK: strpl	r3, [r10]!              @ encoding: [0x00,0x30,0xaa,0x55]
+@ CHECK: strpl	r3, [r10, #0]!          @ encoding: [0x00,0x30,0xaa,0x55]
 
 @------------------------------------------------------------------------------
 @ SUB
@@ -2832,7 +2910,6 @@ Lforward:
         wfilt
         yield
         yieldne
-        hint #5
         hint #4
         hint #3
         hint #2
@@ -2845,7 +2922,6 @@ Lforward:
 @ CHECK: wfilt                          @ encoding: [0x03,0xf0,0x20,0xb3]
 @ CHECK: yield                          @ encoding: [0x01,0xf0,0x20,0xe3]
 @ CHECK: yieldne                        @ encoding: [0x01,0xf0,0x20,0x13]
-@ CHECK: hint	#5                      @ encoding: [0x05,0xf0,0x20,0xe3]
 @ CHECK: sev                            @ encoding: [0x04,0xf0,0x20,0xe3]
 @ CHECK: wfi                            @ encoding: [0x03,0xf0,0x20,0xe3]
 @ CHECK: wfe                            @ encoding: [0x02,0xf0,0x20,0xe3]

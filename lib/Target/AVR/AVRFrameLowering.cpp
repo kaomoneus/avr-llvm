@@ -305,6 +305,143 @@ restoreCalleeSavedRegisters(MachineBasicBlock &MBB,
   return true;
 }
 
+/// Replace pseudo store instructions that pass arguments through the stack with
+/// real instructions. If insertPushes is true then all instructions are
+/// replaced with push instructions, otherwise regular std instructions are
+/// inserted.
+static void fixStackStores(MachineBasicBlock &MBB,
+                           MachineBasicBlock::iterator MI,
+                           const TargetInstrInfo &TII, bool insertPushes)
+{
+  // Iterate through the BB until we hit a call instruction or we reach the end.
+  for (MachineBasicBlock::iterator I = MI, E = MBB.end();
+       I != E && !I->isCall(); )
+  {
+    MachineBasicBlock::iterator NextMI = llvm::next(I);
+    MachineInstr &MI = *I;
+    int Opcode = I->getOpcode();
+
+    // Only care of pseudo store instructions where SP is the base pointer.
+    if ((Opcode != AVR::STDSPQRr) && (Opcode != AVR::STDWSPQRr))
+    {
+      I = NextMI;
+      continue;
+    }
+
+    assert(MI.getOperand(0).getReg() == AVR::SP
+           && "Invalid register, should be SP!");
+
+    if (insertPushes)
+    {
+      // Replace this instruction with a push.
+      unsigned SrcReg = MI.getOperand(2).getReg();
+      bool SrcIsKill = MI.getOperand(2).isKill();
+
+      // We can't use PUSHWRr here because when expanded the order of the new
+      // instructions are reversed from what we need. Perform the expansion now.
+      if (Opcode == AVR::STDWSPQRr)
+      {
+        const TargetRegisterInfo *TRI =
+          MBB.getParent()->getTarget().getRegisterInfo();
+
+        BuildMI(MBB, I, MI.getDebugLoc(), TII.get(AVR::PUSHRr))
+          .addReg(TRI->getSubReg(SrcReg, AVR::sub_hi),
+                  getKillRegState(SrcIsKill));
+        BuildMI(MBB, I, MI.getDebugLoc(), TII.get(AVR::PUSHRr))
+          .addReg(TRI->getSubReg(SrcReg, AVR::sub_lo),
+                  getKillRegState(SrcIsKill));
+      }
+      else
+      {
+        BuildMI(MBB, I, MI.getDebugLoc(), TII.get(AVR::PUSHRr))
+          .addReg(SrcReg, getKillRegState(SrcIsKill));
+      }
+
+      MI.eraseFromParent();
+      I = NextMI;
+      continue;
+    }
+
+    // Replace this instruction with a regular store. Use Y as the base
+    // pointer since it is guaranteed to contain a copy of SP.
+    unsigned STOpc =
+      (Opcode == AVR::STDWSPQRr) ? AVR::STDWPtrQRr : AVR::STDPtrQRr;
+    assert(isUInt<6>(MI.getOperand(1).getImm()) && "Offset is out of range");
+
+    MI.setDesc(TII.get(STOpc));
+    MI.getOperand(0).setReg(AVR::R29R28);
+
+    I = NextMI;
+  }
+}
+
+void AVRFrameLowering::
+eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBasicBlock &MBB,
+                              MachineBasicBlock::iterator MI) const
+{
+  const TargetFrameLowering *TFI = MF.getTarget().getFrameLowering();
+  const AVRInstrInfo &TII =
+    *static_cast<const AVRInstrInfo *>(MF.getTarget().getInstrInfo());
+
+  // There is nothing to insert when the call frame memory is allocated during
+  // function entry. Delete the call frame pseudo and replace all pseudo stores
+  // with real store instructions.
+  if (TFI->hasReservedCallFrame(MF))
+  {
+    fixStackStores(MBB, MI, TII, false);
+    MBB.erase(MI);
+    return;
+  }
+
+  DebugLoc dl = MI->getDebugLoc();
+  int Opcode = MI->getOpcode();
+  int Amount = MI->getOperand(0).getImm();
+
+  // Adjcallstackup does not need to allocate stack space for the call, instead
+  // we insert push instructions that will allocate the necessary stack.
+  // For adjcallstackdown we convert it into an 'adiw reg, <amt>' handling
+  // the read and write of SP in I/O space.
+  if (Amount != 0)
+  {
+    assert(TFI->getStackAlignment() == 1 && "Unsupported stack alignment");
+
+    if (Opcode == TII.getCallFrameSetupOpcode())
+    {
+      fixStackStores(MBB, MI, TII, true);
+    }
+    else
+    {
+      assert(Opcode == TII.getCallFrameDestroyOpcode());
+
+      // Select the best opcode to adjust SP based on the offset size.
+      unsigned addOpcode;
+      if (isUInt<6>(Amount))
+      {
+        addOpcode = AVR::ADIWRdK;
+      }
+      else
+      {
+        addOpcode = AVR::SUBIWRdK;
+        Amount = -Amount;
+      }
+
+      // Build the instruction sequence.
+      BuildMI(MBB, MI, dl, TII.get(AVR::SPREAD), AVR::R31R30)
+        .addReg(AVR::SP);
+
+      MachineInstr *New = BuildMI(MBB, MI, dl, TII.get(addOpcode), AVR::R31R30)
+                            .addReg(AVR::R31R30, RegState::Kill)
+                            .addImm(Amount);
+      New->getOperand(3).setIsDead();
+
+      BuildMI(MBB, MI, dl, TII.get(AVR::SPWRITE), AVR::SP)
+        .addReg(AVR::R31R30, RegState::Kill);
+    }
+  }
+
+  MBB.erase(MI);
+}
+
 void AVRFrameLowering::
 processFunctionBeforeCalleeSavedScan(MachineFunction &MF,
                                      RegScavenger *RS) const

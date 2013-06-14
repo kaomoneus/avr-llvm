@@ -36,9 +36,20 @@ PPCSubtarget::PPCSubtarget(const std::string &TT, const std::string &CPU,
   , Use64BitRegs(false)
   , IsPPC64(is64Bit)
   , HasAltivec(false)
+  , HasQPX(false)
   , HasFSQRT(false)
+  , HasFRE(false)
+  , HasFRES(false)
+  , HasFRSQRTE(false)
+  , HasFRSQRTES(false)
+  , HasRecipPrec(false)
   , HasSTFIWX(false)
+  , HasLFIWAX(false)
+  , HasFPRND(false)
+  , HasFPCVT(false)
   , HasISEL(false)
+  , HasPOPCNTD(false)
+  , HasLDBRX(false)
   , IsBookE(false)
   , HasLazyResolverStubs(false)
   , IsJITCodeModel(false)
@@ -82,6 +93,12 @@ PPCSubtarget::PPCSubtarget(const std::string &TT, const std::string &CPU,
   // Set up darwin-specific properties.
   if (isDarwin())
     HasLazyResolverStubs = true;
+
+  // QPX requires a 32-byte aligned stack. Note that we need to do this if
+  // we're compiling for a BG/Q system regardless of whether or not QPX
+  // is enabled because external functions will assume this alignment.
+  if (hasQPX() || isBGQ())
+    StackAlignment = 32;
 }
 
 /// SetJITMode - This is called to inform the subtarget info that we are

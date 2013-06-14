@@ -71,7 +71,7 @@ class AVRTargetLowering : public TargetLowering
 public:
   explicit AVRTargetLowering(AVRTargetMachine &TM);
 public: // TargetLowering
-  MVT getShiftAmountTy(EVT LHSTy) const { return MVT::i8; }
+  MVT getScalarShiftAmountTy(EVT LHSTy) const { return MVT::i8; }
   const char *getTargetNodeName(unsigned Opcode) const;
 
   /// LowerOperation - Provide custom lowering hooks for some operations.
@@ -132,7 +132,7 @@ public: // TargetLowering
 
 private:
   SDValue getAVRCmp(SDValue LHS, SDValue RHS, ISD::CondCode CC, SDValue &AVRcc,
-                    SelectionDAG &DAG, DebugLoc dl) const;
+                    SelectionDAG &DAG, SDLoc dl) const;
   SDValue LowerShifts(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerBlockAddress(SDValue Op, SelectionDAG &DAG) const;
@@ -143,19 +143,19 @@ private:
 
   SDValue LowerReturn(SDValue Chain, CallingConv::ID CallConv, bool isVarArg,
                       const SmallVectorImpl<ISD::OutputArg> &Outs,
-                      const SmallVectorImpl<SDValue> &OutVals, DebugLoc dl,
+                      const SmallVectorImpl<SDValue> &OutVals, SDLoc dl,
                       SelectionDAG &DAG) const;
   SDValue LowerFormalArguments(SDValue Chain, CallingConv::ID CallConv,
                                bool isVarArg,
                                const SmallVectorImpl<ISD::InputArg> &Ins,
-                               DebugLoc dl, SelectionDAG &DAG,
+                               SDLoc dl, SelectionDAG &DAG,
                                SmallVectorImpl<SDValue> &InVals) const;
   SDValue LowerCall(TargetLowering::CallLoweringInfo &CLI,
                     SmallVectorImpl<SDValue> &InVals) const;
   SDValue LowerCallResult(SDValue Chain, SDValue InFlag,
                           CallingConv::ID CallConv, bool isVarArg,
                           const SmallVectorImpl<ISD::InputArg> &Ins,
-                          DebugLoc dl, SelectionDAG &DAG,
+                          SDLoc dl, SelectionDAG &DAG,
                           SmallVectorImpl<SDValue> &InVals) const;
 private:
   const DataLayout *TD;

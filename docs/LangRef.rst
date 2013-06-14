@@ -111,7 +111,7 @@ After strength reduction:
 
 .. code-block:: llvm
 
-    %result = shl i32 %X, i8 3
+    %result = shl i32 %X, 3
 
 And the hard way:
 
@@ -127,7 +127,8 @@ lexical features of LLVM:
 #. Comments are delimited with a '``;``' and go until the end of line.
 #. Unnamed temporaries are created when the result of a computation is
    not assigned to a named value.
-#. Unnamed temporaries are numbered sequentially
+#. Unnamed temporaries are numbered sequentially (using a per-function
+   incrementing counter, starting with 0).
 
 It also shows a convention that we follow in this document. When
 demonstrating instructions, we will follow an instruction with a comment
@@ -148,20 +149,20 @@ symbol table entries. Here is an example of the "hello world" module:
 
 .. code-block:: llvm
 
-    ; Declare the string constant as a global constant. 
-    @.str = private unnamed_addr constant [13 x i8] c"hello world\0A\00" 
+    ; Declare the string constant as a global constant.
+    @.str = private unnamed_addr constant [13 x i8] c"hello world\0A\00"
 
-    ; External declaration of the puts function 
-    declare i32 @puts(i8* nocapture) nounwind 
+    ; External declaration of the puts function
+    declare i32 @puts(i8* nocapture) nounwind
 
     ; Definition of main function
-    define i32 @main() {   ; i32()*  
-      ; Convert [13 x i8]* to i8  *... 
+    define i32 @main() {   ; i32()*
+      ; Convert [13 x i8]* to i8  *...
       %cast210 = getelementptr [13 x i8]* @.str, i64 0, i64 0
 
-      ; Call puts function to write out the string to stdout. 
+      ; Call puts function to write out the string to stdout.
       call i32 @puts(i8* %cast210)
-      ret i32 0 
+      ret i32 0
     }
 
     ; Named metadata
@@ -262,7 +263,7 @@ linkage:
     Some languages allow differing globals to be merged, such as two
     functions with different semantics. Other languages, such as
     ``C++``, ensure that only equivalent globals are ever merged (the
-    "one definition rule" — "ODR"). Such languages can use the
+    "one definition rule" --- "ODR").  Such languages can use the
     ``linkonce_odr`` and ``weak_odr`` linkage types to indicate that the
     global will only be merged with equivalent globals. These linkage
     types are otherwise the same as their non-``odr`` versions.
@@ -386,6 +387,8 @@ More calling conventions can be added/defined on an as-needed basis, to
 support Pascal conventions or any other well-known target-independent
 convention.
 
+.. _visibilitystyles:
+
 Visibility Styles
 -----------------
 
@@ -410,6 +413,8 @@ styles:
     placed in the dynamic symbol table, but that references within the
     defining module will bind to the local symbol. That is, the symbol
     cannot be overridden by another module.
+
+.. _namedtypes:
 
 Named Types
 -----------
@@ -465,11 +470,11 @@ more information on under which circumstances the different models may
 be used. The target may choose a different TLS model if the specified
 model is not supported, or if a better choice of model can be made.
 
-A variable may be defined as a global "constant," which indicates that
+A variable may be defined as a global ``constant``, which indicates that
 the contents of the variable will **never** be modified (enabling better
 optimization, allowing the global data to be placed in the read-only
 section of an executable, etc). Note that variables that need runtime
-initialization cannot be marked "constant" as there is a store to the
+initialization cannot be marked ``constant`` as there is a store to the
 variable.
 
 LLVM explicitly allows *declarations* of global variables to be marked
@@ -500,6 +505,14 @@ is zero. The address space qualifier must precede any other attributes.
 
 LLVM allows an explicit section to be specified for globals. If the
 target supports it, it will emit globals to the section specified.
+
+By default, global initializers are optimized by assuming that global
+variables defined within the module are not modified from their
+initial values before the start of the global initializer.  This is
+true even for variables potentially accessible from outside the
+module, including those with external linkage or appearing in
+``@llvm.used``. This assumption may be suppressed by marking the
+variable with ``externally_initialized``.
 
 An explicit alignment may be specified for a global, which must be a
 power of 2. If not present, or if the alignment is set to zero, the
@@ -555,7 +568,11 @@ A function definition contains a list of basic blocks, forming the CFG
 start with a label (giving the basic block a symbol table entry),
 contains a list of instructions, and ends with a
 :ref:`terminator <terminators>` instruction (such as a branch or function
-return).
+return). If explicit label is not provided, a block is assigned an
+implicit numbered label, using a next value from the same counter as used
+for unnamed temporaries (:ref:`see above<identifiers>`). For example, if a
+function entry block does not have explicit label, it will be assigned
+label "%0", then first unnamed temporary in that block will be "%1", etc.
 
 The first basic block in a function is special in two ways: it is
 immediately executed on entrance to the function, and it is not allowed
@@ -582,6 +599,8 @@ Syntax::
            <ResultType> @<FunctionName> ([argument list])
            [fn Attrs] [section "name"] [align N]
            [gc] { ... }
+
+.. _langref_aliases:
 
 Aliases
 -------
@@ -679,12 +698,12 @@ Currently, only the following parameter attributes are defined:
     This indicates that the pointer parameter specifies the address of a
     structure that is the return value of the function in the source
     program. This pointer must be guaranteed by the caller to be valid:
-    loads and stores to the structure may be assumed by the callee to
+    loads and stores to the structure may be assumed by the callee
     not to trap and to be properly aligned. This may only be applied to
     the first parameter. This is not a valid attribute for return
     values.
 ``noalias``
-    This indicates that pointer values `*based* <pointeraliasing>` on
+    This indicates that pointer values :ref:`based <pointeraliasing>` on
     the argument or return value do not alias pointer values which are
     not *based* on it, ignoring certain "irrelevant" dependencies. For a
     call to the parent function, dependencies between memory references
@@ -711,7 +730,17 @@ Currently, only the following parameter attributes are defined:
 ``nest``
     This indicates that the pointer parameter can be excised using the
     :ref:`trampoline intrinsics <int_trampoline>`. This is not a valid
-    attribute for return values.
+    attribute for return values and can only be applied to one parameter.
+
+``returned``
+    This indicates that the value of the function always returns the value
+    of the parameter as its return value. This is an optimization hint to
+    the code generator when generating the caller, allowing tail call
+    optimization and omission of register saves and restores in some cases;
+    it is not checked or enforced when generating the callee. The parameter
+    and the function return type must be valid operands for the
+    :ref:`bitcast instruction <i_bitcast>`. This is not a valid attribute for
+    return values and can only be applied to one parameter.
 
 .. _gc:
 
@@ -728,6 +757,36 @@ string:
 The compiler declares the supported values of *name*. Specifying a
 collector which will cause the compiler to alter its output in order to
 support the named garbage collection algorithm.
+
+.. _attrgrp:
+
+Attribute Groups
+----------------
+
+Attribute groups are groups of attributes that are referenced by objects within
+the IR. They are important for keeping ``.ll`` files readable, because a lot of
+functions will use the same set of attributes. In the degenerative case of a
+``.ll`` file that corresponds to a single ``.c`` file, the single attribute
+group will capture the important command line flags used to build that file.
+
+An attribute group is a module-level object. To use an attribute group, an
+object references the attribute group's ID (e.g. ``#37``). An object may refer
+to more than one attribute group. In that situation, the attributes from the
+different groups are merged.
+
+Here is an example of attribute groups for a function that should always be
+inlined, has a stack alignment of 4, and which shouldn't use SSE instructions:
+
+.. code-block:: llvm
+
+   ; Target-independent attributes:
+   attributes #0 = { alwaysinline alignstack=4 }
+
+   ; Target-dependent attributes:
+   attributes #1 = { "no-sse" }
+
+   ; Function @f has attributes: alwaysinline, alignstack=4, and "no-sse".
+   define void @f() #0 #1 { ... }
 
 .. _fnattrs:
 
@@ -750,9 +809,6 @@ example:
     define void @f() alwaysinline optsize { ... }
     define void @f() optsize { ... }
 
-``address_safety``
-    This attribute indicates that the address safety analysis is enabled
-    for this function.
 ``alignstack(<n>)``
     This attribute indicates that, when emitting the prologue and
     epilogue, the backend should forcibly align the stack pointer.
@@ -762,6 +818,11 @@ example:
     This attribute indicates that the inliner should attempt to inline
     this function into callers whenever possible, ignoring any active
     inlining size threshold for this caller.
+``cold``
+    This attribute indicates that this function is rarely called. When
+    computing edge weights, basic blocks post-dominated by a cold
+    function call are also considered to be cold; and, thus, given low
+    weight.
 ``nonlazybind``
     This attribute suppresses lazy symbol binding for the function. This
     may make calls to the function faster, at the cost of extra program
@@ -774,6 +835,23 @@ example:
 ``naked``
     This attribute disables prologue / epilogue emission for the
     function. This can have very system-specific consequences.
+``nobuiltin``
+    This indicates that the callee function at a call site is not
+    recognized as a built-in function. LLVM will retain the original call
+    and not replace it with equivalent code based on the semantics of the
+    built-in function. This is only valid at call sites, not on function
+    declarations or definitions.
+``noduplicate``
+    This attribute indicates that calls to the function cannot be
+    duplicated. A call to a ``noduplicate`` function may be moved
+    within its parent function, but may not be duplicated within
+    its parent function.
+
+    A function containing a ``noduplicate`` call may still
+    be an inlining candidate, provided that the call is not
+    duplicated by inlining. That implies that the function has
+    internal linkage and only has one call site, so the original
+    call is dead after inlining.
 ``noimplicitfloat``
     This attributes disables implicit floating point instructions.
 ``noinline``
@@ -819,13 +897,27 @@ example:
     ``setjmp`` is an example of such a function. The compiler disables
     some optimizations (like tail calls) in the caller of these
     functions.
+``sanitize_address``
+    This attribute indicates that AddressSanitizer checks
+    (dynamic address safety analysis) are enabled for this function.
+``sanitize_memory``
+    This attribute indicates that MemorySanitizer checks (dynamic detection
+    of accesses to uninitialized memory) are enabled for this function.
+``sanitize_thread``
+    This attribute indicates that ThreadSanitizer checks
+    (dynamic thread safety analysis) are enabled for this function.
 ``ssp``
     This attribute indicates that the function should emit a stack
-    smashing protector. It is in the form of a "canary"—a random value
+    smashing protector. It is in the form of a "canary" --- a random value
     placed on the stack before the local variables that's checked upon
     return from the function to see if it has been overwritten. A
     heuristic is used to determine if a function needs stack protectors
-    or not.
+    or not. The heuristic used will enable protectors for functions with:
+
+    - Character arrays larger than ``ssp-buffer-size`` (default 8).
+    - Aggregates containing character arrays larger than ``ssp-buffer-size``.
+    - Calls to alloca() with variable sizes or constant sizes greater than
+      ``ssp-buffer-size``.
 
     If a function that has an ``ssp`` attribute is inlined into a
     function that doesn't have an ``ssp`` attribute, then the resulting
@@ -837,25 +929,30 @@ example:
 
     If a function that has an ``sspreq`` attribute is inlined into a
     function that doesn't have an ``sspreq`` attribute or which has an
-    ``ssp`` attribute, then the resulting function will have an
-    ``sspreq`` attribute.
+    ``ssp`` or ``sspstrong`` attribute, then the resulting function will have
+    an ``sspreq`` attribute.
+``sspstrong``
+    This attribute indicates that the function should emit a stack smashing
+    protector. This attribute causes a strong heuristic to be used when
+    determining if a function needs stack protectors.  The strong heuristic
+    will enable protectors for functions with:
+
+    - Arrays of any size and type
+    - Aggregates containing an array of any size and type.
+    - Calls to alloca().
+    - Local variables that have had their address taken.
+
+    This overrides the ``ssp`` function attribute.
+
+    If a function that has an ``sspstrong`` attribute is inlined into a
+    function that doesn't have an ``sspstrong`` attribute, then the
+    resulting function will have an ``sspstrong`` attribute.
 ``uwtable``
     This attribute indicates that the ABI being targeted requires that
     an unwind table entry be produce for this function even if we can
     show that no exceptions passes by it. This is normally the case for
     the ELF x86-64 abi, but it can be disabled for some compilation
     units.
-``noduplicate``
-    This attribute indicates that calls to the function cannot be
-    duplicated. A call to a ``noduplicate`` function may be moved
-    within its parent function, but may not be duplicated within
-    its parent function.
-
-    A function containing a ``noduplicate`` call may still
-    be an inlining candidate, provided that the call is not
-    duplicated by inlining. That implies that the function has
-    internal linkage and only has one call site, so the original
-    call is dead after inlining.
 
 .. _moduleasm:
 
@@ -878,6 +975,8 @@ two digit hex code for the number.
 
 The inline asm code is simply printed to the machine code .s file when
 assembly code is generated.
+
+.. _langref_datalayout:
 
 Data Layout
 -----------
@@ -950,22 +1049,20 @@ specifications are given in this list:
 
 -  ``E`` - big endian
 -  ``p:64:64:64`` - 64-bit pointers with 64-bit alignment
--  ``p1:32:32:32`` - 32-bit pointers with 32-bit alignment for address
-   space 1
--  ``p2:16:32:32`` - 16-bit pointers with 32-bit alignment for address
-   space 2
+-  ``S0`` - natural stack alignment is unspecified
 -  ``i1:8:8`` - i1 is 8-bit (byte) aligned
 -  ``i8:8:8`` - i8 is 8-bit (byte) aligned
 -  ``i16:16:16`` - i16 is 16-bit aligned
 -  ``i32:32:32`` - i32 is 32-bit aligned
 -  ``i64:32:64`` - i64 has ABI alignment of 32-bits but preferred
    alignment of 64-bits
+-  ``f16:16:16`` - half is 16-bit aligned
 -  ``f32:32:32`` - float is 32-bit aligned
 -  ``f64:64:64`` - double is 64-bit aligned
+-  ``f128:128:128`` - quad is 128-bit aligned
 -  ``v64:64:64`` - 64-bit vector is 64-bit aligned
 -  ``v128:128:128`` - 128-bit vector is 128-bit aligned
--  ``a0:0:1`` - aggregates are 8-bit aligned
--  ``s0:64:64`` - stack objects are 64-bit aligned
+-  ``a0:0:64`` - aggregates are 64-bit aligned
 
 When LLVM is determining the alignment for a given type, it uses the
 following rules:
@@ -1060,6 +1157,21 @@ volatile operations or change their order of execution relative to other
 volatile operations. The optimizers *may* change the order of volatile
 operations relative to non-volatile operations. This is not Java's
 "volatile" and has no cross-thread synchronization behavior.
+
+IR-level volatile loads and stores cannot safely be optimized into
+llvm.memcpy or llvm.memmove intrinsics even when those intrinsics are
+flagged volatile. Likewise, the backend should never split or merge
+target-legal volatile load/store instructions.
+
+.. admonition:: Rationale
+
+ Platforms may rely on volatile loads and stores of natively supported
+ data width to be executed as single instruction. For example, in C
+ this holds for an l-value of volatile primitive type with native
+ hardware support, but not necessarily for aggregate types. The
+ frontend upholds these expectations, which are intentionally
+ unspecified in the IR. The rules above ensure that IR transformation
+ do not violate the frontend's contract with the language.
 
 .. _memmodel:
 
@@ -1254,6 +1366,8 @@ directly, without having to do extra analyses on the side before the
 transformation. A strong type system makes it easier to read the
 generated code and enables novel analyses and transformations that are
 not feasible to perform on normal three address code representations.
+
+.. _typeclassifications:
 
 Type Classifications
 --------------------
@@ -1554,7 +1668,7 @@ Examples:
 +---------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | ``i32 (i32)``                   | function taking an ``i32``, returning an ``i32``                                                                                                                    |
 +---------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| ``float (i16, i32 *) *``        | :ref:`Pointer <t_pointer>` to a function that takes an ``i16`` and a :ref:`pointer <t_pointer>` to ``i32``, returning ``float``.                                    |
+| ``float (i16, i32 *) *``        | :ref:`Pointer <t_pointer>` to a function that takes an ``i16`` and a :ref:`pointer <t_pointer>` to ``i32``, returning ``float``.                                    |
 +---------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | ``i32 (i8*, ...)``              | A vararg function that takes at least one :ref:`pointer <t_pointer>` to ``i8`` (char in C), which returns an integer. This is the signature for ``printf`` in LLVM. |
 +---------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -1605,7 +1719,7 @@ Examples:
 +------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | ``{ i32, i32, i32 }``        | A triple of three ``i32`` values                                                                                                                                                      |
 +------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| ``{ float, i32 (i32) * }``   | A pair, where the first element is a ``float`` and the second element is a :ref:`pointer <t_pointer>` to a :ref:`function <t_function>` that takes an ``i32``, returning an ``i32``.  |
+| ``{ float, i32 (i32) * }``   | A pair, where the first element is a ``float`` and the second element is a :ref:`pointer <t_pointer>` to a :ref:`function <t_function>` that takes an ``i32``, returning an ``i32``.  |
 +------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | ``<{ i8, i32 }>``            | A packed struct known to be 5 bytes in size.                                                                                                                                          |
 +------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -1754,19 +1868,21 @@ and disassembly do not cause any bits to change in the constants.
 When using the hexadecimal form, constants of types half, float, and
 double are represented using the 16-digit form shown above (which
 matches the IEEE754 representation for double); half and float values
-must, however, be exactly representable as IEE754 half and single
+must, however, be exactly representable as IEEE 754 half and single
 precision, respectively. Hexadecimal format is always used for long
 double, and there are three forms of long double. The 80-bit format used
 by x86 is represented as ``0xK`` followed by 20 hexadecimal digits. The
 128-bit format used by PowerPC (two adjacent doubles) is represented by
 ``0xM`` followed by 32 hexadecimal digits. The IEEE 128-bit format is
-represented by ``0xL`` followed by 32 hexadecimal digits; no currently
-supported target uses this format. Long doubles will only work if they
-match the long double format on your target. The IEEE 16-bit format
-(half precision) is represented by ``0xH`` followed by 4 hexadecimal
-digits. All hexadecimal formats are big-endian (sign bit at the left).
+represented by ``0xL`` followed by 32 hexadecimal digits. Long doubles
+will only work if they match the long double format on your target.
+The IEEE 16-bit format (half precision) is represented by ``0xH``
+followed by 4 hexadecimal digits. All hexadecimal formats are big-endian
+(sign bit at the left).
 
 There are no constants of type x86mmx.
+
+.. _complexconstants:
 
 Complex Constants
 -----------------
@@ -2079,7 +2195,7 @@ Taking the address of the entry block is illegal.
 This value only has defined behavior when used as an operand to the
 ':ref:`indirectbr <i_indirectbr>`' instruction, or for comparisons
 against null. Pointer equality tests between labels addresses results in
-undefined behavior — though, again, comparison against null is ok, and
+undefined behavior --- though, again, comparison against null is ok, and
 no label is equal to the null pointer. This may be passed around as an
 opaque pointer sized value as long as the bits are not inspected. This
 allows ``ptrtoint`` and arithmetic to be performed on these values so
@@ -2088,6 +2204,8 @@ instruction.
 
 Finally, some targets may provide defined semantics when using the value
 as the operand to an inline assembly, but that is target specific.
+
+.. _constantexprs:
 
 Constant Expressions
 --------------------
@@ -2141,7 +2259,7 @@ The following is the syntax for constant expressions:
     won't fit in the floating point type, the results are undefined.
 ``ptrtoint (CST to TYPE)``
     Convert a pointer typed constant to the corresponding integer
-    constant ``TYPE`` must be an integer type. ``CST`` must be of
+    constant. ``TYPE`` must be an integer type. ``CST`` must be of
     pointer type. The ``CST`` value is zero extended, truncated, or
     unchanged to make it fit in ``TYPE``.
 ``inttoptr (CST to TYPE)``
@@ -2192,6 +2310,8 @@ The following is the syntax for constant expressions:
 
 Other Values
 ============
+
+.. _inlineasmexprs:
 
 Inline Assembler Expressions
 ----------------------------
@@ -2444,14 +2564,164 @@ Examples:
     !2 = metadata !{ i8 0, i8 2, i8 3, i8 6 }
     !3 = metadata !{ i8 -2, i8 0, i8 3, i8 6 }
 
+'``llvm.loop``'
+^^^^^^^^^^^^^^^
+
+It is sometimes useful to attach information to loop constructs. Currently,
+loop metadata is implemented as metadata attached to the branch instruction
+in the loop latch block. This type of metadata refer to a metadata node that is
+guaranteed to be separate for each loop. The loop identifier metadata is 
+specified with the name ``llvm.loop``.
+
+The loop identifier metadata is implemented using a metadata that refers to
+itself to avoid merging it with any other identifier metadata, e.g.,
+during module linkage or function inlining. That is, each loop should refer
+to their own identification metadata even if they reside in separate functions.
+The following example contains loop identifier metadata for two separate loop
+constructs:
+
+.. code-block:: llvm
+
+    !0 = metadata !{ metadata !0 }
+    !1 = metadata !{ metadata !1 }
+
+The loop identifier metadata can be used to specify additional per-loop
+metadata. Any operands after the first operand can be treated as user-defined
+metadata. For example the ``llvm.vectorizer.unroll`` metadata is understood
+by the loop vectorizer to indicate how many times to unroll the loop:
+
+.. code-block:: llvm
+
+      br i1 %exitcond, label %._crit_edge, label %.lr.ph, !llvm.loop !0
+    ...
+    !0 = metadata !{ metadata !0, metadata !1 }
+    !1 = metadata !{ metadata !"llvm.vectorizer.unroll", i32 2 }
+
+'``llvm.mem``'
+^^^^^^^^^^^^^^^
+
+Metadata types used to annotate memory accesses with information helpful
+for optimizations are prefixed with ``llvm.mem``.
+
+'``llvm.mem.parallel_loop_access``' Metadata
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For a loop to be parallel, in addition to using
+the ``llvm.loop`` metadata to mark the loop latch branch instruction,
+also all of the memory accessing instructions in the loop body need to be
+marked with the ``llvm.mem.parallel_loop_access`` metadata. If there
+is at least one memory accessing instruction not marked with the metadata,
+the loop must be considered a sequential loop. This causes parallel loops to be
+converted to sequential loops due to optimization passes that are unaware of
+the parallel semantics and that insert new memory instructions to the loop
+body.
+
+Example of a loop that is considered parallel due to its correct use of
+both ``llvm.loop`` and ``llvm.mem.parallel_loop_access``
+metadata types that refer to the same loop identifier metadata.
+
+.. code-block:: llvm
+
+   for.body:
+     ...
+     %0 = load i32* %arrayidx, align 4, !llvm.mem.parallel_loop_access !0
+     ...
+     store i32 %0, i32* %arrayidx4, align 4, !llvm.mem.parallel_loop_access !0
+     ...
+     br i1 %exitcond, label %for.end, label %for.body, !llvm.loop !0
+
+   for.end:
+   ...
+   !0 = metadata !{ metadata !0 }
+
+It is also possible to have nested parallel loops. In that case the
+memory accesses refer to a list of loop identifier metadata nodes instead of
+the loop identifier metadata node directly:
+
+.. code-block:: llvm
+
+   outer.for.body:
+   ...
+
+   inner.for.body:
+     ...
+     %0 = load i32* %arrayidx, align 4, !llvm.mem.parallel_loop_access !0
+     ...
+     store i32 %0, i32* %arrayidx4, align 4, !llvm.mem.parallel_loop_access !0
+     ...
+     br i1 %exitcond, label %inner.for.end, label %inner.for.body, !llvm.loop !1
+
+   inner.for.end:
+     ...
+     %0 = load i32* %arrayidx, align 4, !llvm.mem.parallel_loop_access !0
+     ...
+     store i32 %0, i32* %arrayidx4, align 4, !llvm.mem.parallel_loop_access !0
+     ...
+     br i1 %exitcond, label %outer.for.end, label %outer.for.body, !llvm.loop !2
+
+   outer.for.end:                                          ; preds = %for.body
+   ...
+   !0 = metadata !{ metadata !1, metadata !2 } ; a list of loop identifiers
+   !1 = metadata !{ metadata !1 } ; an identifier for the inner loop
+   !2 = metadata !{ metadata !2 } ; an identifier for the outer loop
+
+'``llvm.vectorizer``'
+^^^^^^^^^^^^^^^^^^^^^
+
+Metadata prefixed with ``llvm.vectorizer`` is used to control per-loop
+vectorization parameters such as vectorization factor and unroll factor.
+
+``llvm.vectorizer`` metadata should be used in conjunction with ``llvm.loop``
+loop identification metadata.
+
+'``llvm.vectorizer.unroll``' Metadata
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This metadata instructs the loop vectorizer to unroll the specified
+loop exactly ``N`` times.
+
+The first operand is the string ``llvm.vectorizer.unroll`` and the second
+operand is an integer specifying the unroll factor. For example:
+
+.. code-block:: llvm
+
+   !0 = metadata !{ metadata !"llvm.vectorizer.unroll", i32 4 }
+
+Note that setting ``llvm.vectorizer.unroll`` to 1 disables unrolling of the
+loop.
+
+If ``llvm.vectorizer.unroll`` is set to 0 then the amount of unrolling will be
+determined automatically.
+
+'``llvm.vectorizer.width``' Metadata
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This metadata sets the target width of the vectorizer to ``N``. Without
+this metadata, the vectorizer will choose a width automatically.
+Regardless of this metadata, the vectorizer will only vectorize loops if
+it believes it is valid to do so.
+
+The first operand is the string ``llvm.vectorizer.width`` and the second
+operand is an integer specifying the width. For example:
+
+.. code-block:: llvm
+
+   !0 = metadata !{ metadata !"llvm.vectorizer.width", i32 4 }
+
+Note that setting ``llvm.vectorizer.width`` to 1 disables vectorization of the
+loop.
+
+If ``llvm.vectorizer.width`` is set to 0 then the width will be determined
+automatically.
+
 Module Flags Metadata
 =====================
 
 Information about the module as a whole is difficult to convey to LLVM's
 subsystems. The LLVM IR isn't sufficient to transmit this information.
 The ``llvm.module.flags`` named metadata exists in order to facilitate
-this. These flags are in the form of key / value pairs — much like a
-dictionary — making it easy for any subsystem who cares about a flag to
+this. These flags are in the form of key / value pairs --- much like a
+dictionary --- making it easy for any subsystem who cares about a flag to
 look it up.
 
 The ``llvm.module.flags`` metadata contains a list of metadata triplets.
@@ -2462,14 +2732,16 @@ Each triplet has the following form:
    (or more) metadata with the same ID. The supported behaviors are
    described below.
 -  The second element is a metadata string that is a unique ID for the
-   metadata. How each ID is interpreted is documented below.
+   metadata. Each module may only have one flag entry for each unique ID (not
+   including entries with the **Require** behavior).
 -  The third element is the value of the flag.
 
 When two (or more) modules are merged together, the resulting
-``llvm.module.flags`` metadata is the union of the modules'
-``llvm.module.flags`` metadata. The only exception being a flag with the
-*Override* behavior, which may override another flag's value (see
-below).
+``llvm.module.flags`` metadata is the union of the modules' flags. That is, for
+each unique metadata ID string, there will be exactly one entry in the merged
+modules ``llvm.module.flags`` metadata table, and the value for that entry will
+be determined by the merge behavior flag, as described below. The only exception
+is that entries with the *Require* behavior are always preserved.
 
 The following behaviors are supported:
 
@@ -2482,25 +2754,43 @@ The following behaviors are supported:
 
    * - 1
      - **Error**
-           Emits an error if two values disagree. It is an error to have an
-           ID with both an Error and a Warning behavior.
+           Emits an error if two values disagree, otherwise the resulting value
+           is that of the operands.
 
    * - 2
      - **Warning**
-           Emits a warning if two values disagree.
+           Emits a warning if two values disagree. The result value will be the
+           operand for the flag from the first module being linked.
 
    * - 3
      - **Require**
-           Emits an error when the specified value is not present or doesn't
-           have the specified value. It is an error for two (or more)
-           ``llvm.module.flags`` with the same ID to have the Require behavior
-           but different values. There may be multiple Require flags per ID.
+           Adds a requirement that another module flag be present and have a
+           specified value after linking is performed. The value must be a
+           metadata pair, where the first element of the pair is the ID of the
+           module flag to be restricted, and the second element of the pair is
+           the value the module flag should be restricted to. This behavior can
+           be used to restrict the allowable results (via triggering of an
+           error) of linking IDs with the **Override** behavior.
 
    * - 4
      - **Override**
-           Uses the specified value if the two values disagree. It is an
-           error for two (or more) ``llvm.module.flags`` with the same ID
-           to have the Override behavior but different values.
+           Uses the specified value, regardless of the behavior or value of the
+           other module. If both modules specify **Override**, but the values
+           differ, an error will be emitted.
+
+   * - 5
+     - **Append**
+           Appends the two values, which are required to be metadata nodes.
+
+   * - 6
+     - **AppendUnique**
+           Appends the two values, which are required to be metadata
+           nodes. However, duplicate entries in the second list are dropped
+           during the append operation.
+
+It is an error for a particular unique flag ID to have multiple behaviors,
+except in the case of **Require** (which adds restrictions on another metadata
+value) or **Override**.
 
 An example of module flags:
 
@@ -2522,7 +2812,7 @@ An example of module flags:
 
 -  Metadata ``!1`` has the ID ``!"bar"`` and the value '37'. The
    behavior if two or more ``!"bar"`` flags are seen is to use the value
-   '37' if their values are not equal.
+   '37'.
 
 -  Metadata ``!2`` has the ID ``!"qux"`` and the value '42'. The
    behavior if two or more ``!"qux"`` flags are seen is to emit a
@@ -2534,10 +2824,9 @@ An example of module flags:
 
        metadata !{ metadata !"foo", i32 1 }
 
-   The behavior is to emit an error if the ``llvm.module.flags`` does
-   not contain a flag with the ID ``!"foo"`` that has the value '1'. If
-   two or more ``!"qux"`` flags exist, then they must have the same
-   value or an error will be issued.
+   The behavior is to emit an error if the ``llvm.module.flags`` does not
+   contain a flag with the ID ``!"foo"`` that has the value '1' after linking is
+   performed.
 
 Objective-C Garbage Collection Module Flags Metadata
 ----------------------------------------------------
@@ -2559,26 +2848,26 @@ following key-value pairs:
    * - Key
      - Value
 
-   * - ``Objective-C Version``
-     - **[Required]** — The Objective-C ABI version. Valid values are 1 and 2.
+   * - ``Objective-C Version``
+     - **[Required]** --- The Objective-C ABI version. Valid values are 1 and 2.
 
-   * - ``Objective-C Image Info Version``
-     - **[Required]** — The version of the image info section. Currently
+   * - ``Objective-C Image Info Version``
+     - **[Required]** --- The version of the image info section. Currently
        always 0.
 
-   * - ``Objective-C Image Info Section``
-     - **[Required]** — The section to place the metadata. Valid values are
+   * - ``Objective-C Image Info Section``
+     - **[Required]** --- The section to place the metadata. Valid values are
        ``"__OBJC, __image_info, regular"`` for Objective-C ABI version 1, and
        ``"__DATA,__objc_imageinfo, regular, no_dead_strip"`` for
        Objective-C ABI version 2.
 
-   * - ``Objective-C Garbage Collection``
-     - **[Required]** — Specifies whether garbage collection is supported or
+   * - ``Objective-C Garbage Collection``
+     - **[Required]** --- Specifies whether garbage collection is supported or
        not. Valid values are 0, for no garbage collection, and 2, for garbage
        collection supported.
 
-   * - ``Objective-C GC Only``
-     - **[Optional]** — Specifies that only garbage collection is supported.
+   * - ``Objective-C GC Only``
+     - **[Optional]** --- Specifies that only garbage collection is supported.
        If present, its value must be 6. This flag requires that the
        ``Objective-C Garbage Collection`` flag have the value 2.
 
@@ -2591,6 +2880,42 @@ Some important flag interactions:
 -  A module with ``Objective-C Garbage Collection`` set to 0 cannot be
    merged with a module with ``Objective-C GC Only`` set to 6.
 
+Automatic Linker Flags Module Flags Metadata
+--------------------------------------------
+
+Some targets support embedding flags to the linker inside individual object
+files. Typically this is used in conjunction with language extensions which
+allow source files to explicitly declare the libraries they depend on, and have
+these automatically be transmitted to the linker via object files.
+
+These flags are encoded in the IR using metadata in the module flags section,
+using the ``Linker Options`` key. The merge behavior for this flag is required
+to be ``AppendUnique``, and the value for the key is expected to be a metadata
+node which should be a list of other metadata nodes, each of which should be a
+list of metadata strings defining linker options.
+
+For example, the following metadata section specifies two separate sets of
+linker options, presumably to link against ``libz`` and the ``Cocoa``
+framework::
+
+    !0 = metadata !{ i32 6, metadata !"Linker Options",
+       metadata !{
+          metadata !{ metadata !"-lz" },
+          metadata !{ metadata !"-framework", metadata !"Cocoa" } } }
+    !llvm.module.flags = !{ !0 }
+
+The metadata encoding as lists of lists of options, as opposed to a collapsed
+list of options, is chosen so that the IR encoding can use multiple option
+strings to specify e.g., a single library, while still having that specifier be
+preserved as an atomic element that can be recognized by a target specific
+assembly writer or object file emitter.
+
+Each individual option is required to be either a valid option for the target's
+linker, or an option that is reserved by the target specific assembly writer or
+object file emitter. No other aspect of these options is defined by the IR.
+
+.. _intrinsicglobalvariables:
+
 Intrinsic Global Variables
 ==========================
 
@@ -2600,12 +2925,14 @@ All globals of this sort should have a section specified as
 "``llvm.metadata``". This section and all globals that start with
 "``llvm.``" are reserved for use by LLVM.
 
+.. _gv_llvmused:
+
 The '``llvm.used``' Global Variable
 -----------------------------------
 
-The ``@llvm.used`` global is an array with i8\* element type which has
+The ``@llvm.used`` global is an array which has
 :ref:`appending linkage <linkage_appending>`. This array contains a list of
-pointers to global variables and functions which may optionally have a
+pointers to global variables, functions and aliases which may optionally have a
 pointer cast formed of bitcast or getelementptr. For example, a legal
 use of it is:
 
@@ -2619,17 +2946,19 @@ use of it is:
        i8* bitcast (i32* @Y to i8*)
     ], section "llvm.metadata"
 
-If a global variable appears in the ``@llvm.used`` list, then the
-compiler, assembler, and linker are required to treat the symbol as if
-there is a reference to the global that it cannot see. For example, if a
-variable has internal linkage and no references other than that from the
-``@llvm.used`` list, it cannot be deleted. This is commonly used to
-represent references from inline asms and other things the compiler
-cannot "see", and corresponds to "``attribute((used))``" in GNU C.
+If a symbol appears in the ``@llvm.used`` list, then the compiler, assembler,
+and linker are required to treat the symbol as if there is a reference to the
+symbol that it cannot see. For example, if a variable has internal linkage and
+no references other than that from the ``@llvm.used`` list, it cannot be
+deleted. This is commonly used to represent references from inline asms and
+other things the compiler cannot "see", and corresponds to
+"``attribute((used))``" in GNU C.
 
 On some targets, the code generator must emit a directive to the
 assembler or object file to prevent the assembler and linker from
 molesting the symbol.
+
+.. _gv_llvmcompilerused:
 
 The '``llvm.compiler.used``' Global Variable
 --------------------------------------------
@@ -2642,6 +2971,8 @@ by ``@llvm.used``.
 
 This is a rare construct that should only be used in rare circumstances,
 and should not be exposed to source languages.
+
+.. _gv_llvmglobalctors:
 
 The '``llvm.global_ctors``' Global Variable
 -------------------------------------------
@@ -2656,6 +2987,8 @@ functions and associated priorities. The functions referenced by this
 array will be called in ascending order of priority (i.e. lowest first)
 when the module is loaded. The order of functions with the same priority
 is not defined.
+
+.. _llvmglobaldtors:
 
 The '``llvm.global_dtors``' Global Variable
 -------------------------------------------
@@ -3743,7 +4076,7 @@ Example:
       <result> = lshr i32 4, 1   ; yields {i32}:result = 2
       <result> = lshr i32 4, 2   ; yields {i32}:result = 1
       <result> = lshr i8  4, 3   ; yields {i8}:result = 0
-      <result> = lshr i8 -2, 1   ; yields {i8}:result = 0x7FFFFFFF 
+      <result> = lshr i8 -2, 1   ; yields {i8}:result = 0x7F
       <result> = lshr i32 1, 32  ; undefined
       <result> = lshr <2 x i32> < i32 -2, i32 4>, < i32 1, i32 2>   ; yields: result=<2 x i32> < i32 0x7FFFFFFF, i32 1>
 
@@ -4280,7 +4613,7 @@ The '``load``' instruction is used to read from memory.
 Arguments:
 """"""""""
 
-The argument to the '``load``' instruction specifies the memory address
+The argument to the ``load`` instruction specifies the memory address
 from which to load. The pointer must point to a :ref:`first
 class <t_firstclass>` type. If the ``load`` is marked as ``volatile``,
 then the optimizer is not allowed to modify the number or order of
@@ -4301,14 +4634,14 @@ any defined semantics for atomic loads.
 
 The optional constant ``align`` argument specifies the alignment of the
 operation (that is, the alignment of the memory address). A value of 0
-or an omitted ``align`` argument means that the operation has the abi
+or an omitted ``align`` argument means that the operation has the ABI
 alignment for the target. It is the responsibility of the code emitter
 to ensure that the alignment information is correct. Overestimating the
 alignment results in undefined behavior. Underestimating the alignment
 may produce less efficient code. An alignment of 1 is always safe.
 
 The optional ``!nontemporal`` metadata must reference a single
-metatadata name <index> corresponding to a metadata node with one
+metatadata name ``<index>`` corresponding to a metadata node with one
 ``i32`` entry of value 1. The existence of the ``!nontemporal``
 metatadata on the instruction tells the optimizer and code generator
 that this load is not expected to be reused in the cache. The code
@@ -4316,7 +4649,7 @@ generator may select special instructions to save cache bandwidth, such
 as the ``MOVNT`` instruction on x86.
 
 The optional ``!invariant.load`` metadata must reference a single
-metatadata name <index> corresponding to a metadata node with no
+metatadata name ``<index>`` corresponding to a metadata node with no
 entries. The existence of the ``!invariant.load`` metatadata on the
 instruction tells the optimizer and code generator that this load
 address points to memory which does not change value during program
@@ -4364,10 +4697,10 @@ The '``store``' instruction is used to write to memory.
 Arguments:
 """"""""""
 
-There are two arguments to the '``store``' instruction: a value to store
-and an address at which to store it. The type of the '``<pointer>``'
+There are two arguments to the ``store`` instruction: a value to store
+and an address at which to store it. The type of the ``<pointer>``
 operand must be a pointer to the :ref:`first class <t_firstclass>` type of
-the '``<value>``' operand. If the ``store`` is marked as ``volatile``,
+the ``<value>`` operand. If the ``store`` is marked as ``volatile``,
 then the optimizer is not allowed to modify the number or order of
 execution of this ``store`` with other :ref:`volatile
 operations <volatile>`.
@@ -4384,18 +4717,18 @@ has undefined behavior if the alignment is not set to a value which is
 at least the size in bytes of the pointee. ``!nontemporal`` does not
 have any defined semantics for atomic stores.
 
-The optional constant "align" argument specifies the alignment of the
+The optional constant ``align`` argument specifies the alignment of the
 operation (that is, the alignment of the memory address). A value of 0
-or an omitted "align" argument means that the operation has the abi
+or an omitted ``align`` argument means that the operation has the ABI
 alignment for the target. It is the responsibility of the code emitter
 to ensure that the alignment information is correct. Overestimating the
-alignment results in an undefined behavior. Underestimating the
+alignment results in undefined behavior. Underestimating the
 alignment may produce less efficient code. An alignment of 1 is always
 safe.
 
-The optional !nontemporal metadata must reference a single metatadata
-name <index> corresponding to a metadata node with one i32 entry of
-value 1. The existence of the !nontemporal metatadata on the instruction
+The optional ``!nontemporal`` metadata must reference a single metatadata
+name ``<index>`` corresponding to a metadata node with one ``i32`` entry of
+value 1. The existence of the ``!nontemporal`` metatadata on the instruction
 tells the optimizer and code generator that this load is not expected to
 be reused in the cache. The code generator may select special
 instructions to save cache bandwidth, such as the MOVNT instruction on
@@ -4404,8 +4737,8 @@ x86.
 Semantics:
 """"""""""
 
-The contents of memory are updated to contain '``<value>``' at the
-location specified by the '``<pointer>``' operand. If '``<value>``' is
+The contents of memory are updated to contain ``<value>`` at the
+location specified by the ``<pointer>`` operand. If ``<value>`` is
 of scalar type then the number of bytes written does not exceed the
 minimum number of bytes needed to hold all bits of the type. For
 example, storing an ``i24`` writes at most three bytes. When writing a
@@ -5777,7 +6110,7 @@ Overview:
 
 The '``landingpad``' instruction is used by `LLVM's exception handling
 system <ExceptionHandling.html#overview>`_ to specify that a basic block
-is a landing pad — one where the exception lands, and corresponds to the
+is a landing pad --- one where the exception lands, and corresponds to the
 code found in the ``catch`` portion of a ``try``/``catch`` sequence. It
 defines values supplied by the personality function (``pers_fn``) upon
 re-entry to the function. The ``resultval`` has the type ``resultty``.
@@ -5789,7 +6122,7 @@ This instruction takes a ``pers_fn`` value. This is the personality
 function associated with the unwinding mechanism. The optional
 ``cleanup`` flag indicates that the landing pad block is a cleanup.
 
-A ``clause`` begins with the clause type — ``catch`` or ``filter`` — and
+A ``clause`` begins with the clause type --- ``catch`` or ``filter`` --- and
 contains the global variable representing the "type" that may be caught
 or filtered respectively. Unlike the ``catch`` clause, the ``filter``
 clause takes an array constant as its argument. Use
@@ -6392,6 +6725,9 @@ When directly supported, reading the cycle counter should not modify any
 memory. Implementations are allowed to either return a application
 specific value or a system wide value. On backends without support, this
 is lowered to a constant 0.
+
+Note that runtime support may be conditional on the privilege-level code is
+running at and the host platform.
 
 Standard C Library Intrinsics
 -----------------------------
@@ -7388,7 +7724,7 @@ Semantics:
 """"""""""
 
 The '``llvm.sadd.with.overflow``' family of intrinsic functions perform
-a signed addition of the two variables. They return a structure — the
+a signed addition of the two variables. They return a structure --- the
 first element of which is the signed summation, and the second element
 of which is a bit specifying if the signed summation resulted in an
 overflow.
@@ -7438,7 +7774,7 @@ Semantics:
 """"""""""
 
 The '``llvm.uadd.with.overflow``' family of intrinsic functions perform
-an unsigned addition of the two arguments. They return a structure — the
+an unsigned addition of the two arguments. They return a structure --- the
 first element of which is the sum, and the second element of which is a
 bit specifying if the unsigned summation resulted in a carry.
 
@@ -7487,7 +7823,7 @@ Semantics:
 """"""""""
 
 The '``llvm.ssub.with.overflow``' family of intrinsic functions perform
-a signed subtraction of the two arguments. They return a structure — the
+a signed subtraction of the two arguments. They return a structure --- the
 first element of which is the subtraction, and the second element of
 which is a bit specifying if the signed subtraction resulted in an
 overflow.
@@ -7537,7 +7873,7 @@ Semantics:
 """"""""""
 
 The '``llvm.usub.with.overflow``' family of intrinsic functions perform
-an unsigned subtraction of the two arguments. They return a structure —
+an unsigned subtraction of the two arguments. They return a structure ---
 the first element of which is the subtraction, and the second element of
 which is a bit specifying if the unsigned subtraction resulted in an
 overflow.
@@ -7587,7 +7923,7 @@ Semantics:
 """"""""""
 
 The '``llvm.smul.with.overflow``' family of intrinsic functions perform
-a signed multiplication of the two arguments. They return a structure —
+a signed multiplication of the two arguments. They return a structure ---
 the first element of which is the multiplication, and the second element
 of which is a bit specifying if the signed multiplication resulted in an
 overflow.
@@ -7637,8 +7973,8 @@ Semantics:
 """"""""""
 
 The '``llvm.umul.with.overflow``' family of intrinsic functions perform
-an unsigned multiplication of the two arguments. They return a structure
-— the first element of which is the multiplication, and the second
+an unsigned multiplication of the two arguments. They return a structure ---
+the first element of which is the multiplication, and the second
 element of which is a bit specifying if the unsigned multiplication
 resulted in an overflow.
 
@@ -7670,8 +8006,10 @@ Overview:
 """""""""
 
 The '``llvm.fmuladd.*``' intrinsic functions represent multiply-add
-expressions that can be fused if the code generator determines that the
-fused expression would be legal and efficient.
+expressions that can be fused if the code generator determines that (a) the
+target instruction set has support for a fused operation, and (b) that the
+fused operation is more efficient than the equivalent, separate pair of mul
+and add instructions.
 
 Arguments:
 """"""""""
@@ -8085,6 +8423,46 @@ This intrinsic allows annotation of local variables with arbitrary
 strings. This can be useful for special purpose optimizations that want
 to look for these annotations. These have no other defined use; they are
 ignored by code generation and optimization.
+
+'``llvm.ptr.annotation.*``' Intrinsic
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntax:
+"""""""
+
+This is an overloaded intrinsic. You can use '``llvm.ptr.annotation``' on a
+pointer to an integer of any width. *NOTE* you must specify an address space for
+the pointer. The identifier for the default address space is the integer
+'``0``'.
+
+::
+
+      declare i8*   @llvm.ptr.annotation.p<address space>i8(i8* <val>, i8* <str>, i8* <str>, i32  <int>)
+      declare i16*  @llvm.ptr.annotation.p<address space>i16(i16* <val>, i8* <str>, i8* <str>, i32  <int>)
+      declare i32*  @llvm.ptr.annotation.p<address space>i32(i32* <val>, i8* <str>, i8* <str>, i32  <int>)
+      declare i64*  @llvm.ptr.annotation.p<address space>i64(i64* <val>, i8* <str>, i8* <str>, i32  <int>)
+      declare i256* @llvm.ptr.annotation.p<address space>i256(i256* <val>, i8* <str>, i8* <str>, i32  <int>)
+
+Overview:
+"""""""""
+
+The '``llvm.ptr.annotation``' intrinsic.
+
+Arguments:
+""""""""""
+
+The first argument is a pointer to an integer value of arbitrary bitwidth
+(result of some expression), the second is a pointer to a global string, the
+third is a pointer to a global string which is the source file name, and the
+last argument is the line number. It returns the value of the first argument.
+
+Semantics:
+""""""""""
+
+This intrinsic allows annotation of a pointer to an integer with arbitrary
+strings. This can be useful for special purpose optimizations that want to look
+for these annotations. These have no other defined use; they are ignored by code
+generation and optimization.
 
 '``llvm.annotation.*``' Intrinsic
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

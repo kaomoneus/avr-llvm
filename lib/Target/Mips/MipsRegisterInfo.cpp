@@ -47,6 +47,28 @@ MipsRegisterInfo::MipsRegisterInfo(const MipsSubtarget &ST)
 
 unsigned MipsRegisterInfo::getPICCallReg() { return Mips::T9; }
 
+
+unsigned
+MipsRegisterInfo::getRegPressureLimit(const TargetRegisterClass *RC,
+                                      MachineFunction &MF) const {
+  switch (RC->getID()) {
+  default:
+    return 0;
+  case Mips::CPURegsRegClassID:
+  case Mips::CPU64RegsRegClassID:
+  case Mips::DSPRegsRegClassID: {
+    const TargetFrameLowering *TFI = MF.getTarget().getFrameLowering();
+    return 28 - TFI->hasFP(MF);
+  }
+  case Mips::FGR32RegClassID:
+    return 32;
+  case Mips::AFGR64RegClassID:
+    return 16;
+  case Mips::FGR64RegClassID:
+    return 32;
+  }
+}
+
 //===----------------------------------------------------------------------===//
 // Callee Saved Registers methods
 //===----------------------------------------------------------------------===//
@@ -76,6 +98,10 @@ MipsRegisterInfo::getCallPreservedMask(CallingConv::ID) const {
 
   assert(Subtarget.isABI_N64());
   return CSR_N64_RegMask;
+}
+
+const uint32_t *MipsRegisterInfo::getMips16RetHelperMask() {
+  return CSR_Mips16RetHelper_RegMask;
 }
 
 BitVector MipsRegisterInfo::
@@ -123,7 +149,11 @@ getReservedRegs(const MachineFunction &MF) const {
   Reserved.set(Mips::HWR29_64);
 
   // Reserve DSP control register.
-  Reserved.set(Mips::DSPCtrl);
+  Reserved.set(Mips::DSPPos);
+  Reserved.set(Mips::DSPSCount);
+  Reserved.set(Mips::DSPCarry);
+  Reserved.set(Mips::DSPEFI);
+  Reserved.set(Mips::DSPOutFlag);
 
   // Reserve RA if in mips16 mode.
   if (Subtarget.inMips16Mode()) {
@@ -155,21 +185,14 @@ MipsRegisterInfo::trackLivenessAfterRegAlloc(const MachineFunction &MF) const {
 // direct reference.
 void MipsRegisterInfo::
 eliminateFrameIndex(MachineBasicBlock::iterator II, int SPAdj,
-                    RegScavenger *RS) const {
+                    unsigned FIOperandNum, RegScavenger *RS) const {
   MachineInstr &MI = *II;
   MachineFunction &MF = *MI.getParent()->getParent();
-
-  unsigned i = 0;
-  while (!MI.getOperand(i).isFI()) {
-    ++i;
-    assert(i < MI.getNumOperands() &&
-           "Instr doesn't have FrameIndex operand!");
-  }
 
   DEBUG(errs() << "\nFunction : " << MF.getName() << "\n";
         errs() << "<--------->\n" << MI);
 
-  int FrameIndex = MI.getOperand(i).getIndex();
+  int FrameIndex = MI.getOperand(FIOperandNum).getIndex();
   uint64_t stackSize = MF.getFrameInfo()->getStackSize();
   int64_t spOffset = MF.getFrameInfo()->getObjectOffset(FrameIndex);
 
@@ -177,7 +200,7 @@ eliminateFrameIndex(MachineBasicBlock::iterator II, int SPAdj,
                << "spOffset   : " << spOffset << "\n"
                << "stackSize  : " << stackSize << "\n");
 
-  eliminateFI(MI, i, FrameIndex, stackSize, spOffset);
+  eliminateFI(MI, FIOperandNum, FrameIndex, stackSize, spOffset);
 }
 
 unsigned MipsRegisterInfo::

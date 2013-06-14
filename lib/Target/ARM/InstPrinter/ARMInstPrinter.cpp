@@ -490,7 +490,8 @@ void ARMInstPrinter::printAM3PostIndexOp(const MCInst *MI, unsigned Op,
 }
 
 void ARMInstPrinter::printAM3PreOrOffsetIndexOp(const MCInst *MI, unsigned Op,
-                                                raw_ostream &O) {
+                                                raw_ostream &O,
+                                                bool AlwaysPrintImm0) {
   const MCOperand &MO1 = MI->getOperand(Op);
   const MCOperand &MO2 = MI->getOperand(Op+1);
   const MCOperand &MO3 = MI->getOperand(Op+2);
@@ -509,7 +510,7 @@ void ARMInstPrinter::printAM3PreOrOffsetIndexOp(const MCInst *MI, unsigned Op,
   unsigned ImmOffs = ARM_AM::getAM3Offset(MO3.getImm());
   ARM_AM::AddrOpc op = ARM_AM::getAM3Op(MO3.getImm());
 
-  if (ImmOffs || (op == ARM_AM::sub)) {
+  if (AlwaysPrintImm0 || ImmOffs || (op == ARM_AM::sub)) {
     O << ", "
       << markup("<imm:")
       << "#"
@@ -520,6 +521,7 @@ void ARMInstPrinter::printAM3PreOrOffsetIndexOp(const MCInst *MI, unsigned Op,
   O << ']' << markup(">");
 }
 
+template <bool AlwaysPrintImm0>
 void ARMInstPrinter::printAddrMode3Operand(const MCInst *MI, unsigned Op,
                                            raw_ostream &O) {
   const MCOperand &MO1 = MI->getOperand(Op);
@@ -535,7 +537,7 @@ void ARMInstPrinter::printAddrMode3Operand(const MCInst *MI, unsigned Op,
     printAM3PostIndexOp(MI, Op, O);
     return;
   }
-  printAM3PreOrOffsetIndexOp(MI, Op, O);
+  printAM3PreOrOffsetIndexOp(MI, Op, O, AlwaysPrintImm0);
 }
 
 void ARMInstPrinter::printAddrMode3OffsetOperand(const MCInst *MI,
@@ -593,6 +595,7 @@ void ARMInstPrinter::printLdStmModeOperand(const MCInst *MI, unsigned OpNum,
   O << ARM_AM::getAMSubModeStr(Mode);
 }
 
+template <bool AlwaysPrintImm0>
 void ARMInstPrinter::printAddrMode5Operand(const MCInst *MI, unsigned OpNum,
                                            raw_ostream &O) {
   const MCOperand &MO1 = MI->getOperand(OpNum);
@@ -608,7 +611,7 @@ void ARMInstPrinter::printAddrMode5Operand(const MCInst *MI, unsigned OpNum,
 
   unsigned ImmOffs = ARM_AM::getAM5Offset(MO2.getImm());
   unsigned Op = ARM_AM::getAM5Op(MO2.getImm());
-  if (ImmOffs || Op == ARM_AM::sub) {
+  if (AlwaysPrintImm0 || ImmOffs || Op == ARM_AM::sub) {
     O << ", "
       << markup("<imm:")
       << "#"
@@ -627,8 +630,7 @@ void ARMInstPrinter::printAddrMode6Operand(const MCInst *MI, unsigned OpNum,
   O << markup("<mem:") << "[";
   printRegName(O, MO1.getReg());
   if (MO2.getImm()) {
-    // FIXME: Both darwin as and GNU as violate ARM docs here.
-    O << ", :" << (MO2.getImm() << 3);
+    O << ":" << (MO2.getImm() << 3);
   }
   O << "]" << markup(">");
 }
@@ -658,8 +660,8 @@ void ARMInstPrinter::printBitfieldInvMaskImmOperand(const MCInst *MI,
                                                     raw_ostream &O) {
   const MCOperand &MO = MI->getOperand(OpNum);
   uint32_t v = ~MO.getImm();
-  int32_t lsb = CountTrailingZeros_32(v);
-  int32_t width = (32 - CountLeadingZeros_32 (v)) - lsb;
+  int32_t lsb = countTrailingZeros(v);
+  int32_t width = (32 - countLeadingZeros (v)) - lsb;
   assert(MO.isImm() && "Not a valid bf_inv_mask_imm value!");
   O << markup("<imm:") << '#' << lsb << markup(">")
     << ", "
@@ -670,6 +672,12 @@ void ARMInstPrinter::printMemBOption(const MCInst *MI, unsigned OpNum,
                                      raw_ostream &O) {
   unsigned val = MI->getOperand(OpNum).getImm();
   O << ARM_MB::MemBOptToString(val);
+}
+
+void ARMInstPrinter::printInstSyncBOption(const MCInst *MI, unsigned OpNum,
+                                          raw_ostream &O) {
+  unsigned val = MI->getOperand(OpNum).getImm();
+  O << ARM_ISB::InstSyncBOptToString(val);
 }
 
 void ARMInstPrinter::printShiftImmOperand(const MCInst *MI, unsigned OpNum,
@@ -929,7 +937,7 @@ void ARMInstPrinter::printThumbITMask(const MCInst *MI, unsigned OpNum,
   unsigned Mask = MI->getOperand(OpNum).getImm();
   unsigned Firstcond = MI->getOperand(OpNum-1).getImm();
   unsigned CondBit0 = Firstcond & 1;
-  unsigned NumTZ = CountTrailingZeros_32(Mask);
+  unsigned NumTZ = countTrailingZeros(Mask);
   assert(NumTZ <= 3 && "Invalid IT mask!");
   for (unsigned Pos = 3, e = NumTZ; Pos > e; --Pos) {
     bool T = ((Mask >> Pos) & 1) == CondBit0;
@@ -1023,6 +1031,7 @@ void ARMInstPrinter::printT2SOOperand(const MCInst *MI, unsigned OpNum,
                    ARM_AM::getSORegOffset(MO2.getImm()), UseMarkup);
 }
 
+template <bool AlwaysPrintImm0>
 void ARMInstPrinter::printAddrModeImm12Operand(const MCInst *MI, unsigned OpNum,
                                                raw_ostream &O) {
   const MCOperand &MO1 = MI->getOperand(OpNum);
@@ -1043,13 +1052,13 @@ void ARMInstPrinter::printAddrModeImm12Operand(const MCInst *MI, unsigned OpNum,
     OffImm = 0;
   if (isSub) {
     O << ", "
-      << markup("<imm:") 
+      << markup("<imm:")
       << "#-" << -OffImm
       << markup(">");
   }
-  else if (OffImm > 0) {
+  else if (AlwaysPrintImm0 || OffImm > 0) {
     O << ", "
-      << markup("<imm:") 
+      << markup("<imm:")
       << "#" << OffImm
       << markup(">");
   }

@@ -10,18 +10,22 @@ add_llvm_unittest(SupportTests
   BlockFrequencyTest.cpp
   Casting.cpp
   CommandLineTest.cpp
+  CompressionTest.cpp
   ConstantRangeTest.cpp
   DataExtractorTest.cpp
   EndianTest.cpp
+  ErrorOrTest.cpp
   FileOutputBufferTest.cpp
   IntegersSubsetTest.cpp
   LeakDetectorTest.cpp
   ManagedStatic.cpp
   MathExtrasTest.cpp
+  MD5Test.cpp
   MemoryBufferTest.cpp
   MemoryTest.cpp
   Path.cpp
   ProcessTest.cpp
+  ProgramTest.cpp
   RegexTest.cpp
   SwapByteOrderTest.cpp
   TimeValue.cpp

@@ -34,7 +34,10 @@ AVRTargetMachine::AVRTargetMachine(const Target &T, StringRef TT, StringRef CPU,
   InstrInfo(),
   FrameLowering(),
   TLInfo(*this),
-  TSInfo(*this) {}
+  TSInfo(*this)
+{
+  initAsmInfo();
+}
 
 namespace
 {

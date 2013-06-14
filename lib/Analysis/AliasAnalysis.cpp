@@ -537,6 +537,15 @@ bool llvm::isNoAliasCall(const Value *V) {
   return false;
 }
 
+/// isNoAliasArgument - Return true if this is an argument with the noalias
+/// attribute.
+bool llvm::isNoAliasArgument(const Value *V)
+{
+  if (const Argument *A = dyn_cast<Argument>(V))
+    return A->hasNoAliasAttr();
+  return false;
+}
+
 /// isIdentifiedObject - Return true if this pointer refers to a distinct and
 /// identifiable object.  This returns true for:
 ///    Global Variables and Functions (but not Global Aliases)
@@ -553,21 +562,5 @@ bool llvm::isIdentifiedObject(const Value *V) {
     return true;
   if (const Argument *A = dyn_cast<Argument>(V))
     return A->hasNoAliasAttr() || A->hasByValAttr();
-  return false;
-}
-
-/// isKnownNonNull - Return true if we know that the specified value is never
-/// null.
-bool llvm::isKnownNonNull(const Value *V) {
-  // Alloca never returns null, malloc might.
-  if (isa<AllocaInst>(V)) return true;
-
-  // A byval argument is never null.
-  if (const Argument *A = dyn_cast<Argument>(V))
-    return A->hasByValAttr();
-
-  // Global values are not null unless extern weak.
-  if (const GlobalValue *GV = dyn_cast<GlobalValue>(V))
-    return !GV->hasExternalWeakLinkage();
   return false;
 }

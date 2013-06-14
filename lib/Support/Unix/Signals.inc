@@ -27,9 +27,11 @@
 #if HAVE_SYS_STAT_H
 #include <sys/stat.h>
 #endif
-#if HAVE_DLFCN_H && __GNUG__
-#include <dlfcn.h>
+#if HAVE_CXXABI_H
 #include <cxxabi.h>
+#endif
+#if HAVE_DLFCN_H
+#include <dlfcn.h>
 #endif
 #if HAVE_MACH_MACH_H
 #include <mach/mach.h>
@@ -47,17 +49,19 @@ static void (*InterruptFunction)() = 0;
 static std::vector<std::string> FilesToRemove;
 static std::vector<std::pair<void(*)(void*), void*> > CallBacksToRun;
 
-// IntSigs - Signals that may interrupt the program at any time.
+// IntSigs - Signals that represent requested termination. There's no bug
+// or failure, or if there is, it's not our direct responsibility. For whatever
+// reason, our continued execution is no longer desirable.
 static const int IntSigs[] = {
-  SIGHUP, SIGINT, SIGQUIT, SIGPIPE, SIGTERM, SIGUSR1, SIGUSR2
+  SIGHUP, SIGINT, SIGPIPE, SIGTERM, SIGUSR1, SIGUSR2
 };
 static const int *const IntSigsEnd =
   IntSigs + sizeof(IntSigs) / sizeof(IntSigs[0]);
 
-// KillSigs - Signals that are synchronous with the program that will cause it
-// to die.
+// KillSigs - Signals that represent that we have a bug, and our prompt
+// termination has been ordered.
 static const int KillSigs[] = {
-  SIGILL, SIGTRAP, SIGABRT, SIGFPE, SIGBUS, SIGSEGV
+  SIGILL, SIGTRAP, SIGABRT, SIGFPE, SIGBUS, SIGSEGV, SIGQUIT
 #ifdef SIGSYS
   , SIGSYS
 #endif
@@ -182,6 +186,15 @@ static RETSIGTYPE SignalHandler(int Sig) {
   // Otherwise if it is a fault (like SEGV) run any handler.
   for (unsigned i = 0, e = CallBacksToRun.size(); i != e; ++i)
     CallBacksToRun[i].first(CallBacksToRun[i].second);
+
+#ifdef __s390__
+  // On S/390, certain signals are delivered with PSW Address pointing to
+  // *after* the faulting instruction.  Simply returning from the signal
+  // handler would continue execution after that point, instead of
+  // re-raising the signal.  Raise the signal manually in those cases.
+  if (Sig == SIGILL || Sig == SIGFPE || Sig == SIGTRAP)
+    raise(Sig);
+#endif
 }
 
 void llvm::sys::RunInterruptHandlers() {
@@ -288,14 +301,22 @@ void llvm::sys::PrintStackTrace(FILE *FD) {
             (int)(sizeof(void*) * 2) + 2, (unsigned long)StackTrace[i]);
 
     if (dlinfo.dli_sname != NULL) {
-      int res;
       fputc(' ', FD);
+#  if HAVE_CXXABI_H
+      int res;
       char* d = abi::__cxa_demangle(dlinfo.dli_sname, NULL, NULL, &res);
+#  else
+      char* d = NULL;
+#  endif
       if (d == NULL) fputs(dlinfo.dli_sname, FD);
       else           fputs(d, FD);
       free(d);
 
-      fprintf(FD, " + %tu",(char*)StackTrace[i]-(char*)dlinfo.dli_saddr);
+      // FIXME: When we move to C++11, use %t length modifier. It's not in
+      // C++03 and causes gcc to issue warnings. Losing the upper 32 bits of
+      // the stack offset for a stack dump isn't likely to cause any problems.
+      fprintf(FD, " + %u",(unsigned)((char*)StackTrace[i]-
+                                     (char*)dlinfo.dli_saddr));
     }
     fputc('\n', FD);
   }

@@ -236,8 +236,8 @@ public:
   /// will be automatically deleted if this context is deleted.
   SmallPtrSet<Module*, 4> OwnedModules;
   
-  LLVMContext::DiagHandlerTy DiagHandler;
-  void *DiagContext;
+  LLVMContext::InlineAsmDiagHandlerTy InlineAsmDiagHandler;
+  void *InlineAsmDiagContext;
   
   typedef DenseMap<DenseMapAPIntKeyInfo::KeyTy, ConstantInt*, 
                          DenseMapAPIntKeyInfo> IntMapTy;
@@ -249,6 +249,7 @@ public:
 
   FoldingSet<AttributeImpl> AttrsSet;
   FoldingSet<AttributeSetImpl> AttrsLists;
+  FoldingSet<AttributeSetNode> AttrsSetNodes;
 
   StringMap<Value*> MDStringCache;
 
@@ -317,7 +318,7 @@ public:
 
   /// ValueHandles - This map keeps track of all of the value handles that are
   /// watching a Value*.  The Value::HasValueHandle bit is used to know
-  // whether or not a value has an entry in this map.
+  /// whether or not a value has an entry in this map.
   typedef DenseMap<Value*, ValueHandleBase*> ValueHandlesTy;
   ValueHandlesTy ValueHandles;
   
@@ -349,6 +350,11 @@ public:
   /// to date.
   std::vector<std::pair<DebugRecVH, DebugRecVH> > ScopeInlinedAtRecords;
   
+  /// IntrinsicIDCache - Cache of intrinsic name (string) to numeric ID mappings
+  /// requested in this context
+  typedef DenseMap<const Function*, unsigned> IntrinsicIDCacheTy;
+  IntrinsicIDCacheTy IntrinsicIDCache;
+
   int getOrAddScopeRecordIdxEntry(MDNode *N, int ExistingIdx);
   int getOrAddScopeInlinedAtIdxEntry(MDNode *Scope, MDNode *IA,int ExistingIdx);
   

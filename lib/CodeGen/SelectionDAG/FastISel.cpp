@@ -87,6 +87,27 @@ void FastISel::startNewBlock() {
   LastLocalValue = EmitStartPt;
 }
 
+bool FastISel::LowerArguments() {
+  if (!FuncInfo.CanLowerReturn)
+    // Fallback to SDISel argument lowering code to deal with sret pointer
+    // parameter.
+    return false;
+  
+  if (!FastLowerArguments())
+    return false;
+
+  // Enter non-dead arguments into ValueMap for uses in non-entry BBs.
+  for (Function::const_arg_iterator I = FuncInfo.Fn->arg_begin(),
+         E = FuncInfo.Fn->arg_end(); I != E; ++I) {
+    if (!I->use_empty()) {
+      DenseMap<const Value *, unsigned>::iterator VI = LocalValueMap.find(I);
+      assert(VI != LocalValueMap.end() && "Missed an argument?");
+      FuncInfo.ValueMap[I] = VI->second;
+    }
+  }
+  return true;
+}
+
 void FastISel::flushLocalValueMap() {
   LocalValueMap.clear();
   LastLocalValue = EmitStartPt;
@@ -627,7 +648,7 @@ bool FastISel::SelectCall(const User *I) {
     else
       // We can't yet handle anything else here because it would require
       // generating code, thus altering codegen because of debug info.
-      DEBUG(dbgs() << "Dropping debug info for " << DI);
+      DEBUG(dbgs() << "Dropping debug info for " << *DI << "\n");
     return true;
   }
   case Intrinsic::dbg_value: {
@@ -661,7 +682,7 @@ bool FastISel::SelectCall(const User *I) {
     } else {
       // We can't yet handle anything else here because it would require
       // generating code, thus altering codegen because of debug info.
-      DEBUG(dbgs() << "Dropping debug info for " << DI);
+      DEBUG(dbgs() << "Dropping debug info for " << *DI << "\n");
     }
     return true;
   }
@@ -670,6 +691,13 @@ bool FastISel::SelectCall(const User *I) {
     unsigned long long Res = CI->isZero() ? -1ULL : 0;
     Constant *ResCI = ConstantInt::get(Call->getType(), Res);
     unsigned ResultReg = getRegForValue(ResCI);
+    if (ResultReg == 0)
+      return false;
+    UpdateValueMap(Call, ResultReg);
+    return true;
+  }
+  case Intrinsic::expect: {
+    unsigned ResultReg = getRegForValue(Call->getArgOperand(0));
     if (ResultReg == 0)
       return false;
     UpdateValueMap(Call, ResultReg);
@@ -684,7 +712,7 @@ bool FastISel::SelectCall(const User *I) {
   // all the values which have already been materialized,
   // appear after the call. It also makes sense to skip intrinsics
   // since they tend to be inlined.
-  if (!isa<IntrinsicInst>(F))
+  if (!isa<IntrinsicInst>(Call))
     flushLocalValueMap();
 
   // An arbitrary call. Bail.
@@ -836,7 +864,8 @@ FastISel::SelectInstruction(const Instruction *I) {
 void
 FastISel::FastEmitBranch(MachineBasicBlock *MSucc, DebugLoc DL) {
 
-  if (FuncInfo.MBB->getBasicBlock()->size() > 1 && FuncInfo.MBB->isLayoutSuccessor(MSucc)) {
+  if (FuncInfo.MBB->getBasicBlock()->size() > 1 &&
+      FuncInfo.MBB->isLayoutSuccessor(MSucc)) {
     // For more accurate line information if this is the only instruction
     // in the block then emit it, otherwise we have the unconditional
     // fall-through case, which needs no instructions.
@@ -1067,6 +1096,10 @@ FastISel::FastISel(FunctionLoweringInfo &funcInfo,
 
 FastISel::~FastISel() {}
 
+bool FastISel::FastLowerArguments() {
+  return false;
+}
+
 unsigned FastISel::FastEmit_(MVT, MVT,
                              unsigned) {
   return 0;
@@ -1150,6 +1183,8 @@ unsigned FastISel::FastEmit_ri_(MVT VT, unsigned Opcode,
     IntegerType *ITy = IntegerType::get(FuncInfo.Fn->getContext(),
                                               VT.getSizeInBits());
     MaterialReg = getRegForValue(ConstantInt::get(ITy, Imm));
+    assert (MaterialReg != 0 && "Unable to materialize imm.");
+    if (MaterialReg == 0) return 0;
   }
   return FastEmit_rr(VT, VT, Opcode,
                      Op0, Op0IsKill,
@@ -1470,3 +1505,61 @@ bool FastISel::HandlePHINodesInSuccessorBlocks(const BasicBlock *LLVMBB) {
 
   return true;
 }
+
+bool FastISel::tryToFoldLoad(const LoadInst *LI, const Instruction *FoldInst) {
+  assert(LI->hasOneUse() &&
+      "tryToFoldLoad expected a LoadInst with a single use");
+  // We know that the load has a single use, but don't know what it is.  If it
+  // isn't one of the folded instructions, then we can't succeed here.  Handle
+  // this by scanning the single-use users of the load until we get to FoldInst.
+  unsigned MaxUsers = 6;  // Don't scan down huge single-use chains of instrs.
+
+  const Instruction *TheUser = LI->use_back();
+  while (TheUser != FoldInst &&   // Scan up until we find FoldInst.
+         // Stay in the right block.
+         TheUser->getParent() == FoldInst->getParent() &&
+         --MaxUsers) {  // Don't scan too far.
+    // If there are multiple or no uses of this instruction, then bail out.
+    if (!TheUser->hasOneUse())
+      return false;
+
+    TheUser = TheUser->use_back();
+  }
+
+  // If we didn't find the fold instruction, then we failed to collapse the
+  // sequence.
+  if (TheUser != FoldInst)
+    return false;
+
+  // Don't try to fold volatile loads.  Target has to deal with alignment
+  // constraints.
+  if (LI->isVolatile())
+    return false;
+
+  // Figure out which vreg this is going into.  If there is no assigned vreg yet
+  // then there actually was no reference to it.  Perhaps the load is referenced
+  // by a dead instruction.
+  unsigned LoadReg = getRegForValue(LI);
+  if (LoadReg == 0)
+    return false;
+
+  // We can't fold if this vreg has no uses or more than one use.  Multiple uses
+  // may mean that the instruction got lowered to multiple MIs, or the use of
+  // the loaded value ended up being multiple operands of the result.
+  if (!MRI.hasOneUse(LoadReg))
+    return false;
+
+  MachineRegisterInfo::reg_iterator RI = MRI.reg_begin(LoadReg);
+  MachineInstr *User = &*RI;
+
+  // Set the insertion point properly.  Folding the load can cause generation of
+  // other random instructions (like sign extends) for addressing modes; make
+  // sure they get inserted in a logical place before the new instruction.
+  FuncInfo.InsertPt = User;
+  FuncInfo.MBB = User->getParent();
+
+  // Ask the target to try folding the load.
+  return tryToFoldLoadIntoMI(User, RI.getOperandNo(), LI);
+}
+
+

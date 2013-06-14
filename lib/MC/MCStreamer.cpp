@@ -21,12 +21,10 @@
 #include <cstdlib>
 using namespace llvm;
 
-MCStreamer::MCStreamer(MCContext &Ctx)
-  : Context(Ctx), EmitEHFrame(true), EmitDebugFrame(false),
-    CurrentW64UnwindInfo(0), LastSymbol(0),
-    AutoInitSections(false) {
-  const MCSection *section = NULL;
-  SectionStack.push_back(std::make_pair(section, section));
+MCStreamer::MCStreamer(StreamerKind Kind, MCContext &Ctx)
+    : Kind(Kind), Context(Ctx), EmitEHFrame(true), EmitDebugFrame(false),
+      CurrentW64UnwindInfo(0), LastSymbol(0), AutoInitSections(false) {
+  SectionStack.push_back(std::pair<MCSectionSubPair, MCSectionSubPair>());
 }
 
 MCStreamer::~MCStreamer() {
@@ -37,13 +35,13 @@ MCStreamer::~MCStreamer() {
 void MCStreamer::reset() {
   for (unsigned i = 0; i < getNumW64UnwindInfos(); ++i)
     delete W64UnwindInfos[i];
+  W64UnwindInfos.clear();
   EmitEHFrame = true;
   EmitDebugFrame = false;
   CurrentW64UnwindInfo = 0;
   LastSymbol = 0;
-  const MCSection *section = NULL;
   SectionStack.clear();
-  SectionStack.push_back(std::make_pair(section, section));  
+  SectionStack.push_back(std::pair<MCSectionSubPair, MCSectionSubPair>());
 }
 
 const MCExpr *MCStreamer::BuildSymbolDiff(MCContext &Context,
@@ -105,7 +103,7 @@ void MCStreamer::EmitIntValue(uint64_t Value, unsigned Size,
 /// EmitULEB128Value - Special case of EmitULEB128Value that avoids the
 /// client having to pass in a MCExpr for constant integers.
 void MCStreamer::EmitULEB128IntValue(uint64_t Value, unsigned Padding,
-				     unsigned AddrSpace) {
+                                     unsigned AddrSpace) {
   SmallString<128> Tmp;
   raw_svector_ostream OSE(Tmp);
   encodeULEB128(Value, OSE, Padding);
@@ -158,8 +156,8 @@ void MCStreamer::EmitFill(uint64_t NumBytes, uint8_t FillValue,
 
 bool MCStreamer::EmitDwarfFileDirective(unsigned FileNo,
                                         StringRef Directory,
-                                        StringRef Filename) {
-  return getContext().GetDwarfFile(Directory, Filename, FileNo) == 0;
+                                        StringRef Filename, unsigned CUID) {
+  return getContext().GetDwarfFile(Directory, Filename, FileNo, CUID) == 0;
 }
 
 void MCStreamer::EmitDwarfLocDirective(unsigned FileNo, unsigned Line,
@@ -173,7 +171,7 @@ void MCStreamer::EmitDwarfLocDirective(unsigned FileNo, unsigned Line,
 
 MCDwarfFrameInfo *MCStreamer::getCurrentFrameInfo() {
   if (FrameInfos.empty())
-    return NULL;
+    return 0;
   return &FrameInfos.back();
 }
 
@@ -189,15 +187,15 @@ void MCStreamer::EmitEHSymAttributes(const MCSymbol *Symbol,
 
 void MCStreamer::EmitLabel(MCSymbol *Symbol) {
   assert(!Symbol->isVariable() && "Cannot emit a variable symbol!");
-  assert(getCurrentSection() && "Cannot emit before setting section!");
-  Symbol->setSection(*getCurrentSection());
+  assert(getCurrentSection().first && "Cannot emit before setting section!");
+  Symbol->setSection(*getCurrentSection().first);
   LastSymbol = Symbol;
 }
 
 void MCStreamer::EmitDebugLabel(MCSymbol *Symbol) {
   assert(!Symbol->isVariable() && "Cannot emit a variable symbol!");
-  assert(getCurrentSection() && "Cannot emit before setting section!");
-  Symbol->setSection(*getCurrentSection());
+  assert(getCurrentSection().first && "Cannot emit before setting section!");
+  Symbol->setSection(*getCurrentSection().first);
   LastSymbol = Symbol;
 }
 
@@ -474,7 +472,7 @@ void MCStreamer::EmitWin64EHSetFrame(unsigned Register, unsigned Offset) {
     report_fatal_error("Frame register and offset already specified!");
   if (Offset & 0x0F)
     report_fatal_error("Misaligned frame pointer offset!");
-  MCWin64EHInstruction Inst(Win64EH::UOP_SetFPReg, NULL, Register, Offset);
+  MCWin64EHInstruction Inst(Win64EH::UOP_SetFPReg, 0, Register, Offset);
   CurFrame->LastFrameInst = CurFrame->Instructions.size();
   CurFrame->Instructions.push_back(Inst);
 }
@@ -620,4 +618,9 @@ void MCStreamer::Finish() {
     report_fatal_error("Unfinished frame!");
 
   FinishImpl();
+}
+
+MCSymbolData &MCStreamer::getOrCreateSymbolData(MCSymbol *Symbol) {
+  report_fatal_error("Not supported!");
+  return *(static_cast<MCSymbolData*>(0));
 }

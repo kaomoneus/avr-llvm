@@ -58,6 +58,7 @@
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallBitVector.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/Analysis/IVUsers.h"
 #include "llvm/Analysis/LoopPass.h"
@@ -237,7 +238,7 @@ struct Formula {
 
   /// BaseRegs - The list of "base" registers for this use. When this is
   /// non-empty,
-  SmallVector<const SCEV *, 2> BaseRegs;
+  SmallVector<const SCEV *, 4> BaseRegs;
 
   /// ScaledReg - The 'scaled' register for this use. This should be non-null
   /// when Scale is not zero.
@@ -773,6 +774,16 @@ DeleteTriviallyDeadInstructions(SmallVectorImpl<WeakVH> &DeadInsts) {
 }
 
 namespace {
+class LSRUse;
+}
+// Check if it is legal to fold 2 base registers.
+static bool isLegal2RegAMUse(const TargetTransformInfo &TTI, const LSRUse &LU,
+                             const Formula &F);
+// Get the cost of the scaling factor used in F for LU.
+static unsigned getScalingFactorCost(const TargetTransformInfo &TTI,
+                                     const LSRUse &LU, const Formula &F);
+
+namespace {
 
 /// Cost - This class is used to measure and compare candidate formulae.
 class Cost {
@@ -784,11 +795,12 @@ class Cost {
   unsigned NumBaseAdds;
   unsigned ImmCost;
   unsigned SetupCost;
+  unsigned ScaleCost;
 
 public:
   Cost()
     : NumRegs(0), AddRecCost(0), NumIVMuls(0), NumBaseAdds(0), ImmCost(0),
-      SetupCost(0) {}
+      SetupCost(0), ScaleCost(0) {}
 
   bool operator<(const Cost &Other) const;
 
@@ -798,9 +810,9 @@ public:
   // Once any of the metrics loses, they must all remain losers.
   bool isValid() {
     return ((NumRegs | AddRecCost | NumIVMuls | NumBaseAdds
-             | ImmCost | SetupCost) != ~0u)
+             | ImmCost | SetupCost | ScaleCost) != ~0u)
       || ((NumRegs & AddRecCost & NumIVMuls & NumBaseAdds
-           & ImmCost & SetupCost) == ~0u);
+           & ImmCost & SetupCost & ScaleCost) == ~0u);
   }
 #endif
 
@@ -809,12 +821,14 @@ public:
     return NumRegs == ~0u;
   }
 
-  void RateFormula(const Formula &F,
+  void RateFormula(const TargetTransformInfo &TTI,
+                   const Formula &F,
                    SmallPtrSet<const SCEV *, 16> &Regs,
                    const DenseSet<const SCEV *> &VisitedRegs,
                    const Loop *L,
                    const SmallVectorImpl<int64_t> &Offsets,
                    ScalarEvolution &SE, DominatorTree &DT,
+                   const LSRUse &LU,
                    SmallPtrSet<const SCEV *, 16> *LoserRegs = 0);
 
   void print(raw_ostream &OS) const;
@@ -894,17 +908,19 @@ void Cost::RatePrimaryRegister(const SCEV *Reg,
   }
   if (Regs.insert(Reg)) {
     RateRegister(Reg, Regs, L, SE, DT);
-    if (isLoser())
+    if (LoserRegs && isLoser())
       LoserRegs->insert(Reg);
   }
 }
 
-void Cost::RateFormula(const Formula &F,
+void Cost::RateFormula(const TargetTransformInfo &TTI,
+                       const Formula &F,
                        SmallPtrSet<const SCEV *, 16> &Regs,
                        const DenseSet<const SCEV *> &VisitedRegs,
                        const Loop *L,
                        const SmallVectorImpl<int64_t> &Offsets,
                        ScalarEvolution &SE, DominatorTree &DT,
+                       const LSRUse &LU,
                        SmallPtrSet<const SCEV *, 16> *LoserRegs) {
   // Tally up the registers.
   if (const SCEV *ScaledReg = F.ScaledReg) {
@@ -931,7 +947,12 @@ void Cost::RateFormula(const Formula &F,
   // Determine how many (unfolded) adds we'll need inside the loop.
   size_t NumBaseParts = F.BaseRegs.size() + (F.UnfoldedOffset != 0);
   if (NumBaseParts > 1)
-    NumBaseAdds += NumBaseParts - 1;
+    // Do not count the base and a possible second register if the target
+    // allows to fold 2 registers.
+    NumBaseAdds += NumBaseParts - (1 + isLegal2RegAMUse(TTI, LU, F));
+
+  // Accumulate non-free scaling amounts.
+  ScaleCost += getScalingFactorCost(TTI, LU, F);
 
   // Tally up the non-zero immediates.
   for (SmallVectorImpl<int64_t>::const_iterator I = Offsets.begin(),
@@ -954,6 +975,7 @@ void Cost::Loose() {
   NumBaseAdds = ~0u;
   ImmCost = ~0u;
   SetupCost = ~0u;
+  ScaleCost = ~0u;
 }
 
 /// operator< - Choose the lower cost.
@@ -966,6 +988,8 @@ bool Cost::operator<(const Cost &Other) const {
     return NumIVMuls < Other.NumIVMuls;
   if (NumBaseAdds != Other.NumBaseAdds)
     return NumBaseAdds < Other.NumBaseAdds;
+  if (ScaleCost != Other.ScaleCost)
+    return ScaleCost < Other.ScaleCost;
   if (ImmCost != Other.ImmCost)
     return ImmCost < Other.ImmCost;
   if (SetupCost != Other.SetupCost)
@@ -982,6 +1006,8 @@ void Cost::print(raw_ostream &OS) const {
   if (NumBaseAdds != 0)
     OS << ", plus " << NumBaseAdds << " base add"
        << (NumBaseAdds == 1 ? "" : "s");
+  if (ScaleCost != 0)
+    OS << ", plus " << ScaleCost << " scale cost";
   if (ImmCost != 0)
     OS << ", plus " << ImmCost << " imm cost";
   if (SetupCost != 0)
@@ -1087,19 +1113,19 @@ namespace {
 /// UniquifierDenseMapInfo - A DenseMapInfo implementation for holding
 /// DenseMaps and DenseSets of sorted SmallVectors of const SCEV*.
 struct UniquifierDenseMapInfo {
-  static SmallVector<const SCEV *, 2> getEmptyKey() {
-    SmallVector<const SCEV *, 2> V;
+  static SmallVector<const SCEV *, 4> getEmptyKey() {
+    SmallVector<const SCEV *, 4>  V;
     V.push_back(reinterpret_cast<const SCEV *>(-1));
     return V;
   }
 
-  static SmallVector<const SCEV *, 2> getTombstoneKey() {
-    SmallVector<const SCEV *, 2> V;
+  static SmallVector<const SCEV *, 4> getTombstoneKey() {
+    SmallVector<const SCEV *, 4> V;
     V.push_back(reinterpret_cast<const SCEV *>(-2));
     return V;
   }
 
-  static unsigned getHashValue(const SmallVector<const SCEV *, 2> &V) {
+  static unsigned getHashValue(const SmallVector<const SCEV *, 4> &V) {
     unsigned Result = 0;
     for (SmallVectorImpl<const SCEV *>::const_iterator I = V.begin(),
          E = V.end(); I != E; ++I)
@@ -1107,8 +1133,8 @@ struct UniquifierDenseMapInfo {
     return Result;
   }
 
-  static bool isEqual(const SmallVector<const SCEV *, 2> &LHS,
-                      const SmallVector<const SCEV *, 2> &RHS) {
+  static bool isEqual(const SmallVector<const SCEV *, 4> &LHS,
+                      const SmallVector<const SCEV *, 4> &RHS) {
     return LHS == RHS;
   }
 };
@@ -1119,7 +1145,7 @@ struct UniquifierDenseMapInfo {
 /// the user itself, and information about how the use may be satisfied.
 /// TODO: Represent multiple users of the same expression in common?
 class LSRUse {
-  DenseSet<SmallVector<const SCEV *, 2>, UniquifierDenseMapInfo> Uniquifier;
+  DenseSet<SmallVector<const SCEV *, 4>, UniquifierDenseMapInfo> Uniquifier;
 
 public:
   /// KindType - An enum for a kind of use, indicating what types of
@@ -1178,7 +1204,7 @@ public:
 /// HasFormula - Test whether this use as a formula which has the same
 /// registers as the given formula.
 bool LSRUse::HasFormulaWithSameRegs(const Formula &F) const {
-  SmallVector<const SCEV *, 2> Key = F.BaseRegs;
+  SmallVector<const SCEV *, 4> Key = F.BaseRegs;
   if (F.ScaledReg) Key.push_back(F.ScaledReg);
   // Unstable sort by host order ok, because this is only used for uniquifying.
   std::sort(Key.begin(), Key.end());
@@ -1188,7 +1214,7 @@ bool LSRUse::HasFormulaWithSameRegs(const Formula &F) const {
 /// InsertFormula - If the given formula has not yet been inserted, add it to
 /// the list, and return true. Return false otherwise.
 bool LSRUse::InsertFormula(const Formula &F) {
-  SmallVector<const SCEV *, 2> Key = F.BaseRegs;
+  SmallVector<const SCEV *, 4> Key = F.BaseRegs;
   if (F.ScaledReg) Key.push_back(F.ScaledReg);
   // Unstable sort by host order ok, because this is only used for uniquifying.
   std::sort(Key.begin(), Key.end());
@@ -1356,6 +1382,58 @@ static bool isLegalUse(const TargetTransformInfo &TTI, int64_t MinOffset,
                        const Formula &F) {
   return isLegalUse(TTI, MinOffset, MaxOffset, Kind, AccessTy, F.BaseGV,
                     F.BaseOffset, F.HasBaseReg, F.Scale);
+}
+
+static bool isLegal2RegAMUse(const TargetTransformInfo &TTI, const LSRUse &LU,
+                             const Formula &F) {
+  // If F is used as an Addressing Mode, it may fold one Base plus one
+  // scaled register. If the scaled register is nil, do as if another
+  // element of the base regs is a 1-scaled register.
+  // This is possible if BaseRegs has at least 2 registers.
+
+  // If this is not an address calculation, this is not an addressing mode
+  // use.
+  if (LU.Kind !=  LSRUse::Address)
+    return false;
+
+  // F is already scaled.
+  if (F.Scale != 0)
+    return false;
+
+  // We need to keep one register for the base and one to scale.
+  if (F.BaseRegs.size() < 2)
+    return false;
+
+  return isLegalUse(TTI, LU.MinOffset, LU.MaxOffset, LU.Kind, LU.AccessTy,
+                    F.BaseGV, F.BaseOffset, F.HasBaseReg, 1);
+ }
+
+static unsigned getScalingFactorCost(const TargetTransformInfo &TTI,
+                                     const LSRUse &LU, const Formula &F) {
+  if (!F.Scale)
+    return 0;
+  assert(isLegalUse(TTI, LU.MinOffset, LU.MaxOffset, LU.Kind,
+                    LU.AccessTy, F) && "Illegal formula in use.");
+
+  switch (LU.Kind) {
+  case LSRUse::Address: {
+    int CurScaleCost = TTI.getScalingFactorCost(LU.AccessTy, F.BaseGV,
+                                                F.BaseOffset, F.HasBaseReg,
+                                                F.Scale);
+    assert(CurScaleCost >= 0 && "Legal addressing mode has an illegal cost!");
+    return CurScaleCost;
+  }
+  case LSRUse::ICmpZero:
+    // ICmpZero BaseReg + -1*ScaleReg => ICmp BaseReg, ScaleReg.
+    // Therefore, return 0 in case F.Scale == -1. 
+    return F.Scale != -1;
+
+  case LSRUse::Basic:
+  case LSRUse::Special:
+    return 0;
+  }
+
+  llvm_unreachable("Invalid LSRUse Kind!");
 }
 
 static bool isAlwaysFoldable(const TargetTransformInfo &TTI,
@@ -1894,15 +1972,13 @@ ICmpInst *LSRInstance::OptimizeMax(ICmpInst *Cond, IVStrideUse* &CondUse) {
   if (ICmpInst::isTrueWhenEqual(Pred)) {
     // Look for n+1, and grab n.
     if (AddOperator *BO = dyn_cast<AddOperator>(Sel->getOperand(1)))
-      if (isa<ConstantInt>(BO->getOperand(1)) &&
-          cast<ConstantInt>(BO->getOperand(1))->isOne() &&
-          SE.getSCEV(BO->getOperand(0)) == MaxRHS)
-        NewRHS = BO->getOperand(0);
+      if (ConstantInt *BO1 = dyn_cast<ConstantInt>(BO->getOperand(1)))
+         if (BO1->isOne() && SE.getSCEV(BO->getOperand(0)) == MaxRHS)
+           NewRHS = BO->getOperand(0);
     if (AddOperator *BO = dyn_cast<AddOperator>(Sel->getOperand(2)))
-      if (isa<ConstantInt>(BO->getOperand(1)) &&
-          cast<ConstantInt>(BO->getOperand(1))->isOne() &&
-          SE.getSCEV(BO->getOperand(0)) == MaxRHS)
-        NewRHS = BO->getOperand(0);
+      if (ConstantInt *BO1 = dyn_cast<ConstantInt>(BO->getOperand(1)))
+        if (BO1->isOne() && SE.getSCEV(BO->getOperand(0)) == MaxRHS)
+          NewRHS = BO->getOperand(0);
     if (!NewRHS)
       return Cond;
   } else if (SE.getSCEV(Sel->getOperand(1)) == MaxRHS)
@@ -2536,6 +2612,7 @@ void LSRInstance::ChainInstruction(Instruction *UserInst, Instruction *IVOper,
     // Add this IV user to the end of the chain.
     IVChainVec[ChainIdx].add(IVInc(UserInst, IVOper, LastIncExpr));
   }
+  IVChain &Chain = IVChainVec[ChainIdx];
 
   SmallPtrSet<Instruction*,4> &NearUsers = ChainUsersVec[ChainIdx].NearUsers;
   // This chain's NearUsers become FarUsers.
@@ -2553,8 +2630,19 @@ void LSRInstance::ChainInstruction(Instruction *UserInst, Instruction *IVOper,
   for (Value::use_iterator UseIter = IVOper->use_begin(),
          UseEnd = IVOper->use_end(); UseIter != UseEnd; ++UseIter) {
     Instruction *OtherUse = dyn_cast<Instruction>(*UseIter);
-    if (!OtherUse || OtherUse == UserInst)
+    if (!OtherUse)
       continue;
+    // Uses in the chain will no longer be uses if the chain is formed.
+    // Include the head of the chain in this iteration (not Chain.begin()).
+    IVChain::const_iterator IncIter = Chain.Incs.begin();
+    IVChain::const_iterator IncEnd = Chain.Incs.end();
+    for( ; IncIter != IncEnd; ++IncIter) {
+      if (IncIter->UserInst == OtherUse)
+        break;
+    }
+    if (IncIter != IncEnd)
+      continue;
+
     if (SE.isSCEVable(OtherUse->getType())
         && !isa<SCEVUnknown>(SE.getSCEV(OtherUse))
         && IU.isIVUserOrOperand(OtherUse)) {
@@ -2703,6 +2791,7 @@ void LSRInstance::GenerateIVChain(const IVChain &Chain, SCEVExpander &Rewriter,
   // by LSR.
   const IVInc &Head = Chain.Incs[0];
   User::op_iterator IVOpEnd = Head.UserInst->op_end();
+  // findIVOperand returns IVOpEnd if it can no longer find a valid IV user.
   User::op_iterator IVOpIter = findIVOperand(Head.UserInst->op_begin(),
                                              IVOpEnd, L, SE);
   Value *IVSrc = 0;
@@ -2891,7 +2980,6 @@ void
 LSRInstance::InsertInitialFormula(const SCEV *S, LSRUse &LU, size_t LUIdx) {
   Formula F;
   F.InitialMatch(S, L, SE);
-  F.HasBaseReg = true;
   bool Inserted = InsertFormula(LU, LUIdx, F);
   assert(Inserted && "Initial formula already exists!"); (void)Inserted;
 }
@@ -2903,6 +2991,7 @@ LSRInstance::InsertSupplementalFormula(const SCEV *S,
                                        LSRUse &LU, size_t LUIdx) {
   Formula F;
   F.BaseRegs.push_back(S);
+  F.HasBaseReg = true;
   bool Inserted = InsertFormula(LU, LUIdx, F);
   assert(Inserted && "Supplemental formula already exists!"); (void)Inserted;
 }
@@ -3595,7 +3684,7 @@ void LSRInstance::GenerateCrossUseConstantOffsets() {
                    abs64(NewF.BaseOffset)) &&
                   (C->getValue()->getValue() +
                    NewF.BaseOffset).countTrailingZeros() >=
-                   CountTrailingZeros_64(NewF.BaseOffset))
+                   countTrailingZeros<uint64_t>(NewF.BaseOffset))
                 goto skip_formula;
 
           // Ok, looks good.
@@ -3656,7 +3745,7 @@ void LSRInstance::FilterOutUndesirableDedicatedRegisters() {
 
   // Collect the best formula for each unique set of shared registers. This
   // is reset for each use.
-  typedef DenseMap<SmallVector<const SCEV *, 2>, size_t, UniquifierDenseMapInfo>
+  typedef DenseMap<SmallVector<const SCEV *, 4>, size_t, UniquifierDenseMapInfo>
     BestFormulaeTy;
   BestFormulaeTy BestFormulae;
 
@@ -3678,7 +3767,7 @@ void LSRInstance::FilterOutUndesirableDedicatedRegisters() {
       // the corresponding bad register from the Regs set.
       Cost CostF;
       Regs.clear();
-      CostF.RateFormula(F, Regs, VisitedRegs, L, LU.Offsets, SE, DT,
+      CostF.RateFormula(TTI, F, Regs, VisitedRegs, L, LU.Offsets, SE, DT, LU,
                         &LoserRegs);
       if (CostF.isLoser()) {
         // During initial formula generation, undesirable formulae are generated
@@ -3691,7 +3780,7 @@ void LSRInstance::FilterOutUndesirableDedicatedRegisters() {
               dbgs() << "\n");
       }
       else {
-        SmallVector<const SCEV *, 2> Key;
+        SmallVector<const SCEV *, 4> Key;
         for (SmallVectorImpl<const SCEV *>::const_iterator J = F.BaseRegs.begin(),
                JE = F.BaseRegs.end(); J != JE; ++J) {
           const SCEV *Reg = *J;
@@ -3714,7 +3803,8 @@ void LSRInstance::FilterOutUndesirableDedicatedRegisters() {
 
         Cost CostBest;
         Regs.clear();
-        CostBest.RateFormula(Best, Regs, VisitedRegs, L, LU.Offsets, SE, DT);
+        CostBest.RateFormula(TTI, Best, Regs, VisitedRegs, L, LU.Offsets, SE,
+                             DT, LU);
         if (CostF < CostBest)
           std::swap(F, Best);
         DEBUG(dbgs() << "  Filtering out formula "; F.print(dbgs());
@@ -3837,83 +3927,83 @@ void LSRInstance::NarrowSearchSpaceByDetectingSupersets() {
 /// for expressions like A, A+1, A+2, etc., allocate a single register for
 /// them.
 void LSRInstance::NarrowSearchSpaceByCollapsingUnrolledCode() {
-  if (EstimateSearchSpaceComplexity() >= ComplexityLimit) {
-    DEBUG(dbgs() << "The search space is too complex.\n");
+  if (EstimateSearchSpaceComplexity() < ComplexityLimit)
+    return;
 
-    DEBUG(dbgs() << "Narrowing the search space by assuming that uses "
-                    "separated by a constant offset will use the same "
-                    "registers.\n");
+  DEBUG(dbgs() << "The search space is too complex.\n"
+                  "Narrowing the search space by assuming that uses separated "
+                  "by a constant offset will use the same registers.\n");
 
-    // This is especially useful for unrolled loops.
+  // This is especially useful for unrolled loops.
 
-    for (size_t LUIdx = 0, NumUses = Uses.size(); LUIdx != NumUses; ++LUIdx) {
-      LSRUse &LU = Uses[LUIdx];
-      for (SmallVectorImpl<Formula>::const_iterator I = LU.Formulae.begin(),
-           E = LU.Formulae.end(); I != E; ++I) {
-        const Formula &F = *I;
-        if (F.BaseOffset != 0 && F.Scale == 0) {
-          if (LSRUse *LUThatHas = FindUseWithSimilarFormula(F, LU)) {
-            if (reconcileNewOffset(*LUThatHas, F.BaseOffset,
-                                   /*HasBaseReg=*/false,
-                                   LU.Kind, LU.AccessTy)) {
-              DEBUG(dbgs() << "  Deleting use "; LU.print(dbgs());
-                    dbgs() << '\n');
+  for (size_t LUIdx = 0, NumUses = Uses.size(); LUIdx != NumUses; ++LUIdx) {
+    LSRUse &LU = Uses[LUIdx];
+    for (SmallVectorImpl<Formula>::const_iterator I = LU.Formulae.begin(),
+         E = LU.Formulae.end(); I != E; ++I) {
+      const Formula &F = *I;
+      if (F.BaseOffset == 0 || F.Scale != 0)
+        continue;
 
-              LUThatHas->AllFixupsOutsideLoop &= LU.AllFixupsOutsideLoop;
+      LSRUse *LUThatHas = FindUseWithSimilarFormula(F, LU);
+      if (!LUThatHas)
+        continue;
 
-              // Update the relocs to reference the new use.
-              for (SmallVectorImpl<LSRFixup>::iterator I = Fixups.begin(),
-                   E = Fixups.end(); I != E; ++I) {
-                LSRFixup &Fixup = *I;
-                if (Fixup.LUIdx == LUIdx) {
-                  Fixup.LUIdx = LUThatHas - &Uses.front();
-                  Fixup.Offset += F.BaseOffset;
-                  // Add the new offset to LUThatHas' offset list.
-                  if (LUThatHas->Offsets.back() != Fixup.Offset) {
-                    LUThatHas->Offsets.push_back(Fixup.Offset);
-                    if (Fixup.Offset > LUThatHas->MaxOffset)
-                      LUThatHas->MaxOffset = Fixup.Offset;
-                    if (Fixup.Offset < LUThatHas->MinOffset)
-                      LUThatHas->MinOffset = Fixup.Offset;
-                  }
-                  DEBUG(dbgs() << "New fixup has offset "
-                               << Fixup.Offset << '\n');
-                }
-                if (Fixup.LUIdx == NumUses-1)
-                  Fixup.LUIdx = LUIdx;
-              }
+      if (!reconcileNewOffset(*LUThatHas, F.BaseOffset, /*HasBaseReg=*/ false,
+                              LU.Kind, LU.AccessTy))
+        continue;
 
-              // Delete formulae from the new use which are no longer legal.
-              bool Any = false;
-              for (size_t i = 0, e = LUThatHas->Formulae.size(); i != e; ++i) {
-                Formula &F = LUThatHas->Formulae[i];
-                if (!isLegalUse(TTI, LUThatHas->MinOffset, LUThatHas->MaxOffset,
-                                LUThatHas->Kind, LUThatHas->AccessTy, F)) {
-                  DEBUG(dbgs() << "  Deleting "; F.print(dbgs());
-                        dbgs() << '\n');
-                  LUThatHas->DeleteFormula(F);
-                  --i;
-                  --e;
-                  Any = true;
-                }
-              }
-              if (Any)
-                LUThatHas->RecomputeRegs(LUThatHas - &Uses.front(), RegUses);
+      DEBUG(dbgs() << "  Deleting use "; LU.print(dbgs()); dbgs() << '\n');
 
-              // Delete the old use.
-              DeleteUse(LU, LUIdx);
-              --LUIdx;
-              --NumUses;
-              break;
-            }
+      LUThatHas->AllFixupsOutsideLoop &= LU.AllFixupsOutsideLoop;
+
+      // Update the relocs to reference the new use.
+      for (SmallVectorImpl<LSRFixup>::iterator I = Fixups.begin(),
+           E = Fixups.end(); I != E; ++I) {
+        LSRFixup &Fixup = *I;
+        if (Fixup.LUIdx == LUIdx) {
+          Fixup.LUIdx = LUThatHas - &Uses.front();
+          Fixup.Offset += F.BaseOffset;
+          // Add the new offset to LUThatHas' offset list.
+          if (LUThatHas->Offsets.back() != Fixup.Offset) {
+            LUThatHas->Offsets.push_back(Fixup.Offset);
+            if (Fixup.Offset > LUThatHas->MaxOffset)
+              LUThatHas->MaxOffset = Fixup.Offset;
+            if (Fixup.Offset < LUThatHas->MinOffset)
+              LUThatHas->MinOffset = Fixup.Offset;
           }
+          DEBUG(dbgs() << "New fixup has offset " << Fixup.Offset << '\n');
+        }
+        if (Fixup.LUIdx == NumUses-1)
+          Fixup.LUIdx = LUIdx;
+      }
+
+      // Delete formulae from the new use which are no longer legal.
+      bool Any = false;
+      for (size_t i = 0, e = LUThatHas->Formulae.size(); i != e; ++i) {
+        Formula &F = LUThatHas->Formulae[i];
+        if (!isLegalUse(TTI, LUThatHas->MinOffset, LUThatHas->MaxOffset,
+                        LUThatHas->Kind, LUThatHas->AccessTy, F)) {
+          DEBUG(dbgs() << "  Deleting "; F.print(dbgs());
+                dbgs() << '\n');
+          LUThatHas->DeleteFormula(F);
+          --i;
+          --e;
+          Any = true;
         }
       }
-    }
 
-    DEBUG(dbgs() << "After pre-selection:\n";
-          print_uses(dbgs()));
+      if (Any)
+        LUThatHas->RecomputeRegs(LUThatHas - &Uses.front(), RegUses);
+
+      // Delete the old use.
+      DeleteUse(LU, LUIdx);
+      --LUIdx;
+      --NumUses;
+      break;
+    }
   }
+
+  DEBUG(dbgs() << "After pre-selection:\n"; print_uses(dbgs()));
 }
 
 /// NarrowSearchSpaceByRefilteringUndesirableDedicatedRegisters - Call
@@ -4067,7 +4157,8 @@ void LSRInstance::SolveRecurse(SmallVectorImpl<const Formula *> &Solution,
     // the current best, prune the search at that point.
     NewCost = CurCost;
     NewRegs = CurRegs;
-    NewCost.RateFormula(F, NewRegs, VisitedRegs, L, LU.Offsets, SE, DT);
+    NewCost.RateFormula(TTI, F, NewRegs, VisitedRegs, L, LU.Offsets, SE, DT,
+                        LU);
     if (NewCost < SolutionCost) {
       Workspace.push_back(&F);
       if (Workspace.size() != Uses.size()) {

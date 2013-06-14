@@ -655,15 +655,28 @@ getAdrLabelOpValue(const MCInst &MI, unsigned OpIdx,
   int32_t offset = MO.getImm();
   uint32_t Val = 0x2000;
 
+  int SoImmVal;
   if (offset == INT32_MIN) {
     Val = 0x1000;
-    offset = 0;
+    SoImmVal = 0;
   } else if (offset < 0) {
     Val = 0x1000;
     offset *= -1;
+    SoImmVal = ARM_AM::getSOImmVal(offset);
+    if(SoImmVal == -1) {
+      Val = 0x2000;
+      offset *= -1;
+      SoImmVal = ARM_AM::getSOImmVal(offset);
+    }
+  } else {
+    SoImmVal = ARM_AM::getSOImmVal(offset);
+    if(SoImmVal == -1) {
+      Val = 0x1000;
+      offset *= -1;
+      SoImmVal = ARM_AM::getSOImmVal(offset);
+    }
   }
 
-  int SoImmVal = ARM_AM::getSOImmVal(offset);
   assert(SoImmVal != -1 && "Not a valid so_imm value!");
 
   Val |= SoImmVal;
@@ -1346,8 +1359,8 @@ getBitfieldInvertedMaskOpValue(const MCInst &MI, unsigned Op,
   // msb of the mask.
   const MCOperand &MO = MI.getOperand(Op);
   uint32_t v = ~MO.getImm();
-  uint32_t lsb = CountTrailingZeros_32(v);
-  uint32_t msb = (32 - CountLeadingZeros_32 (v)) - 1;
+  uint32_t lsb = countTrailingZeros(v);
+  uint32_t msb = (32 - countLeadingZeros (v)) - 1;
   assert (v != 0 && lsb < 32 && msb < 32 && "Illegal bitfield mask!");
   return lsb | (msb << 5);
 }

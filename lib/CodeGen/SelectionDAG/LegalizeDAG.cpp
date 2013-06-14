@@ -12,9 +12,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/SelectionDAG.h"
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/CodeGen/Analysis.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineJumpTableInfo.h"
@@ -58,6 +58,10 @@ class SelectionDAGLegalize : public SelectionDAG::DAGUpdateListener {
   /// LegalizedNodes - The set of nodes which have already been legalized.
   SmallPtrSet<SDNode *, 16> LegalizedNodes;
 
+  EVT getSetCCResultType(EVT VT) const {
+    return TLI.getSetCCResultType(*DAG.getContext(), VT);
+  }
+
   // Libcall insertion helpers.
 
 public:
@@ -79,30 +83,31 @@ private:
   /// is necessary to spill the vector being inserted into to memory, perform
   /// the insert there, and then read the result back.
   SDValue PerformInsertVectorEltInMemory(SDValue Vec, SDValue Val,
-                                         SDValue Idx, DebugLoc dl);
+                                         SDValue Idx, SDLoc dl);
   SDValue ExpandINSERT_VECTOR_ELT(SDValue Vec, SDValue Val,
-                                  SDValue Idx, DebugLoc dl);
+                                  SDValue Idx, SDLoc dl);
 
   /// ShuffleWithNarrowerEltType - Return a vector shuffle operation which
   /// performs the same shuffe in terms of order or result bytes, but on a type
   /// whose vector element type is narrower than the original shuffle type.
   /// e.g. <v4i32> <0, 1, 0, 1> -> v8i16 <0, 1, 2, 3, 0, 1, 2, 3>
-  SDValue ShuffleWithNarrowerEltType(EVT NVT, EVT VT, DebugLoc dl,
+  SDValue ShuffleWithNarrowerEltType(EVT NVT, EVT VT, SDLoc dl,
                                      SDValue N1, SDValue N2,
                                      ArrayRef<int> Mask) const;
 
   void LegalizeSetCCCondCode(EVT VT, SDValue &LHS, SDValue &RHS, SDValue &CC,
-                             DebugLoc dl);
+                             SDLoc dl);
 
   SDValue ExpandLibCall(RTLIB::Libcall LC, SDNode *Node, bool isSigned);
   SDValue ExpandLibCall(RTLIB::Libcall LC, EVT RetVT, const SDValue *Ops,
-                        unsigned NumOps, bool isSigned, DebugLoc dl);
+                        unsigned NumOps, bool isSigned, SDLoc dl);
 
   std::pair<SDValue, SDValue> ExpandChainLibCall(RTLIB::Libcall LC,
                                                  SDNode *Node, bool isSigned);
   SDValue ExpandFPLibCall(SDNode *Node, RTLIB::Libcall Call_F32,
                           RTLIB::Libcall Call_F64, RTLIB::Libcall Call_F80,
-                          RTLIB::Libcall Call_F128, RTLIB::Libcall Call_PPCF128);
+                          RTLIB::Libcall Call_F128,
+                          RTLIB::Libcall Call_PPCF128);
   SDValue ExpandIntLibCall(SDNode *Node, bool isSigned,
                            RTLIB::Libcall Call_I8,
                            RTLIB::Libcall Call_I16,
@@ -110,22 +115,23 @@ private:
                            RTLIB::Libcall Call_I64,
                            RTLIB::Libcall Call_I128);
   void ExpandDivRemLibCall(SDNode *Node, SmallVectorImpl<SDValue> &Results);
+  void ExpandSinCosLibCall(SDNode *Node, SmallVectorImpl<SDValue> &Results);
 
-  SDValue EmitStackConvert(SDValue SrcOp, EVT SlotVT, EVT DestVT, DebugLoc dl);
+  SDValue EmitStackConvert(SDValue SrcOp, EVT SlotVT, EVT DestVT, SDLoc dl);
   SDValue ExpandBUILD_VECTOR(SDNode *Node);
   SDValue ExpandSCALAR_TO_VECTOR(SDNode *Node);
   void ExpandDYNAMIC_STACKALLOC(SDNode *Node,
                                 SmallVectorImpl<SDValue> &Results);
   SDValue ExpandFCOPYSIGN(SDNode *Node);
   SDValue ExpandLegalINT_TO_FP(bool isSigned, SDValue LegalOp, EVT DestVT,
-                               DebugLoc dl);
+                               SDLoc dl);
   SDValue PromoteLegalINT_TO_FP(SDValue LegalOp, EVT DestVT, bool isSigned,
-                                DebugLoc dl);
+                                SDLoc dl);
   SDValue PromoteLegalFP_TO_INT(SDValue LegalOp, EVT DestVT, bool isSigned,
-                                DebugLoc dl);
+                                SDLoc dl);
 
-  SDValue ExpandBSWAP(SDValue Op, DebugLoc dl);
-  SDValue ExpandBitCount(unsigned Opc, SDValue Op, DebugLoc dl);
+  SDValue ExpandBSWAP(SDValue Op, SDLoc dl);
+  SDValue ExpandBitCount(unsigned Opc, SDValue Op, SDLoc dl);
 
   SDValue ExpandExtractFromVectorThroughStack(SDValue Op);
   SDValue ExpandInsertToVectorThroughStack(SDValue Op);
@@ -179,7 +185,7 @@ public:
 /// whose vector element type is narrower than the original shuffle type.
 /// e.g. <v4i32> <0, 1, 0, 1> -> v8i16 <0, 1, 2, 3, 0, 1, 2, 3>
 SDValue
-SelectionDAGLegalize::ShuffleWithNarrowerEltType(EVT NVT, EVT VT,  DebugLoc dl,
+SelectionDAGLegalize::ShuffleWithNarrowerEltType(EVT NVT, EVT VT,  SDLoc dl,
                                                  SDValue N1, SDValue N2,
                                                  ArrayRef<int> Mask) const {
   unsigned NumMaskElts = VT.getVectorNumElements();
@@ -245,7 +251,7 @@ void SelectionDAGLegalize::LegalizeDAG() {
 SDValue
 SelectionDAGLegalize::ExpandConstantFP(ConstantFPSDNode *CFP, bool UseCP) {
   bool Extend = false;
-  DebugLoc dl = CFP->getDebugLoc();
+  SDLoc dl(CFP);
 
   // If a FP immediate is precise when represented as a float and if the
   // target can do an extending load from float to double, we put it into
@@ -305,7 +311,7 @@ static void ExpandUnalignedStore(StoreSDNode *ST, SelectionDAG &DAG,
   SDValue Val = ST->getValue();
   EVT VT = Val.getValueType();
   int Alignment = ST->getAlignment();
-  DebugLoc dl = ST->getDebugLoc();
+  SDLoc dl(ST);
   if (ST->getMemoryVT().isFloatingPoint() ||
       ST->getMemoryVT().isVector()) {
     EVT intVT = EVT::getIntegerVT(*DAG.getContext(), VT.getSizeInBits());
@@ -426,7 +432,7 @@ ExpandUnalignedLoad(LoadSDNode *LD, SelectionDAG &DAG,
   SDValue Ptr = LD->getBasePtr();
   EVT VT = LD->getValueType(0);
   EVT LoadedVT = LD->getMemoryVT();
-  DebugLoc dl = LD->getDebugLoc();
+  SDLoc dl(LD);
   if (VT.isFloatingPoint() || VT.isVector()) {
     EVT intVT = EVT::getIntegerVT(*DAG.getContext(), LoadedVT.getSizeInBits());
     if (TLI.isTypeLegal(intVT) && TLI.isTypeLegal(LoadedVT)) {
@@ -568,7 +574,7 @@ ExpandUnalignedLoad(LoadSDNode *LD, SelectionDAG &DAG,
 /// the insert there, and then read the result back.
 SDValue SelectionDAGLegalize::
 PerformInsertVectorEltInMemory(SDValue Vec, SDValue Val, SDValue Idx,
-                               DebugLoc dl) {
+                               SDLoc dl) {
   SDValue Tmp1 = Vec;
   SDValue Tmp2 = Val;
   SDValue Tmp3 = Idx;
@@ -610,7 +616,7 @@ PerformInsertVectorEltInMemory(SDValue Vec, SDValue Val, SDValue Idx,
 
 
 SDValue SelectionDAGLegalize::
-ExpandINSERT_VECTOR_ELT(SDValue Vec, SDValue Val, SDValue Idx, DebugLoc dl) {
+ExpandINSERT_VECTOR_ELT(SDValue Vec, SDValue Val, SDValue Idx, SDLoc dl) {
   if (ConstantSDNode *InsertPos = dyn_cast<ConstantSDNode>(Idx)) {
     // SCALAR_TO_VECTOR requires that the type of the value being inserted
     // match the element type of the vector being created, except for
@@ -649,7 +655,7 @@ SDValue SelectionDAGLegalize::OptimizeFloatStore(StoreSDNode* ST) {
   unsigned Alignment = ST->getAlignment();
   bool isVolatile = ST->isVolatile();
   bool isNonTemporal = ST->isNonTemporal();
-  DebugLoc dl = ST->getDebugLoc();
+  SDLoc dl(ST);
   if (ConstantFPSDNode *CFP = dyn_cast<ConstantFPSDNode>(ST->getValue())) {
     if (CFP->getValueType(0) == MVT::f32 &&
         TLI.isTypeLegal(MVT::i32)) {
@@ -697,7 +703,7 @@ void SelectionDAGLegalize::LegalizeStoreOps(SDNode *Node) {
     StoreSDNode *ST = cast<StoreSDNode>(Node);
     SDValue Chain = ST->getChain();
     SDValue Ptr = ST->getBasePtr();
-    DebugLoc dl = Node->getDebugLoc();
+    SDLoc dl(Node);
 
     unsigned Alignment = ST->getAlignment();
     bool isVolatile = ST->isVolatile();
@@ -861,7 +867,7 @@ void SelectionDAGLegalize::LegalizeLoadOps(SDNode *Node) {
   SDValue Chain = LD->getChain();  // The chain.
   SDValue Ptr = LD->getBasePtr();  // The base pointer.
   SDValue Value;                   // The value returned by the load op.
-  DebugLoc dl = Node->getDebugLoc();
+  SDLoc dl(Node);
 
   ISD::LoadExtType ExtType = LD->getExtensionType();
   if (ExtType == ISD::NON_EXTLOAD) {
@@ -1247,7 +1253,7 @@ void SelectionDAGLegalize::LegalizeOp(SDNode *Node) {
     if (Action == TargetLowering::Expand) {
       // replace ISD::DEBUGTRAP with ISD::TRAP
       SDValue NewVal;
-      NewVal = DAG.getNode(ISD::TRAP, Node->getDebugLoc(), Node->getVTList(),
+      NewVal = DAG.getNode(ISD::TRAP, SDLoc(Node), Node->getVTList(),
                            Node->getOperand(0));
       ReplaceNode(Node, NewVal.getNode());
       LegalizeOp(NewVal.getNode());
@@ -1368,7 +1374,7 @@ void SelectionDAGLegalize::LegalizeOp(SDNode *Node) {
 SDValue SelectionDAGLegalize::ExpandExtractFromVectorThroughStack(SDValue Op) {
   SDValue Vec = Op.getOperand(0);
   SDValue Idx = Op.getOperand(1);
-  DebugLoc dl = Op.getDebugLoc();
+  SDLoc dl(Op);
   // Store the value to a temporary stack slot, then LOAD the returned part.
   SDValue StackPtr = DAG.CreateStackTemporary(Vec.getValueType());
   SDValue Ch = DAG.getStore(DAG.getEntryNode(), dl, Vec, StackPtr,
@@ -1402,7 +1408,7 @@ SDValue SelectionDAGLegalize::ExpandInsertToVectorThroughStack(SDValue Op) {
   SDValue Vec  = Op.getOperand(0);
   SDValue Part = Op.getOperand(1);
   SDValue Idx  = Op.getOperand(2);
-  DebugLoc dl  = Op.getDebugLoc();
+  SDLoc dl(Op);
 
   // Store the value to a temporary stack slot, then LOAD the returned part.
 
@@ -1447,7 +1453,7 @@ SDValue SelectionDAGLegalize::ExpandVectorBuildThroughStack(SDNode* Node) {
   // Create the stack frame object.
   EVT VT = Node->getValueType(0);
   EVT EltVT = VT.getVectorElementType();
-  DebugLoc dl = Node->getDebugLoc();
+  SDLoc dl(Node);
   SDValue FIPtr = DAG.CreateStackTemporary(VT);
   int FI = cast<FrameIndexSDNode>(FIPtr.getNode())->getIndex();
   MachinePointerInfo PtrInfo = MachinePointerInfo::getFixedStack(FI);
@@ -1492,7 +1498,7 @@ SDValue SelectionDAGLegalize::ExpandVectorBuildThroughStack(SDNode* Node) {
 }
 
 SDValue SelectionDAGLegalize::ExpandFCOPYSIGN(SDNode* Node) {
-  DebugLoc dl = Node->getDebugLoc();
+  SDLoc dl(Node);
   SDValue Tmp1 = Node->getOperand(0);
   SDValue Tmp2 = Node->getOperand(1);
 
@@ -1540,7 +1546,7 @@ SDValue SelectionDAGLegalize::ExpandFCOPYSIGN(SDNode* Node) {
     }
   }
   // Now get the sign bit proper, by seeing whether the value is negative.
-  SignBit = DAG.getSetCC(dl, TLI.getSetCCResultType(SignBit.getValueType()),
+  SignBit = DAG.getSetCC(dl, getSetCCResultType(SignBit.getValueType()),
                          SignBit, DAG.getConstant(0, SignBit.getValueType()),
                          ISD::SETLT);
   // Get the absolute value of the result.
@@ -1557,7 +1563,7 @@ void SelectionDAGLegalize::ExpandDYNAMIC_STACKALLOC(SDNode* Node,
   unsigned SPReg = TLI.getStackPointerRegisterToSaveRestore();
   assert(SPReg && "Target cannot require DYNAMIC_STACKALLOC expansion and"
           " not tell us which reg is the stack pointer!");
-  DebugLoc dl = Node->getDebugLoc();
+  SDLoc dl(Node);
   EVT VT = Node->getValueType(0);
   SDValue Tmp1 = SDValue(Node, 0);
   SDValue Tmp2 = SDValue(Node, 1);
@@ -1566,7 +1572,8 @@ void SelectionDAGLegalize::ExpandDYNAMIC_STACKALLOC(SDNode* Node,
 
   // Chain the dynamic stack allocation so that it doesn't modify the stack
   // pointer when other instructions are using the stack.
-  Chain = DAG.getCALLSEQ_START(Chain, DAG.getIntPtrConstant(0, true));
+  Chain = DAG.getCALLSEQ_START(Chain, DAG.getIntPtrConstant(0, true),
+                               SDLoc(Node));
 
   SDValue Size  = Tmp2.getOperand(1);
   SDValue SP = DAG.getCopyFromReg(Chain, dl, SPReg, VT);
@@ -1580,7 +1587,8 @@ void SelectionDAGLegalize::ExpandDYNAMIC_STACKALLOC(SDNode* Node,
   Chain = DAG.getCopyToReg(Chain, dl, SPReg, Tmp1);     // Output chain
 
   Tmp2 = DAG.getCALLSEQ_END(Chain,  DAG.getIntPtrConstant(0, true),
-                            DAG.getIntPtrConstant(0, true), SDValue());
+                            DAG.getIntPtrConstant(0, true), SDValue(),
+                            SDLoc(Node));
 
   Results.push_back(Tmp1);
   Results.push_back(Tmp2);
@@ -1592,7 +1600,7 @@ void SelectionDAGLegalize::ExpandDYNAMIC_STACKALLOC(SDNode* Node,
 void SelectionDAGLegalize::LegalizeSetCCCondCode(EVT VT,
                                                  SDValue &LHS, SDValue &RHS,
                                                  SDValue &CC,
-                                                 DebugLoc dl) {
+                                                 SDLoc dl) {
   MVT OpVT = LHS.getSimpleValueType();
   ISD::CondCode CCCode = cast<CondCodeSDNode>(CC)->get();
   switch (TLI.getCondCodeAction(CCCode, OpVT)) {
@@ -1682,7 +1690,7 @@ void SelectionDAGLegalize::LegalizeSetCCCondCode(EVT VT,
 SDValue SelectionDAGLegalize::EmitStackConvert(SDValue SrcOp,
                                                EVT SlotVT,
                                                EVT DestVT,
-                                               DebugLoc dl) {
+                                               SDLoc dl) {
   // Create the stack frame object.
   unsigned SrcAlign =
     TLI.getDataLayout()->getPrefTypeAlignment(SrcOp.getValueType().
@@ -1723,7 +1731,7 @@ SDValue SelectionDAGLegalize::EmitStackConvert(SDValue SrcOp,
 }
 
 SDValue SelectionDAGLegalize::ExpandSCALAR_TO_VECTOR(SDNode *Node) {
-  DebugLoc dl = Node->getDebugLoc();
+  SDLoc dl(Node);
   // Create a vector sized/aligned stack slot, store the value to element #0,
   // then load the whole vector back out.
   SDValue StackPtr = DAG.CreateStackTemporary(Node->getValueType(0));
@@ -1747,7 +1755,7 @@ SDValue SelectionDAGLegalize::ExpandSCALAR_TO_VECTOR(SDNode *Node) {
 SDValue SelectionDAGLegalize::ExpandBUILD_VECTOR(SDNode *Node) {
   unsigned NumElems = Node->getNumOperands();
   SDValue Value1, Value2;
-  DebugLoc dl = Node->getDebugLoc();
+  SDLoc dl(Node);
   EVT VT = Node->getValueType(0);
   EVT OpVT = Node->getOperand(0).getValueType();
   EVT EltVT = VT.getVectorElementType();
@@ -1879,7 +1887,7 @@ SDValue SelectionDAGLegalize::ExpandLibCall(RTLIB::Libcall LC, SDNode *Node,
   CallLoweringInfo CLI(InChain, RetTy, isSigned, !isSigned, false, false,
                     0, TLI.getLibcallCallingConv(LC), isTailCall,
                     /*doesNotReturn=*/false, /*isReturnValueUsed=*/true,
-                    Callee, Args, DAG, Node->getDebugLoc());
+                    Callee, Args, DAG, SDLoc(Node));
   std::pair<SDValue, SDValue> CallInfo = TLI.LowerCallTo(CLI);
 
 
@@ -1894,7 +1902,7 @@ SDValue SelectionDAGLegalize::ExpandLibCall(RTLIB::Libcall LC, SDNode *Node,
 /// and returning a result of type RetVT.
 SDValue SelectionDAGLegalize::ExpandLibCall(RTLIB::Libcall LC, EVT RetVT,
                                             const SDValue *Ops, unsigned NumOps,
-                                            bool isSigned, DebugLoc dl) {
+                                            bool isSigned, SDLoc dl) {
   TargetLowering::ArgListTy Args;
   Args.reserve(NumOps);
 
@@ -1948,7 +1956,7 @@ SelectionDAGLegalize::ExpandChainLibCall(RTLIB::Libcall LC,
   CallLoweringInfo CLI(InChain, RetTy, isSigned, !isSigned, false, false,
                     0, TLI.getLibcallCallingConv(LC), /*isTailCall=*/false,
                     /*doesNotReturn=*/false, /*isReturnValueUsed=*/true,
-                    Callee, Args, DAG, Node->getDebugLoc());
+                    Callee, Args, DAG, SDLoc(Node));
   std::pair<SDValue, SDValue> CallInfo = TLI.LowerCallTo(CLI);
 
   return CallInfo;
@@ -2080,7 +2088,7 @@ SelectionDAGLegalize::ExpandDivRemLibCall(SDNode *Node,
   SDValue Callee = DAG.getExternalSymbol(TLI.getLibcallName(LC),
                                          TLI.getPointerTy());
 
-  DebugLoc dl = Node->getDebugLoc();
+  SDLoc dl(Node);
   TargetLowering::
   CallLoweringInfo CLI(InChain, RetTy, isSigned, !isSigned, false, false,
                     0, TLI.getLibcallCallingConv(LC), /*isTailCall=*/false,
@@ -2095,6 +2103,120 @@ SelectionDAGLegalize::ExpandDivRemLibCall(SDNode *Node,
   Results.push_back(Rem);
 }
 
+/// isSinCosLibcallAvailable - Return true if sincos libcall is available.
+static bool isSinCosLibcallAvailable(SDNode *Node, const TargetLowering &TLI) {
+  RTLIB::Libcall LC;
+  switch (Node->getValueType(0).getSimpleVT().SimpleTy) {
+  default: llvm_unreachable("Unexpected request for libcall!");
+  case MVT::f32:     LC = RTLIB::SINCOS_F32; break;
+  case MVT::f64:     LC = RTLIB::SINCOS_F64; break;
+  case MVT::f80:     LC = RTLIB::SINCOS_F80; break;
+  case MVT::f128:    LC = RTLIB::SINCOS_F128; break;
+  case MVT::ppcf128: LC = RTLIB::SINCOS_PPCF128; break;
+  }
+  return TLI.getLibcallName(LC) != 0;
+}
+
+/// canCombineSinCosLibcall - Return true if sincos libcall is available and
+/// can be used to combine sin and cos.
+static bool canCombineSinCosLibcall(SDNode *Node, const TargetLowering &TLI,
+                                    const TargetMachine &TM) {
+  if (!isSinCosLibcallAvailable(Node, TLI))
+    return false;
+  // GNU sin/cos functions set errno while sincos does not. Therefore
+  // combining sin and cos is only safe if unsafe-fpmath is enabled.
+  bool isGNU = Triple(TM.getTargetTriple()).getEnvironment() == Triple::GNU;
+  if (isGNU && !TM.Options.UnsafeFPMath)
+    return false;
+  return true;
+}
+
+/// useSinCos - Only issue sincos libcall if both sin and cos are
+/// needed.
+static bool useSinCos(SDNode *Node) {
+  unsigned OtherOpcode = Node->getOpcode() == ISD::FSIN
+    ? ISD::FCOS : ISD::FSIN;
+  
+  SDValue Op0 = Node->getOperand(0);
+  for (SDNode::use_iterator UI = Op0.getNode()->use_begin(),
+       UE = Op0.getNode()->use_end(); UI != UE; ++UI) {
+    SDNode *User = *UI;
+    if (User == Node)
+      continue;
+    // The other user might have been turned into sincos already.
+    if (User->getOpcode() == OtherOpcode || User->getOpcode() == ISD::FSINCOS)
+      return true;
+  }
+  return false;
+}
+
+/// ExpandSinCosLibCall - Issue libcalls to sincos to compute sin / cos
+/// pairs.
+void
+SelectionDAGLegalize::ExpandSinCosLibCall(SDNode *Node,
+                                          SmallVectorImpl<SDValue> &Results) {
+  RTLIB::Libcall LC;
+  switch (Node->getValueType(0).getSimpleVT().SimpleTy) {
+  default: llvm_unreachable("Unexpected request for libcall!");
+  case MVT::f32:     LC = RTLIB::SINCOS_F32; break;
+  case MVT::f64:     LC = RTLIB::SINCOS_F64; break;
+  case MVT::f80:     LC = RTLIB::SINCOS_F80; break;
+  case MVT::f128:    LC = RTLIB::SINCOS_F128; break;
+  case MVT::ppcf128: LC = RTLIB::SINCOS_PPCF128; break;
+  }
+  
+  // The input chain to this libcall is the entry node of the function.
+  // Legalizing the call will automatically add the previous call to the
+  // dependence.
+  SDValue InChain = DAG.getEntryNode();
+  
+  EVT RetVT = Node->getValueType(0);
+  Type *RetTy = RetVT.getTypeForEVT(*DAG.getContext());
+  
+  TargetLowering::ArgListTy Args;
+  TargetLowering::ArgListEntry Entry;
+  
+  // Pass the argument.
+  Entry.Node = Node->getOperand(0);
+  Entry.Ty = RetTy;
+  Entry.isSExt = false;
+  Entry.isZExt = false;
+  Args.push_back(Entry);
+  
+  // Pass the return address of sin.
+  SDValue SinPtr = DAG.CreateStackTemporary(RetVT);
+  Entry.Node = SinPtr;
+  Entry.Ty = RetTy->getPointerTo();
+  Entry.isSExt = false;
+  Entry.isZExt = false;
+  Args.push_back(Entry);
+  
+  // Also pass the return address of the cos.
+  SDValue CosPtr = DAG.CreateStackTemporary(RetVT);
+  Entry.Node = CosPtr;
+  Entry.Ty = RetTy->getPointerTo();
+  Entry.isSExt = false;
+  Entry.isZExt = false;
+  Args.push_back(Entry);
+  
+  SDValue Callee = DAG.getExternalSymbol(TLI.getLibcallName(LC),
+                                         TLI.getPointerTy());
+  
+  SDLoc dl(Node);
+  TargetLowering::
+  CallLoweringInfo CLI(InChain, Type::getVoidTy(*DAG.getContext()),
+                       false, false, false, false,
+                       0, TLI.getLibcallCallingConv(LC), /*isTailCall=*/false,
+                       /*doesNotReturn=*/false, /*isReturnValueUsed=*/true,
+                       Callee, Args, DAG, dl);
+  std::pair<SDValue, SDValue> CallInfo = TLI.LowerCallTo(CLI);
+
+  Results.push_back(DAG.getLoad(RetVT, dl, CallInfo.second, SinPtr,
+                                MachinePointerInfo(), false, false, false, 0));
+  Results.push_back(DAG.getLoad(RetVT, dl, CallInfo.second, CosPtr,
+                                MachinePointerInfo(), false, false, false, 0));
+}
+
 /// ExpandLegalINT_TO_FP - This function is responsible for legalizing a
 /// INT_TO_FP operation of the specified operand when the target requests that
 /// we expand it.  At this point, we know that the result and operand types are
@@ -2102,7 +2224,7 @@ SelectionDAGLegalize::ExpandDivRemLibCall(SDNode *Node,
 SDValue SelectionDAGLegalize::ExpandLegalINT_TO_FP(bool isSigned,
                                                    SDValue Op0,
                                                    EVT DestVT,
-                                                   DebugLoc dl) {
+                                                   SDLoc dl) {
   if (Op0.getValueType() == MVT::i32 && TLI.isTypeLegal(MVT::f64)) {
     // simple 32-bit [signed|unsigned] integer to float/double expansion
 
@@ -2211,7 +2333,7 @@ SDValue SelectionDAGLegalize::ExpandLegalINT_TO_FP(bool isSigned,
       // select.  We happen to get lucky and machinesink does the right
       // thing most of the time.  This would be a good candidate for a
       //pseudo-op, or, even better, for whole-function isel.
-      SDValue SignBitTest = DAG.getSetCC(dl, TLI.getSetCCResultType(MVT::i64),
+      SDValue SignBitTest = DAG.getSetCC(dl, getSetCCResultType(MVT::i64),
         Op0, DAG.getConstant(0, MVT::i64), ISD::SETLT);
       return DAG.getNode(ISD::SELECT, dl, MVT::f32, SignBitTest, Slow, Fast);
     }
@@ -2224,10 +2346,10 @@ SDValue SelectionDAGLegalize::ExpandLegalINT_TO_FP(bool isSigned,
          DAG.getConstant(UINT64_C(0x800), MVT::i64));
     SDValue And2 = DAG.getNode(ISD::AND, dl, MVT::i64, Op0,
          DAG.getConstant(UINT64_C(0x7ff), MVT::i64));
-    SDValue Ne = DAG.getSetCC(dl, TLI.getSetCCResultType(MVT::i64),
+    SDValue Ne = DAG.getSetCC(dl, getSetCCResultType(MVT::i64),
                    And2, DAG.getConstant(UINT64_C(0), MVT::i64), ISD::SETNE);
     SDValue Sel = DAG.getNode(ISD::SELECT, dl, MVT::i64, Ne, Or, Op0);
-    SDValue Ge = DAG.getSetCC(dl, TLI.getSetCCResultType(MVT::i64),
+    SDValue Ge = DAG.getSetCC(dl, getSetCCResultType(MVT::i64),
                    Op0, DAG.getConstant(UINT64_C(0x0020000000000000), MVT::i64),
                    ISD::SETUGE);
     SDValue Sel2 = DAG.getNode(ISD::SELECT, dl, MVT::i64, Ge, Sel, Op0);
@@ -2249,7 +2371,7 @@ SDValue SelectionDAGLegalize::ExpandLegalINT_TO_FP(bool isSigned,
 
   SDValue Tmp1 = DAG.getNode(ISD::SINT_TO_FP, dl, DestVT, Op0);
 
-  SDValue SignSet = DAG.getSetCC(dl, TLI.getSetCCResultType(Op0.getValueType()),
+  SDValue SignSet = DAG.getSetCC(dl, getSetCCResultType(Op0.getValueType()),
                                  Op0, DAG.getConstant(0, Op0.getValueType()),
                                  ISD::SETLT);
   SDValue Zero = DAG.getIntPtrConstant(0), Four = DAG.getIntPtrConstant(4);
@@ -2301,7 +2423,7 @@ SDValue SelectionDAGLegalize::ExpandLegalINT_TO_FP(bool isSigned,
 SDValue SelectionDAGLegalize::PromoteLegalINT_TO_FP(SDValue LegalOp,
                                                     EVT DestVT,
                                                     bool isSigned,
-                                                    DebugLoc dl) {
+                                                    SDLoc dl) {
   // First step, figure out the appropriate *INT_TO_FP operation to use.
   EVT NewInTy = LegalOp.getValueType();
 
@@ -2343,7 +2465,7 @@ SDValue SelectionDAGLegalize::PromoteLegalINT_TO_FP(SDValue LegalOp,
 SDValue SelectionDAGLegalize::PromoteLegalFP_TO_INT(SDValue LegalOp,
                                                     EVT DestVT,
                                                     bool isSigned,
-                                                    DebugLoc dl) {
+                                                    SDLoc dl) {
   // First step, figure out the appropriate FP_TO*INT operation to use.
   EVT NewOutTy = DestVT;
 
@@ -2378,7 +2500,7 @@ SDValue SelectionDAGLegalize::PromoteLegalFP_TO_INT(SDValue LegalOp,
 
 /// ExpandBSWAP - Open code the operations for BSWAP of the specified operation.
 ///
-SDValue SelectionDAGLegalize::ExpandBSWAP(SDValue Op, DebugLoc dl) {
+SDValue SelectionDAGLegalize::ExpandBSWAP(SDValue Op, SDLoc dl) {
   EVT VT = Op.getValueType();
   EVT SHVT = TLI.getShiftAmountTy(VT);
   SDValue Tmp1, Tmp2, Tmp3, Tmp4, Tmp5, Tmp6, Tmp7, Tmp8;
@@ -2423,22 +2545,10 @@ SDValue SelectionDAGLegalize::ExpandBSWAP(SDValue Op, DebugLoc dl) {
   }
 }
 
-/// SplatByte - Distribute ByteVal over NumBits bits.
-// FIXME: Move this helper to a common place.
-static APInt SplatByte(unsigned NumBits, uint8_t ByteVal) {
-  APInt Val = APInt(NumBits, ByteVal);
-  unsigned Shift = 8;
-  for (unsigned i = NumBits; i > 8; i >>= 1) {
-    Val = (Val << Shift) | Val;
-    Shift <<= 1;
-  }
-  return Val;
-}
-
 /// ExpandBitCount - Expand the specified bitcount instruction into operations.
 ///
 SDValue SelectionDAGLegalize::ExpandBitCount(unsigned Opc, SDValue Op,
-                                             DebugLoc dl) {
+                                             SDLoc dl) {
   switch (Opc) {
   default: llvm_unreachable("Cannot expand this yet!");
   case ISD::CTPOP: {
@@ -2452,10 +2562,10 @@ SDValue SelectionDAGLegalize::ExpandBitCount(unsigned Opc, SDValue Op,
     // This is the "best" algorithm from
     // http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel
 
-    SDValue Mask55 = DAG.getConstant(SplatByte(Len, 0x55), VT);
-    SDValue Mask33 = DAG.getConstant(SplatByte(Len, 0x33), VT);
-    SDValue Mask0F = DAG.getConstant(SplatByte(Len, 0x0F), VT);
-    SDValue Mask01 = DAG.getConstant(SplatByte(Len, 0x01), VT);
+    SDValue Mask55 = DAG.getConstant(APInt::getSplat(Len, APInt(8, 0x55)), VT);
+    SDValue Mask33 = DAG.getConstant(APInt::getSplat(Len, APInt(8, 0x33)), VT);
+    SDValue Mask0F = DAG.getConstant(APInt::getSplat(Len, APInt(8, 0x0F)), VT);
+    SDValue Mask01 = DAG.getConstant(APInt::getSplat(Len, APInt(8, 0x01)), VT);
 
     // v = v - ((v >> 1) & 0x55555555...)
     Op = DAG.getNode(ISD::SUB, dl, VT, Op,
@@ -2618,7 +2728,7 @@ std::pair <SDValue, SDValue> SelectionDAGLegalize::ExpandAtomic(SDNode *Node) {
 
 void SelectionDAGLegalize::ExpandNode(SDNode *Node) {
   SmallVector<SDValue, 8> Results;
-  DebugLoc dl = Node->getDebugLoc();
+  SDLoc dl(Node);
   SDValue Tmp1, Tmp2, Tmp3, Tmp4;
   switch (Node->getOpcode()) {
   case ISD::CTPOP:
@@ -2655,8 +2765,7 @@ void SelectionDAGLegalize::ExpandNode(SDNode *Node) {
     Results.push_back(DAG.getConstant(0, MVT::i32));
     Results.push_back(Node->getOperand(0));
     break;
-  case ISD::ATOMIC_FENCE:
-  case ISD::MEMBARRIER: {
+  case ISD::ATOMIC_FENCE: {
     // If the target didn't lower this, lower it to '__sync_synchronize()' call
     // FIXME: handle "fence singlethread" more efficiently.
     TargetLowering::ArgListTy Args;
@@ -2805,11 +2914,12 @@ void SelectionDAGLegalize::ExpandNode(SDNode *Node) {
     SDValue True, False;
     EVT VT =  Node->getOperand(0).getValueType();
     EVT NVT = Node->getValueType(0);
-    APFloat apf(APInt::getNullValue(VT.getSizeInBits()));
+    APFloat apf(DAG.EVTToAPFloatSemantics(VT),
+                APInt::getNullValue(VT.getSizeInBits()));
     APInt x = APInt::getSignBit(NVT.getSizeInBits());
     (void)apf.convertFromAPInt(x, false, APFloat::rmNearestTiesToEven);
     Tmp1 = DAG.getConstantFP(apf, VT);
-    Tmp2 = DAG.getSetCC(dl, TLI.getSetCCResultType(VT),
+    Tmp2 = DAG.getSetCC(dl, getSetCCResultType(VT),
                         Node->getOperand(0),
                         Tmp1, ISD::SETLT);
     True = DAG.getNode(ISD::FP_TO_SINT, dl, NVT, Node->getOperand(0));
@@ -3027,7 +3137,7 @@ void SelectionDAGLegalize::ExpandNode(SDNode *Node) {
     EVT VT = Node->getValueType(0);
     Tmp1 = Node->getOperand(0);
     Tmp2 = DAG.getConstantFP(0.0, VT);
-    Tmp2 = DAG.getSetCC(dl, TLI.getSetCCResultType(Tmp1.getValueType()),
+    Tmp2 = DAG.getSetCC(dl, getSetCCResultType(Tmp1.getValueType()),
                         Tmp1, Tmp2, ISD::SETUGT);
     Tmp3 = DAG.getNode(ISD::FNEG, dl, VT, Tmp1);
     Tmp1 = DAG.getNode(ISD::SELECT, dl, VT, Tmp2, Tmp1, Tmp3);
@@ -3040,14 +3150,33 @@ void SelectionDAGLegalize::ExpandNode(SDNode *Node) {
                                       RTLIB::SQRT_PPCF128));
     break;
   case ISD::FSIN:
-    Results.push_back(ExpandFPLibCall(Node, RTLIB::SIN_F32, RTLIB::SIN_F64,
-                                      RTLIB::SIN_F80, RTLIB::SIN_F128,
-                                      RTLIB::SIN_PPCF128));
+  case ISD::FCOS: {
+    EVT VT = Node->getValueType(0);
+    bool isSIN = Node->getOpcode() == ISD::FSIN;
+    // Turn fsin / fcos into ISD::FSINCOS node if there are a pair of fsin /
+    // fcos which share the same operand and both are used.
+    if ((TLI.isOperationLegalOrCustom(ISD::FSINCOS, VT) ||
+         canCombineSinCosLibcall(Node, TLI, TM))
+        && useSinCos(Node)) {
+      SDVTList VTs = DAG.getVTList(VT, VT);
+      Tmp1 = DAG.getNode(ISD::FSINCOS, dl, VTs, Node->getOperand(0));
+      if (!isSIN)
+        Tmp1 = Tmp1.getValue(1);
+      Results.push_back(Tmp1);
+    } else if (isSIN) {
+      Results.push_back(ExpandFPLibCall(Node, RTLIB::SIN_F32, RTLIB::SIN_F64,
+                                        RTLIB::SIN_F80, RTLIB::SIN_F128,
+                                        RTLIB::SIN_PPCF128));
+    } else {
+      Results.push_back(ExpandFPLibCall(Node, RTLIB::COS_F32, RTLIB::COS_F64,
+                                        RTLIB::COS_F80, RTLIB::COS_F128,
+                                        RTLIB::COS_PPCF128));
+    }
     break;
-  case ISD::FCOS:
-    Results.push_back(ExpandFPLibCall(Node, RTLIB::COS_F32, RTLIB::COS_F64,
-                                      RTLIB::COS_F80, RTLIB::COS_F128,
-                                      RTLIB::COS_PPCF128));
+  }
+  case ISD::FSINCOS:
+    // Expand into sincos libcall.
+    ExpandSinCosLibCall(Node, Results);
     break;
   case ISD::FLOG:
     Results.push_back(ExpandFPLibCall(Node, RTLIB::LOG_F32, RTLIB::LOG_F64,
@@ -3180,7 +3309,6 @@ void SelectionDAGLegalize::ExpandNode(SDNode *Node) {
   case ISD::UREM:
   case ISD::SREM: {
     EVT VT = Node->getValueType(0);
-    SDVTList VTs = DAG.getVTList(VT, VT);
     bool isSigned = Node->getOpcode() == ISD::SREM;
     unsigned DivOpc = isSigned ? ISD::SDIV : ISD::UDIV;
     unsigned DivRemOpc = isSigned ? ISD::SDIVREM : ISD::UDIVREM;
@@ -3191,6 +3319,7 @@ void SelectionDAGLegalize::ExpandNode(SDNode *Node) {
          // If div is legal, it's better to do the normal expansion
          !TLI.isOperationLegalOrCustom(DivOpc, Node->getValueType(0)) &&
          useDivRem(Node, isSigned, false))) {
+      SDVTList VTs = DAG.getVTList(VT, VT);
       Tmp1 = DAG.getNode(DivRemOpc, dl, VTs, Tmp2, Tmp3).getValue(1);
     } else if (TLI.isOperationLegalOrCustom(DivOpc, VT)) {
       // X % Y -> X-X/Y*Y
@@ -3405,10 +3534,10 @@ void SelectionDAGLegalize::ExpandNode(SDNode *Node) {
       Tmp1 = DAG.getConstant(VT.getSizeInBits() - 1,
                              TLI.getShiftAmountTy(BottomHalf.getValueType()));
       Tmp1 = DAG.getNode(ISD::SRA, dl, VT, BottomHalf, Tmp1);
-      TopHalf = DAG.getSetCC(dl, TLI.getSetCCResultType(VT), TopHalf, Tmp1,
+      TopHalf = DAG.getSetCC(dl, getSetCCResultType(VT), TopHalf, Tmp1,
                              ISD::SETNE);
     } else {
-      TopHalf = DAG.getSetCC(dl, TLI.getSetCCResultType(VT), TopHalf,
+      TopHalf = DAG.getSetCC(dl, getSetCCResultType(VT), TopHalf,
                              DAG.getConstant(0, VT), ISD::SETNE);
     }
     Results.push_back(BottomHalf);
@@ -3508,8 +3637,19 @@ void SelectionDAGLegalize::ExpandNode(SDNode *Node) {
     // Otherwise, SETCC for the given comparison type must be completely
     // illegal; expand it into a SELECT_CC.
     EVT VT = Node->getValueType(0);
+    int TrueValue;
+    switch (TLI.getBooleanContents(VT.isVector())) {
+    case TargetLowering::ZeroOrOneBooleanContent:
+    case TargetLowering::UndefinedBooleanContent:
+      TrueValue = 1;
+      break;
+    case TargetLowering::ZeroOrNegativeOneBooleanContent:
+      TrueValue = -1;
+      break;
+    }
     Tmp1 = DAG.getNode(ISD::SELECT_CC, dl, VT, Tmp1, Tmp2,
-                       DAG.getConstant(1, VT), DAG.getConstant(0, VT), Tmp3);
+                       DAG.getConstant(TrueValue, VT), DAG.getConstant(0, VT),
+                       Tmp3);
     Results.push_back(Tmp1);
     break;
   }
@@ -3520,7 +3660,7 @@ void SelectionDAGLegalize::ExpandNode(SDNode *Node) {
     Tmp4 = Node->getOperand(3);   // False
     SDValue CC = Node->getOperand(4);
 
-    LegalizeSetCCCondCode(TLI.getSetCCResultType(Tmp1.getValueType()),
+    LegalizeSetCCCondCode(getSetCCResultType(Tmp1.getValueType()),
                           Tmp1, Tmp2, CC, dl);
 
     assert(!Tmp2.getNode() && "Can't legalize SELECT_CC with legal condition!");
@@ -3537,7 +3677,7 @@ void SelectionDAGLegalize::ExpandNode(SDNode *Node) {
     Tmp3 = Node->getOperand(3);              // RHS
     Tmp4 = Node->getOperand(1);              // CC
 
-    LegalizeSetCCCondCode(TLI.getSetCCResultType(Tmp2.getValueType()),
+    LegalizeSetCCCondCode(getSetCCResultType(Tmp2.getValueType()),
                           Tmp2, Tmp3, Tmp4, dl);
 
     assert(!Tmp3.getNode() && "Can't legalize BR_CC with legal condition!");
@@ -3604,7 +3744,7 @@ void SelectionDAGLegalize::PromoteNode(SDNode *Node) {
     OVT = Node->getOperand(0).getSimpleValueType();
   }
   MVT NVT = TLI.getTypeToPromoteTo(Node->getOpcode(), OVT);
-  DebugLoc dl = Node->getDebugLoc();
+  SDLoc dl(Node);
   SDValue Tmp1, Tmp2, Tmp3;
   switch (Node->getOpcode()) {
   case ISD::CTTZ:
@@ -3619,7 +3759,7 @@ void SelectionDAGLegalize::PromoteNode(SDNode *Node) {
     Tmp1 = DAG.getNode(Node->getOpcode(), dl, NVT, Tmp1);
     if (Node->getOpcode() == ISD::CTTZ) {
       // FIXME: This should set a bit in the zero extended value instead.
-      Tmp2 = DAG.getSetCC(dl, TLI.getSetCCResultType(NVT),
+      Tmp2 = DAG.getSetCC(dl, getSetCCResultType(NVT),
                           Tmp1, DAG.getConstant(NVT.getSizeInBits(), NVT),
                           ISD::SETEQ);
       Tmp1 = DAG.getNode(ISD::SELECT, dl, NVT, Tmp2,

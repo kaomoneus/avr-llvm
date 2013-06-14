@@ -331,15 +331,18 @@ CallInst::CallInst(const CallInst &CI)
   SubclassOptionalData = CI.SubclassOptionalData;
 }
 
-void CallInst::addAttribute(unsigned i, Attribute attr) {
+void CallInst::addAttribute(unsigned i, Attribute::AttrKind attr) {
   AttributeSet PAL = getAttributes();
-  PAL = PAL.addAttr(getContext(), i, attr);
+  PAL = PAL.addAttribute(getContext(), i, attr);
   setAttributes(PAL);
 }
 
 void CallInst::removeAttribute(unsigned i, Attribute attr) {
   AttributeSet PAL = getAttributes();
-  PAL = PAL.removeAttr(getContext(), i, attr);
+  AttrBuilder B(attr);
+  LLVMContext &Context = getContext();
+  PAL = PAL.removeAttributes(Context, i,
+                             AttributeSet::get(Context, i, B));
   setAttributes(PAL);
 }
 
@@ -587,15 +590,17 @@ bool InvokeInst::paramHasAttr(unsigned i, Attribute::AttrKind A) const {
   return false;
 }
 
-void InvokeInst::addAttribute(unsigned i, Attribute attr) {
+void InvokeInst::addAttribute(unsigned i, Attribute::AttrKind attr) {
   AttributeSet PAL = getAttributes();
-  PAL = PAL.addAttr(getContext(), i, attr);
+  PAL = PAL.addAttribute(getContext(), i, attr);
   setAttributes(PAL);
 }
 
 void InvokeInst::removeAttribute(unsigned i, Attribute attr) {
   AttributeSet PAL = getAttributes();
-  PAL = PAL.removeAttr(getContext(), i, attr);
+  AttrBuilder B(attr);
+  PAL = PAL.removeAttributes(getContext(), i,
+                             AttributeSet::get(getContext(), i, B));
   setAttributes(PAL);
 }
 
@@ -2386,11 +2391,11 @@ CastInst *CastInst::CreatePointerCast(Value *S, Type *Ty,
 CastInst *CastInst::CreatePointerCast(Value *S, Type *Ty, 
                                       const Twine &Name, 
                                       Instruction *InsertBefore) {
-  assert(S->getType()->isPointerTy() && "Invalid cast");
-  assert((Ty->isIntegerTy() || Ty->isPointerTy()) &&
+  assert(S->getType()->isPtrOrPtrVectorTy() && "Invalid cast");
+  assert((Ty->isIntOrIntVectorTy() || Ty->isPtrOrPtrVectorTy()) &&
          "Invalid cast");
 
-  if (Ty->isIntegerTy())
+  if (Ty->isIntOrIntVectorTy())
     return Create(Instruction::PtrToInt, S, Ty, Name, InsertBefore);
   return Create(Instruction::BitCast, S, Ty, Name, InsertBefore);
 }
@@ -2624,6 +2629,11 @@ CastInst::castIsValid(Instruction::CastOps op, Value *S, Type *DstTy) {
 
   // Check for type sanity on the arguments
   Type *SrcTy = S->getType();
+
+  // If this is a cast to the same type then it's trivially true.
+  if (SrcTy == DstTy)
+    return true;
+
   if (!SrcTy->isFirstClassType() || !DstTy->isFirstClassType() ||
       SrcTy->isAggregateType() || DstTy->isAggregateType())
     return false;
@@ -2990,8 +3000,8 @@ ICmpInst::makeConstantRange(Predicate pred, const APInt &C) {
   uint32_t BitWidth = C.getBitWidth();
   switch (pred) {
   default: llvm_unreachable("Invalid ICmp opcode to ConstantRange ctor!");
-  case ICmpInst::ICMP_EQ: Upper++; break;
-  case ICmpInst::ICMP_NE: Lower++; break;
+  case ICmpInst::ICMP_EQ: ++Upper; break;
+  case ICmpInst::ICMP_NE: ++Lower; break;
   case ICmpInst::ICMP_ULT:
     Lower = APInt::getMinValue(BitWidth);
     // Check for an empty-set condition.
@@ -3005,25 +3015,25 @@ ICmpInst::makeConstantRange(Predicate pred, const APInt &C) {
       return ConstantRange(BitWidth, /*isFullSet=*/false);
     break;
   case ICmpInst::ICMP_UGT: 
-    Lower++; Upper = APInt::getMinValue(BitWidth);        // Min = Next(Max)
+    ++Lower; Upper = APInt::getMinValue(BitWidth);        // Min = Next(Max)
     // Check for an empty-set condition.
     if (Lower == Upper)
       return ConstantRange(BitWidth, /*isFullSet=*/false);
     break;
   case ICmpInst::ICMP_SGT:
-    Lower++; Upper = APInt::getSignedMinValue(BitWidth);  // Min = Next(Max)
+    ++Lower; Upper = APInt::getSignedMinValue(BitWidth);  // Min = Next(Max)
     // Check for an empty-set condition.
     if (Lower == Upper)
       return ConstantRange(BitWidth, /*isFullSet=*/false);
     break;
   case ICmpInst::ICMP_ULE: 
-    Lower = APInt::getMinValue(BitWidth); Upper++; 
+    Lower = APInt::getMinValue(BitWidth); ++Upper; 
     // Check for a full-set condition.
     if (Lower == Upper)
       return ConstantRange(BitWidth, /*isFullSet=*/true);
     break;
   case ICmpInst::ICMP_SLE: 
-    Lower = APInt::getSignedMinValue(BitWidth); Upper++; 
+    Lower = APInt::getSignedMinValue(BitWidth); ++Upper; 
     // Check for a full-set condition.
     if (Lower == Upper)
       return ConstantRange(BitWidth, /*isFullSet=*/true);

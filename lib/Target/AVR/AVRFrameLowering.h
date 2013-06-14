@@ -39,6 +39,9 @@ public: // TargetFrameLowering
   bool canSimplifyCallFramePseudos(const MachineFunction &MF) const;
   void processFunctionBeforeCalleeSavedScan(MachineFunction &MF,
                                             RegScavenger *RS = NULL) const;
+  void eliminateCallFramePseudoInstr(MachineFunction &MF,
+                                     MachineBasicBlock &MBB,
+                                     MachineBasicBlock::iterator MI) const;
 };
 
 } // end namespace llvm

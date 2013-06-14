@@ -19,6 +19,7 @@ const char *Triple::getArchTypeName(ArchType Kind) {
   switch (Kind) {
   case UnknownArch: return "unknown";
 
+  case aarch64: return "aarch64";
   case arm:     return "arm";
   case avr:     return "avr";
   case hexagon: return "hexagon";
@@ -32,6 +33,7 @@ const char *Triple::getArchTypeName(ArchType Kind) {
   case r600:    return "r600";
   case sparc:   return "sparc";
   case sparcv9: return "sparcv9";
+  case systemz: return "s390x";
   case tce:     return "tce";
   case thumb:   return "thumb";
   case x86:     return "i386";
@@ -54,6 +56,8 @@ const char *Triple::getArchTypePrefix(ArchType Kind) {
   default:
     return 0;
 
+  case aarch64: return "aarch64";
+
   case arm:
   case thumb:   return "arm";
 
@@ -75,6 +79,8 @@ const char *Triple::getArchTypePrefix(ArchType Kind) {
 
   case sparcv9:
   case sparc:   return "sparc";
+
+  case systemz: return "systemz";
 
   case x86:
   case x86_64:  return "x86";
@@ -144,6 +150,7 @@ const char *Triple::getEnvironmentTypeName(EnvironmentType Kind) {
   case GNU: return "gnu";
   case GNUEABIHF: return "gnueabihf";
   case GNUEABI: return "gnueabi";
+  case GNUX32: return "gnux32";
   case EABI: return "eabi";
   case MachO: return "macho";
   case Android: return "android";
@@ -155,6 +162,7 @@ const char *Triple::getEnvironmentTypeName(EnvironmentType Kind) {
 
 Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
   return StringSwitch<Triple::ArchType>(Name)
+    .Case("aarch64", aarch64)
     .Case("arm", arm)
     .Case("avr", avr)
     .Case("mips", mips)
@@ -170,6 +178,7 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
     .Case("hexagon", hexagon)
     .Case("sparc", sparc)
     .Case("sparcv9", sparcv9)
+    .Case("systemz", systemz)
     .Case("tce", tce)
     .Case("thumb", thumb)
     .Case("x86", x86)
@@ -220,6 +229,7 @@ static Triple::ArchType parseArch(StringRef ArchName) {
     .Case("powerpc", Triple::ppc)
     .Cases("powerpc64", "ppu", Triple::ppc64)
     .Case("mblaze", Triple::mblaze)
+    .Case("aarch64", Triple::aarch64)
     .Cases("arm", "xscale", Triple::arm)
     // FIXME: It would be good to replace these with explicit names for all the
     // various suffixes supported.
@@ -234,8 +244,9 @@ static Triple::ArchType parseArch(StringRef ArchName) {
     .Case("mips64el", Triple::mips64el)
     .Case("r600", Triple::r600)
     .Case("hexagon", Triple::hexagon)
+    .Case("s390x", Triple::systemz)
     .Case("sparc", Triple::sparc)
-    .Case("sparcv9", Triple::sparcv9)
+    .Cases("sparcv9", "sparc64", Triple::sparcv9)
     .Case("tce", Triple::tce)
     .Case("xcore", Triple::xcore)
     .Case("nvptx", Triple::nvptx)
@@ -292,6 +303,7 @@ static Triple::EnvironmentType parseEnvironment(StringRef EnvironmentName) {
     .StartsWith("eabi", Triple::EABI)
     .StartsWith("gnueabihf", Triple::GNUEABIHF)
     .StartsWith("gnueabi", Triple::GNUEABI)
+    .StartsWith("gnux32", Triple::GNUX32)
     .StartsWith("gnu", Triple::GNU)
     .StartsWith("macho", Triple::MachO)
     .StartsWith("android", Triple::Android)
@@ -683,11 +695,13 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
   case llvm::Triple::spir:
     return 32;
 
+  case llvm::Triple::aarch64:
   case llvm::Triple::mips64:
   case llvm::Triple::mips64el:
   case llvm::Triple::nvptx64:
   case llvm::Triple::ppc64:
   case llvm::Triple::sparcv9:
+  case llvm::Triple::systemz:
   case llvm::Triple::x86_64:
   case llvm::Triple::spir64:
     return 64;
@@ -711,8 +725,10 @@ Triple Triple::get32BitArchVariant() const {
   Triple T(*this);
   switch (getArch()) {
   case Triple::UnknownArch:
+  case Triple::aarch64:
   case Triple::avr:
   case Triple::msp430:
+  case Triple::systemz:
     T.setArch(UnknownArch);
     break;
 
@@ -764,12 +780,14 @@ Triple Triple::get64BitArchVariant() const {
     T.setArch(UnknownArch);
     break;
 
+  case Triple::aarch64:
   case Triple::spir64:
   case Triple::mips64:
   case Triple::mips64el:
   case Triple::nvptx64:
   case Triple::ppc64:
   case Triple::sparcv9:
+  case Triple::systemz:
   case Triple::x86_64:
     // Already 64-bit.
     break;

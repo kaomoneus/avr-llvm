@@ -11,6 +11,7 @@
 #include "MCTargetDesc/ARMAddressingModes.h"
 #include "MCTargetDesc/ARMBaseInfo.h"
 #include "MCTargetDesc/ARMFixupKinds.h"
+#include "llvm/ADT/StringSwitch.h"
 #include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCAssembler.h"
 #include "llvm/MC/MCContext.h"
@@ -418,7 +419,7 @@ static unsigned adjustFixupValue(const MCFixup &Fixup, uint64_t Value,
      uint32_t J2Bit = (I2Bit ^ 0x1) ^ signBit;
      uint32_t imm10Bits = (offset & 0x1FF800) >> 11;
      uint32_t imm11Bits = (offset & 0x000007FF);
- 
+
      uint32_t Binary = 0;
      uint32_t firstHalf = (((uint16_t)signBit << 10) | (uint16_t)imm10Bits);
      uint32_t secondHalf = (((uint16_t)J1Bit << 13) | ((uint16_t)J2Bit << 11) |
@@ -433,8 +434,8 @@ static unsigned adjustFixupValue(const MCFixup &Fixup, uint64_t Value,
      // four (see fixup_arm_thumb_cp). The 32-bit immediate value is encoded as
      //   imm32 = SignExtend(S:I1:I2:imm10H:imm10L:00)
      // where I1 = NOT(J1 ^ S) and I2 = NOT(J2 ^ S).
-     // The value is encoded into disjoint bit positions in the destination 
-     // opcode. x = unchanged, I = immediate value bit, S = sign extension bit, 
+     // The value is encoded into disjoint bit positions in the destination
+     // opcode. x = unchanged, I = immediate value bit, S = sign extension bit,
      // J = either J1 or J2 bit, 0 = zero.
      //
      //   BLX: xxxxxSIIIIIIIIII xxJxJIIIIIIIIII0
@@ -449,10 +450,10 @@ static unsigned adjustFixupValue(const MCFixup &Fixup, uint64_t Value,
      uint32_t J2Bit = (I2Bit ^ 0x1) ^ signBit;
      uint32_t imm10HBits = (offset & 0xFFC00) >> 10;
      uint32_t imm10LBits = (offset & 0x3FF);
- 
+
      uint32_t Binary = 0;
      uint32_t firstHalf = (((uint16_t)signBit << 10) | (uint16_t)imm10HBits);
-     uint32_t secondHalf = (((uint16_t)J1Bit << 13) | ((uint16_t)J2Bit << 11) | 
+     uint32_t secondHalf = (((uint16_t)J1Bit << 13) | ((uint16_t)J2Bit << 11) |
                            ((uint16_t)imm10LBits) << 1);
      Binary |= secondHalf << 16;
      Binary |= firstHalf;
@@ -663,29 +664,27 @@ MCAsmBackend *llvm::createARMAsmBackend(const Target &T, StringRef TT, StringRef
   Triple TheTriple(TT);
 
   if (TheTriple.isOSDarwin()) {
-    if (TheTriple.getArchName() == "armv4t" ||
-        TheTriple.getArchName() == "thumbv4t")
-      return new DarwinARMAsmBackend(T, TT, object::mach::CSARM_V4T);
-    else if (TheTriple.getArchName() == "armv5e" ||
-        TheTriple.getArchName() == "thumbv5e")
-      return new DarwinARMAsmBackend(T, TT, object::mach::CSARM_V5TEJ);
-    else if (TheTriple.getArchName() == "armv6" ||
-        TheTriple.getArchName() == "thumbv6")
-      return new DarwinARMAsmBackend(T, TT, object::mach::CSARM_V6);
-    else if (TheTriple.getArchName() == "armv7f" ||
-        TheTriple.getArchName() == "thumbv7f")
-      return new DarwinARMAsmBackend(T, TT, object::mach::CSARM_V7F);
-    else if (TheTriple.getArchName() == "armv7k" ||
-        TheTriple.getArchName() == "thumbv7k")
-      return new DarwinARMAsmBackend(T, TT, object::mach::CSARM_V7K);
-    else if (TheTriple.getArchName() == "armv7s" ||
-        TheTriple.getArchName() == "thumbv7s")
-      return new DarwinARMAsmBackend(T, TT, object::mach::CSARM_V7S);
-    return new DarwinARMAsmBackend(T, TT, object::mach::CSARM_V7);
+    object::mach::CPUSubtypeARM CS =
+      StringSwitch<object::mach::CPUSubtypeARM>(TheTriple.getArchName())
+      .Cases("armv4t", "thumbv4t", object::mach::CSARM_V4T)
+      .Cases("armv5e", "thumbv5e",object::mach::CSARM_V5TEJ)
+      .Cases("armv6", "thumbv6", object::mach::CSARM_V6)
+      .Cases("armv6m", "thumbv6m", object::mach::CSARM_V6M)
+      .Cases("armv7em", "thumbv7em", object::mach::CSARM_V7EM)
+      .Cases("armv7f", "thumbv7f", object::mach::CSARM_V7F)
+      .Cases("armv7k", "thumbv7k", object::mach::CSARM_V7K)
+      .Cases("armv7m", "thumbv7m", object::mach::CSARM_V7M)
+      .Cases("armv7s", "thumbv7s", object::mach::CSARM_V7S)
+      .Default(object::mach::CSARM_V7);
+
+    return new DarwinARMAsmBackend(T, TT, CS);
   }
 
-  if (TheTriple.isOSWindows())
+#if 0
+  // FIXME: Introduce yet another checker but assert(0).
+  if (TheTriple.isOSBinFormatCOFF())
     assert(0 && "Windows not supported on ARM");
+#endif
 
   uint8_t OSABI = MCELFObjectTargetWriter::getOSABI(Triple(TT).getOS());
   return new ELFARMAsmBackend(T, TT, OSABI);

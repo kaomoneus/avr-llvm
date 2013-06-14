@@ -15,6 +15,8 @@
 #include "AMDGPU.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/Analysis/Dominators.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
@@ -147,7 +149,7 @@ bool SIAnnotateControlFlow::doInitialization(Module &M) {
 
 /// \brief Is BB the last block saved on the stack ?
 bool SIAnnotateControlFlow::isTopOfStack(BasicBlock *BB) {
-  return Stack.back().first == BB;
+  return !Stack.empty() && Stack.back().first == BB;
 }
 
 /// \brief Pop the last saved value from the control flow stack

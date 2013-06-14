@@ -17,6 +17,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Unix.h"
+#include "llvm/Support/Compiler.h"
 #include "llvm/Support/FileSystem.h"
 #include <llvm/Config/config.h>
 #if HAVE_SYS_STAT_H
@@ -30,6 +31,9 @@
 #endif
 #if HAVE_FCNTL_H
 #include <fcntl.h>
+#endif
+#if HAVE_UNISTD_H
+#include <unistd.h>
 #endif
 #ifdef HAVE_POSIX_SPAWN
 #include <spawn.h>
@@ -164,10 +168,14 @@ static void SetMemoryLimits (unsigned size)
   setrlimit (RLIMIT_RSS, &r);
 #endif
 #ifdef RLIMIT_AS  // e.g. NetBSD doesn't have it.
+  // Don't set virtual memory limit if built with any Sanitizer. They need 80Tb
+  // of virtual memory for shadow memory mapping.
+#if !LLVM_MEMORY_SANITIZER_BUILD && !LLVM_ADDRESS_SANITIZER_BUILD
   // Virtual memory.
   getrlimit (RLIMIT_AS, &r);
   r.rlim_cur = limit;
   setrlimit (RLIMIT_AS, &r);
+#endif
 #endif
 #endif
 }
@@ -402,6 +410,27 @@ error_code Program::ChangeStdoutToBinary(){
 error_code Program::ChangeStderrToBinary(){
   // Do nothing, as Unix doesn't differentiate between text and binary.
   return make_error_code(errc::success);
+}
+
+bool llvm::sys::argumentsFitWithinSystemLimits(ArrayRef<const char*> Args) {
+  static long ArgMax = sysconf(_SC_ARG_MAX);
+
+  // System says no practical limit.
+  if (ArgMax == -1)
+    return true;
+
+  // Conservatively account for space required by environment variables.
+  ArgMax /= 2;
+
+  size_t ArgLength = 0;
+  for (ArrayRef<const char*>::iterator I = Args.begin(), E = Args.end();
+       I != E; ++I) {
+    ArgLength += strlen(*I) + 1;
+    if (ArgLength > size_t(ArgMax)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 }

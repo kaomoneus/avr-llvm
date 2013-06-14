@@ -195,6 +195,10 @@ public:
 typedef StringMap<std::pair<MCSymbol*, unsigned>,
                   BumpPtrAllocator&> StrPool;
 
+// A Symbol->pair<Symbol, unsigned> mapping of addresses used by indirect
+// references.
+typedef DenseMap<MCSymbol *, std::pair<MCSymbol *, unsigned> > AddrPool;
+
 /// \brief Collects and handles information specific to a particular
 /// collection of units.
 class DwarfUnits {
@@ -215,12 +219,17 @@ class DwarfUnits {
   unsigned NextStringPoolNumber;
   std::string StringPref;
 
+  // Collection of addresses for this unit and assorted labels.
+  AddrPool AddressPool;
+  unsigned NextAddrPoolNumber;
+
 public:
   DwarfUnits(AsmPrinter *AP, FoldingSet<DIEAbbrev> *AS,
              std::vector<DIEAbbrev *> *A, const char *Pref,
              BumpPtrAllocator &DA) :
     Asm(AP), AbbreviationsSet(AS), Abbreviations(A),
-    StringPool(DA), NextStringPoolNumber(0), StringPref(Pref) {}
+    StringPool(DA), NextStringPoolNumber(0), StringPref(Pref),
+    AddressPool(), NextAddrPoolNumber(0) {}
 
   /// \brief Compute the size and offset of a DIE given an incoming Offset.
   unsigned computeSizeAndOffset(DIE *Die, unsigned Offset);
@@ -242,6 +251,9 @@ public:
   /// \brief Emit all of the strings to the section given.
   void emitStrings(const MCSection *, const MCSection *, const MCSymbol *);
 
+  /// \brief Emit all of the addresses to the section given.
+  void emitAddresses(const MCSection *);
+
   /// \brief Returns the entry into the start of the pool.
   MCSymbol *getStringPoolSym();
 
@@ -255,6 +267,17 @@ public:
 
   /// \brief Returns the string pool.
   StrPool *getStringPool() { return &StringPool; }
+
+  /// \brief Returns the index into the address pool with the given
+  /// label/symbol.
+  unsigned getAddrPoolIndex(MCSymbol *);
+
+  /// \brief Returns the address pool.
+  AddrPool *getAddrPool() { return &AddressPool; }
+
+  /// \brief for a given compile unit DIE, returns offset from beginning of
+  /// debug info.
+  unsigned getCUOffset(DIE *Die);
 };
 
 /// \brief Collects and handles dwarf debug information.
@@ -286,7 +309,9 @@ class DwarfDebug {
   // A list of all the unique abbreviations in use.
   std::vector<DIEAbbrev *> Abbreviations;
 
-  // Source id map, i.e. pair of source filename and directory,
+  // Stores the current file ID for a given compile unit.
+  DenseMap <unsigned, unsigned> FileIDCUMap;
+  // Source id map, i.e. CUID, source filename and directory,
   // separated by a zero byte, mapped to a unique id.
   StringMap<unsigned, BumpPtrAllocator&> SourceIdMap;
 
@@ -352,22 +377,12 @@ class DwarfDebug {
   // body.
   DebugLoc PrologEndLoc;
 
-  struct FunctionDebugFrameInfo {
-    unsigned Number;
-    std::vector<MachineMove> Moves;
-
-    FunctionDebugFrameInfo(unsigned Num, const std::vector<MachineMove> &M)
-      : Number(Num), Moves(M) {}
-  };
-
-  std::vector<FunctionDebugFrameInfo> DebugFrames;
-
   // Section Symbols: these are assembler temporary labels that are emitted at
   // the beginning of each supported dwarf section.  These are used to form
   // section offsets and are created by EmitSectionLabels.
   MCSymbol *DwarfInfoSectionSym, *DwarfAbbrevSectionSym;
   MCSymbol *DwarfStrSectionSym, *TextSectionSym, *DwarfDebugRangeSectionSym;
-  MCSymbol *DwarfDebugLocSectionSym;
+  MCSymbol *DwarfDebugLocSectionSym, *DwarfLineSectionSym, *DwarfAddrSectionSym;
   MCSymbol *FunctionBeginSym, *FunctionEndSym;
   MCSymbol *DwarfAbbrevDWOSectionSym, *DwarfStrDWOSectionSym;
 
@@ -396,8 +411,8 @@ class DwarfDebug {
   // original object file, rather than things that are meant
   // to be in the .dwo sections.
 
-  // The CU left in the original object file for separated debug info.
-  CompileUnit *SkeletonCU;
+  // The CUs left in the original object file for separated debug info.
+  SmallVector<CompileUnit *, 1> SkeletonCUs;
 
   // Used to uniquely define abbreviations for the skeleton emission.
   FoldingSet<DIEAbbrev> SkeletonAbbrevSet;
@@ -407,6 +422,10 @@ class DwarfDebug {
 
   // Holder for the skeleton information.
   DwarfUnits SkeletonHolder;
+
+  typedef SmallVector<std::pair<const MDNode *, const MDNode *>, 32>
+    ImportedEntityMap;
+  ImportedEntityMap ScopesWithImportedEntities;
 
 private:
 
@@ -481,6 +500,9 @@ private:
   /// \brief Emit type dies into a hashed accelerator table.
   void emitAccelTypes();
 
+  /// \brief Emit visible names into a debug pubnames section.
+  void emitDebugPubnames();
+
   /// \brief Emit visible types into a debug pubtypes section.
   void emitDebugPubTypes();
 
@@ -508,9 +530,6 @@ private:
   /// section.
   CompileUnit *constructSkeletonCU(const MDNode *);
 
-  /// \brief Emit the local split debug info section.
-  void emitSkeletonCU(const MCSection *);
-
   /// \brief Emit the local split abbreviations.
   void emitSkeletonAbbrevs(const MCSection *);
 
@@ -529,6 +548,18 @@ private:
 
   /// \brief Construct subprogram DIE.
   void constructSubprogramDIE(CompileUnit *TheCU, const MDNode *N);
+
+  /// \brief Construct imported_module or imported_declaration DIE.
+  void constructImportedEntityDIE(CompileUnit *TheCU, const MDNode *N);
+
+  /// \brief Construct import_module DIE.
+  void constructImportedEntityDIE(CompileUnit *TheCU, const MDNode *N,
+                                  DIE *Context);
+
+  /// \brief Construct import_module DIE.
+  void constructImportedEntityDIE(CompileUnit *TheCU,
+                                  const DIImportedEntity &Module,
+                                  DIE *Context);
 
   /// \brief Register a source line with debug info. Returns the unique
   /// label that was emitted and which provides correspondence to the
@@ -560,7 +591,7 @@ private:
   }
 
   /// \brief Return Label preceding the instruction.
-  const MCSymbol *getLabelBeforeInsn(const MachineInstr *MI);
+  MCSymbol *getLabelBeforeInsn(const MachineInstr *MI);
 
   /// \brief Ensure that a label will be emitted after MI.
   void requestLabelAfterInsn(const MachineInstr *MI) {
@@ -568,7 +599,7 @@ private:
   }
 
   /// \brief Return Label immediately following the instruction.
-  const MCSymbol *getLabelAfterInsn(const MachineInstr *MI);
+  MCSymbol *getLabelAfterInsn(const MachineInstr *MI);
 
 public:
   //===--------------------------------------------------------------------===//
@@ -576,14 +607,6 @@ public:
   //
   DwarfDebug(AsmPrinter *A, Module *M);
   ~DwarfDebug();
-
-  /// \brief Collect debug info from named mdnodes such as llvm.dbg.enum
-  /// and llvm.dbg.ty
-  void collectInfoFromNamedMDNodes(const Module *M);
-
-  /// \brief Collect debug info using DebugInfoFinder.
-  /// FIXME - Remove this when DragonEgg switches to DIBuilder.
-  bool collectLegacyDebugInfo(const Module *M);
 
   /// \brief Emit all Dwarf sections that should come prior to the
   /// content.
@@ -607,7 +630,8 @@ public:
   /// \brief Look up the source id with the given directory and source file
   /// names. If none currently exists, create a new id and insert it in the
   /// SourceIds map.
-  unsigned getOrCreateSourceID(StringRef DirName, StringRef FullName);
+  unsigned getOrCreateSourceID(StringRef DirName, StringRef FullName,
+                               unsigned CUID);
 
   /// \brief Recursively Emits a debug information entry.
   void emitDIE(DIE *Die, std::vector<DIEAbbrev *> *Abbrevs);

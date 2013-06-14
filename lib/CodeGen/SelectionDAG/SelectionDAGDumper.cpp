@@ -54,7 +54,6 @@ std::string SDNode::getOperationName(const SelectionDAG *G) const {
   case ISD::DELETED_NODE:               return "<<Deleted Node!>>";
 #endif
   case ISD::PREFETCH:                   return "Prefetch";
-  case ISD::MEMBARRIER:                 return "MemBarrier";
   case ISD::ATOMIC_FENCE:               return "AtomicFence";
   case ISD::ATOMIC_CMP_SWAP:            return "AtomicCmpSwap";
   case ISD::ATOMIC_SWAP:                return "AtomicSwap";
@@ -140,6 +139,7 @@ std::string SDNode::getOperationName(const SelectionDAG *G) const {
   case ISD::FSQRT:                      return "fsqrt";
   case ISD::FSIN:                       return "fsin";
   case ISD::FCOS:                       return "fcos";
+  case ISD::FSINCOS:                    return "fsincos";
   case ISD::FTRUNC:                     return "ftrunc";
   case ISD::FFLOOR:                     return "ffloor";
   case ISD::FCEIL:                      return "fceil";
@@ -489,8 +489,7 @@ void SDNode::print_details(raw_ostream &OS, const SelectionDAG *G) const {
       OS << " [TF=" << TF << ']';
   }
 
-  if (G)
-    if (unsigned Order = G->GetOrdering(this))
+  if (unsigned Order = getIROrder())
       OS << " [ORD=" << Order << ']';
 
   if (getNodeId() != -1)

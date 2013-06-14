@@ -159,6 +159,24 @@ public:
     return std::make_pair(iterator(TheBucket, getBucketsEnd(), true), true);
   }
 
+#if LLVM_HAS_RVALUE_REFERENCES
+  // Inserts key,value pair into the map if the key isn't already in the map.
+  // If the key is already in the map, it returns false and doesn't update the
+  // value.
+  std::pair<iterator, bool> insert(std::pair<KeyT, ValueT> &&KV) {
+    BucketT *TheBucket;
+    if (LookupBucketFor(KV.first, TheBucket))
+      return std::make_pair(iterator(TheBucket, getBucketsEnd(), true),
+                            false); // Already in map.
+    
+    // Otherwise, insert the new element.
+    TheBucket = InsertIntoBucket(std::move(KV.first),
+                                 std::move(KV.second),
+                                 TheBucket);
+    return std::make_pair(iterator(TheBucket, getBucketsEnd(), true), true);
+  }
+#endif
+  
   /// insert - Range insertion of pairs.
   template<typename InputIt>
   void insert(InputIt I, InputIt E) {
@@ -204,11 +222,11 @@ public:
     if (LookupBucketFor(Key, TheBucket))
       return *TheBucket;
 
-    return *InsertIntoBucket(Key, ValueT(), TheBucket);
+    return *InsertIntoBucket(std::move(Key), ValueT(), TheBucket);
   }
 
   ValueT &operator[](KeyT &&Key) {
-    return FindAndConstruct(Key).second;
+    return FindAndConstruct(std::move(Key)).second;
   }
 #endif
 
@@ -475,7 +493,6 @@ private:
       if (KeyInfoT::isEqual(ThisBucket->first, EmptyKey)) {
         // If we've already seen a tombstone while probing, fill it in instead
         // of the empty bucket we eventually probed to.
-        if (FoundTombstone) ThisBucket = FoundTombstone;
         FoundBucket = FoundTombstone ? FoundTombstone : ThisBucket;
         return false;
       }
@@ -601,7 +618,7 @@ public:
     unsigned OldNumBuckets = NumBuckets;
     BucketT *OldBuckets = Buckets;
 
-    allocateBuckets(std::max<unsigned>(64, NextPowerOf2(AtLeast-1)));
+    allocateBuckets(std::max<unsigned>(64, static_cast<unsigned>(NextPowerOf2(AtLeast-1))));
     assert(Buckets);
     if (!OldBuckets) {
       this->BaseT::initEmpty();

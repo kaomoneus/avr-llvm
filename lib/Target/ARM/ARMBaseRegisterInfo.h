@@ -74,7 +74,6 @@ static inline bool isARMArea3Register(unsigned Reg, bool isIOS) {
 
 class ARMBaseRegisterInfo : public ARMGenRegisterInfo {
 protected:
-  const ARMBaseInstrInfo &TII;
   const ARMSubtarget &STI;
 
   /// FramePtr - ARM physical register used as frame ptr.
@@ -86,8 +85,7 @@ protected:
   unsigned BasePtr;
 
   // Can be only subclassed.
-  explicit ARMBaseRegisterInfo(const ARMBaseInstrInfo &tii,
-                               const ARMSubtarget &STI);
+  explicit ARMBaseRegisterInfo(const ARMSubtarget &STI);
 
   // Return the opcode that implements 'Op', or 0 if no opcode
   unsigned getOpcode(int Op) const;
@@ -96,6 +94,7 @@ public:
   /// Code Generation virtual methods...
   const uint16_t *getCalleeSavedRegs(const MachineFunction *MF = 0) const;
   const uint32_t *getCallPreservedMask(CallingConv::ID) const;
+  const uint32_t *getThisReturnPreservedMask(CallingConv::ID) const;
   const uint32_t *getNoPreservedMask() const;
 
   BitVector getReservedRegs(const MachineFunction &MF) const;
@@ -168,12 +167,9 @@ public:
 
   virtual bool requiresVirtualBaseRegisters(const MachineFunction &MF) const;
 
-  virtual void eliminateCallFramePseudoInstr(MachineFunction &MF,
-                                           MachineBasicBlock &MBB,
-                                           MachineBasicBlock::iterator I) const;
-
   virtual void eliminateFrameIndex(MachineBasicBlock::iterator II,
-                                   int SPAdj, RegScavenger *RS = NULL) const;
+                                   int SPAdj, unsigned FIOperandNum,
+                                   RegScavenger *RS = NULL) const;
 };
 
 } // end namespace llvm

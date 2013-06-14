@@ -19,31 +19,34 @@
 
 namespace llvm {
 
-/// Triple - Helper class for working with target triples.
+/// Triple - Helper class for working with autoconf configuration names. For
+/// historical reasons, we also call these 'triples' (they used to contain
+/// exactly three fields).
 ///
-/// Target triples are strings in the canonical form:
+/// Configuration names are strings in the canonical form:
 ///   ARCHITECTURE-VENDOR-OPERATING_SYSTEM
 /// or
 ///   ARCHITECTURE-VENDOR-OPERATING_SYSTEM-ENVIRONMENT
 ///
 /// This class is used for clients which want to support arbitrary
-/// target triples, but also want to implement certain special
-/// behavior for particular targets. This class isolates the mapping
-/// from the components of the target triple to well known IDs.
+/// configuration names, but also want to implement certain special
+/// behavior for particular configurations. This class isolates the mapping
+/// from the components of the configuration name to well known IDs.
 ///
 /// At its core the Triple class is designed to be a wrapper for a triple
 /// string; the constructor does not change or normalize the triple string.
 /// Clients that need to handle the non-canonical triples that users often
 /// specify should use the normalize method.
 ///
-/// See autoconf/config.guess for a glimpse into what triples look like in
-/// practice.
+/// See autoconf/config.guess for a glimpse into what configuration names
+/// look like in practice.
 class Triple {
 public:
   enum ArchType {
     UnknownArch,
 
-    arm,     // ARM; arm, armv.*, xscale
+    arm,     // ARM: arm, armv.*, xscale
+    aarch64, // AArch64: aarch64
     avr,     // AVR: avr
     hexagon, // Hexagon: hexagon
     mips,    // MIPS: mips, mipsallegrex
@@ -56,6 +59,7 @@ public:
     r600,    // R600: AMD GPUs HD2XXX - HD6XXX
     sparc,   // Sparc: sparc
     sparcv9, // Sparcv9: Sparcv9
+    systemz, // SystemZ: s390x
     tce,     // TCE (http://tce.cs.tut.fi/): tce
     thumb,   // Thumb: thumb, thumbv.*
     x86,     // X86: i[3-9]86
@@ -113,6 +117,7 @@ public:
     GNU,
     GNUEABI,
     GNUEABIHF,
+    GNUX32,
     EABI,
     MachO,
     Android,
@@ -297,9 +302,14 @@ public:
     return getOS() == Triple::Darwin || getOS() == Triple::MacOSX;
   }
 
+  /// Is this an iOS triple.
+  bool isiOS() const {
+    return getOS() == Triple::IOS;
+  }
+
   /// isOSDarwin - Is this a "Darwin" OS (OS X or iOS).
   bool isOSDarwin() const {
-    return isMacOSX() || getOS() == Triple::IOS;
+    return isMacOSX() || isiOS();
   }
 
   /// \brief Tests for either Cygwin or MinGW OS

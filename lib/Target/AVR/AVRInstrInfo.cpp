@@ -33,7 +33,7 @@ extern bool RA_InSpillerCode;
 
 AVRInstrInfo::AVRInstrInfo() :
   AVRGenInstrInfo(AVR::ADJCALLSTACKDOWN, AVR::ADJCALLSTACKUP),
-  RI(*this) {}
+  RI() {}
 
 void AVRInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
                                MachineBasicBlock::iterator MI, DebugLoc DL,

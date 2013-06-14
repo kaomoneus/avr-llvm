@@ -21,14 +21,18 @@
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
 #include "llvm/PassManager.h"
 #include "llvm/Support/CallSite.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/system_error.h"
+#include "llvm/Support/Threading.h"
 #include <cassert>
 #include <cstdlib>
 #include <cstring>
@@ -39,6 +43,7 @@ void llvm::initializeCore(PassRegistry &Registry) {
   initializeDominatorTreePass(Registry);
   initializePrintModulePassPass(Registry);
   initializePrintFunctionPassPass(Registry);
+  initializePrintBasicBlockPassPass(Registry);
   initializeVerifierPass(Registry);
   initializePreVerifierPass(Registry);
 }
@@ -47,7 +52,15 @@ void LLVMInitializeCore(LLVMPassRegistryRef R) {
   initializeCore(*unwrap(R));
 }
 
+void LLVMShutdown() {
+  llvm_shutdown();
+}
+
 /*===-- Error handling ----------------------------------------------------===*/
+
+char *LLVMCreateMessage(const char *Message) {
+  return strdup(Message);
+}
 
 void LLVMDisposeMessage(char *Message) {
   free(Message);
@@ -1294,6 +1307,53 @@ void LLVMSetGlobalConstant(LLVMValueRef GlobalVar, LLVMBool IsConstant) {
   unwrap<GlobalVariable>(GlobalVar)->setConstant(IsConstant != 0);
 }
 
+LLVMThreadLocalMode LLVMGetThreadLocalMode(LLVMValueRef GlobalVar) {
+  switch (unwrap<GlobalVariable>(GlobalVar)->getThreadLocalMode()) {
+  case GlobalVariable::NotThreadLocal:
+    return LLVMNotThreadLocal;
+  case GlobalVariable::GeneralDynamicTLSModel:
+    return LLVMGeneralDynamicTLSModel;
+  case GlobalVariable::LocalDynamicTLSModel:
+    return LLVMLocalDynamicTLSModel;
+  case GlobalVariable::InitialExecTLSModel:
+    return LLVMInitialExecTLSModel;
+  case GlobalVariable::LocalExecTLSModel:
+    return LLVMLocalExecTLSModel;
+  }
+
+  llvm_unreachable("Invalid GlobalVariable thread local mode");
+}
+
+void LLVMSetThreadLocalMode(LLVMValueRef GlobalVar, LLVMThreadLocalMode Mode) {
+  GlobalVariable *GV = unwrap<GlobalVariable>(GlobalVar);
+
+  switch (Mode) {
+  case LLVMNotThreadLocal:
+    GV->setThreadLocalMode(GlobalVariable::NotThreadLocal);
+    break;
+  case LLVMGeneralDynamicTLSModel:
+    GV->setThreadLocalMode(GlobalVariable::GeneralDynamicTLSModel);
+    break;
+  case LLVMLocalDynamicTLSModel:
+    GV->setThreadLocalMode(GlobalVariable::LocalDynamicTLSModel);
+    break;
+  case LLVMInitialExecTLSModel:
+    GV->setThreadLocalMode(GlobalVariable::InitialExecTLSModel);
+    break;
+  case LLVMLocalExecTLSModel:
+    GV->setThreadLocalMode(GlobalVariable::LocalExecTLSModel);
+    break;
+  }
+}
+
+LLVMBool LLVMIsExternallyInitialized(LLVMValueRef GlobalVar) {
+  return unwrap<GlobalVariable>(GlobalVar)->isExternallyInitialized();
+}
+
+void LLVMSetExternallyInitialized(LLVMValueRef GlobalVar, LLVMBool IsExtInit) {
+  unwrap<GlobalVariable>(GlobalVar)->setExternallyInitialized(IsExtInit);
+}
+
 /*--.. Operations on aliases ......................................--*/
 
 LLVMValueRef LLVMAddAlias(LLVMModuleRef M, LLVMTypeRef Ty, LLVMValueRef Aliasee,
@@ -1383,9 +1443,22 @@ void LLVMAddFunctionAttr(LLVMValueRef Fn, LLVMAttribute PA) {
   const AttributeSet PAL = Func->getAttributes();
   AttrBuilder B(PA);
   const AttributeSet PALnew =
-    PAL.addAttr(Func->getContext(), AttributeSet::FunctionIndex,
-                Attribute::get(Func->getContext(), B));
+    PAL.addAttributes(Func->getContext(), AttributeSet::FunctionIndex,
+                      AttributeSet::get(Func->getContext(),
+                                        AttributeSet::FunctionIndex, B));
   Func->setAttributes(PALnew);
+}
+
+void LLVMAddTargetDependentFunctionAttr(LLVMValueRef Fn, const char *A,
+                                        const char *V) {
+  Function *Func = unwrap<Function>(Fn);
+  AttributeSet::AttrIndex Idx =
+    AttributeSet::AttrIndex(AttributeSet::FunctionIndex);
+  AttrBuilder B;
+
+  B.addAttribute(A, V);
+  AttributeSet Set = AttributeSet::get(Func->getContext(), Idx, B);
+  Func->addAttributes(Idx, Set);
 }
 
 void LLVMRemoveFunctionAttr(LLVMValueRef Fn, LLVMAttribute PA) {
@@ -1393,8 +1466,9 @@ void LLVMRemoveFunctionAttr(LLVMValueRef Fn, LLVMAttribute PA) {
   const AttributeSet PAL = Func->getAttributes();
   AttrBuilder B(PA);
   const AttributeSet PALnew =
-    PAL.removeAttr(Func->getContext(), AttributeSet::FunctionIndex,
-                   Attribute::get(Func->getContext(), B));
+    PAL.removeAttributes(Func->getContext(), AttributeSet::FunctionIndex,
+                         AttributeSet::get(Func->getContext(),
+                                           AttributeSet::FunctionIndex, B));
   Func->setAttributes(PALnew);
 }
 
@@ -1465,13 +1539,13 @@ LLVMValueRef LLVMGetPreviousParam(LLVMValueRef Arg) {
 void LLVMAddAttribute(LLVMValueRef Arg, LLVMAttribute PA) {
   Argument *A = unwrap<Argument>(Arg);
   AttrBuilder B(PA);
-  A->addAttr(Attribute::get(A->getContext(), B));
+  A->addAttr(AttributeSet::get(A->getContext(), A->getArgNo() + 1,  B));
 }
 
 void LLVMRemoveAttribute(LLVMValueRef Arg, LLVMAttribute PA) {
   Argument *A = unwrap<Argument>(Arg);
   AttrBuilder B(PA);
-  A->removeAttr(Attribute::get(A->getContext(), B));
+  A->removeAttr(AttributeSet::get(A->getContext(), A->getArgNo() + 1,  B));
 }
 
 LLVMAttribute LLVMGetAttribute(LLVMValueRef Arg) {
@@ -1482,10 +1556,10 @@ LLVMAttribute LLVMGetAttribute(LLVMValueRef Arg) {
   
 
 void LLVMSetParamAlignment(LLVMValueRef Arg, unsigned align) {
+  Argument *A = unwrap<Argument>(Arg);
   AttrBuilder B;
   B.addAlignmentAttr(align);
-  unwrap<Argument>(Arg)->addAttr(Attribute::
-                                 get(unwrap<Argument>(Arg)->getContext(), B));
+  A->addAttr(AttributeSet::get(A->getContext(),A->getArgNo() + 1, B));
 }
 
 /*--.. Operations on basic blocks ..........................................--*/
@@ -1676,17 +1750,19 @@ void LLVMAddInstrAttribute(LLVMValueRef Instr, unsigned index,
   CallSite Call = CallSite(unwrap<Instruction>(Instr));
   AttrBuilder B(PA);
   Call.setAttributes(
-    Call.getAttributes().addAttr(Call->getContext(), index,
-                                 Attribute::get(Call->getContext(), B)));
+    Call.getAttributes().addAttributes(Call->getContext(), index,
+                                       AttributeSet::get(Call->getContext(),
+                                                         index, B)));
 }
 
 void LLVMRemoveInstrAttribute(LLVMValueRef Instr, unsigned index, 
                               LLVMAttribute PA) {
   CallSite Call = CallSite(unwrap<Instruction>(Instr));
   AttrBuilder B(PA);
-  Call.setAttributes(
-    Call.getAttributes().removeAttr(Call->getContext(), index,
-                                    Attribute::get(Call->getContext(), B)));
+  Call.setAttributes(Call.getAttributes()
+                       .removeAttributes(Call->getContext(), index,
+                                         AttributeSet::get(Call->getContext(),
+                                                           index, B)));
 }
 
 void LLVMSetInstrParamAlignment(LLVMValueRef Instr, unsigned index, 
@@ -1694,8 +1770,10 @@ void LLVMSetInstrParamAlignment(LLVMValueRef Instr, unsigned index,
   CallSite Call = CallSite(unwrap<Instruction>(Instr));
   AttrBuilder B;
   B.addAlignmentAttr(align);
-  Call.setAttributes(Call.getAttributes().addAttr(Call->getContext(), index,
-                                       Attribute::get(Call->getContext(), B)));
+  Call.setAttributes(Call.getAttributes()
+                       .addAttributes(Call->getContext(), index,
+                                      AttributeSet::get(Call->getContext(),
+                                                        index, B)));
 }
 
 /*--.. Operations on call instructions (only) ..............................--*/
@@ -2318,6 +2396,42 @@ LLVMValueRef LLVMBuildPtrDiff(LLVMBuilderRef B, LLVMValueRef LHS,
   return wrap(unwrap(B)->CreatePtrDiff(unwrap(LHS), unwrap(RHS), Name));
 }
 
+LLVMValueRef LLVMBuildAtomicRMW(LLVMBuilderRef B,LLVMAtomicRMWBinOp op, 
+                               LLVMValueRef PTR, LLVMValueRef Val, 
+                               LLVMAtomicOrdering ordering, 
+                               LLVMBool singleThread) {
+  AtomicRMWInst::BinOp intop;
+  switch (op) {
+    case LLVMAtomicRMWBinOpXchg: intop = AtomicRMWInst::Xchg; break;
+    case LLVMAtomicRMWBinOpAdd: intop = AtomicRMWInst::Add; break;
+    case LLVMAtomicRMWBinOpSub: intop = AtomicRMWInst::Sub; break;
+    case LLVMAtomicRMWBinOpAnd: intop = AtomicRMWInst::And; break;
+    case LLVMAtomicRMWBinOpNand: intop = AtomicRMWInst::Nand; break;
+    case LLVMAtomicRMWBinOpOr: intop = AtomicRMWInst::Or; break;
+    case LLVMAtomicRMWBinOpXor: intop = AtomicRMWInst::Xor; break;
+    case LLVMAtomicRMWBinOpMax: intop = AtomicRMWInst::Max; break;
+    case LLVMAtomicRMWBinOpMin: intop = AtomicRMWInst::Min; break;
+    case LLVMAtomicRMWBinOpUMax: intop = AtomicRMWInst::UMax; break;
+    case LLVMAtomicRMWBinOpUMin: intop = AtomicRMWInst::UMin; break;
+  }
+  AtomicOrdering intordering;
+  switch (ordering) {
+    case LLVMAtomicOrderingNotAtomic: intordering = NotAtomic; break;
+    case LLVMAtomicOrderingUnordered: intordering = Unordered; break;
+    case LLVMAtomicOrderingMonotonic: intordering = Monotonic; break;
+    case LLVMAtomicOrderingAcquire: intordering = Acquire; break;
+    case LLVMAtomicOrderingRelease: intordering = Release; break;
+    case LLVMAtomicOrderingAcquireRelease: 
+      intordering = AcquireRelease; 
+      break;
+    case LLVMAtomicOrderingSequentiallyConsistent: 
+      intordering = SequentiallyConsistent; 
+      break;
+  }
+  return wrap(unwrap(B)->CreateAtomicRMW(intop, unwrap(PTR), unwrap(Val), 
+    intordering, singleThread ? SingleThread : CrossThread));
+}
+
 
 /*===-- Module providers --------------------------------------------------===*/
 
@@ -2360,6 +2474,36 @@ LLVMBool LLVMCreateMemoryBufferWithSTDIN(LLVMMemoryBufferRef *OutMemBuf,
 
   *OutMessage = strdup(ec.message().c_str());
   return 1;
+}
+
+LLVMMemoryBufferRef LLVMCreateMemoryBufferWithMemoryRange(
+    const char *InputData,
+    size_t InputDataLength,
+    const char *BufferName,
+    LLVMBool RequiresNullTerminator) {
+
+  return wrap(MemoryBuffer::getMemBuffer(
+      StringRef(InputData, InputDataLength),
+      StringRef(BufferName),
+      RequiresNullTerminator));
+}
+
+LLVMMemoryBufferRef LLVMCreateMemoryBufferWithMemoryRangeCopy(
+    const char *InputData,
+    size_t InputDataLength,
+    const char *BufferName) {
+
+  return wrap(MemoryBuffer::getMemBufferCopy(
+      StringRef(InputData, InputDataLength),
+      StringRef(BufferName)));
+}
+
+const char *LLVMGetBufferStart(LLVMMemoryBufferRef MemBuf) {
+  return unwrap(MemBuf)->getBufferStart();
+}
+
+size_t LLVMGetBufferSize(LLVMMemoryBufferRef MemBuf) {
+  return unwrap(MemBuf)->getBufferSize();
 }
 
 void LLVMDisposeMemoryBuffer(LLVMMemoryBufferRef MemBuf) {
@@ -2405,4 +2549,18 @@ LLVMBool LLVMFinalizeFunctionPassManager(LLVMPassManagerRef FPM) {
 
 void LLVMDisposePassManager(LLVMPassManagerRef PM) {
   delete unwrap(PM);
+}
+
+/*===-- Threading ------------------------------------------------------===*/
+
+LLVMBool LLVMStartMultithreaded() {
+  return llvm_start_multithreaded();
+}
+
+void LLVMStopMultithreaded() {
+  llvm_stop_multithreaded();
+}
+
+LLVMBool LLVMIsMultithreaded() {
+  return llvm_is_multithreaded();
 }

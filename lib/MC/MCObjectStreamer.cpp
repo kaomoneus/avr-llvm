@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/MC/MCObjectStreamer.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCAssembler.h"
@@ -20,22 +21,19 @@
 #include "llvm/Support/ErrorHandling.h"
 using namespace llvm;
 
-MCObjectStreamer::MCObjectStreamer(MCContext &Context, MCAsmBackend &TAB,
-                                   raw_ostream &OS, MCCodeEmitter *Emitter_)
-  : MCStreamer(Context),
-    Assembler(new MCAssembler(Context, TAB,
-                              *Emitter_, *TAB.createObjectWriter(OS),
-                              OS)),
-    CurSectionData(0)
-{
-}
+MCObjectStreamer::MCObjectStreamer(StreamerKind Kind, MCContext &Context,
+                                   MCAsmBackend &TAB, raw_ostream &OS,
+                                   MCCodeEmitter *Emitter_)
+    : MCStreamer(Kind, Context),
+      Assembler(new MCAssembler(Context, TAB, *Emitter_,
+                                *TAB.createObjectWriter(OS), OS)),
+      CurSectionData(0) {}
 
-MCObjectStreamer::MCObjectStreamer(MCContext &Context, MCAsmBackend &TAB,
-                                   raw_ostream &OS, MCCodeEmitter *Emitter_,
+MCObjectStreamer::MCObjectStreamer(StreamerKind Kind, MCContext &Context,
+                                   MCAsmBackend &TAB, raw_ostream &OS,
+                                   MCCodeEmitter *Emitter_,
                                    MCAssembler *_Assembler)
-  : MCStreamer(Context), Assembler(_Assembler), CurSectionData(0)
-{
-}
+    : MCStreamer(Kind, Context), Assembler(_Assembler), CurSectionData(0) {}
 
 MCObjectStreamer::~MCObjectStreamer() {
   delete &Assembler->getBackend();
@@ -48,22 +46,27 @@ void MCObjectStreamer::reset() {
   if (Assembler)
     Assembler->reset();
   CurSectionData = 0;
+  CurInsertionPoint = MCSectionData::iterator();
   MCStreamer::reset();
 }
 
 MCFragment *MCObjectStreamer::getCurrentFragment() const {
   assert(getCurrentSectionData() && "No current section!");
 
-  if (!getCurrentSectionData()->empty())
-    return &getCurrentSectionData()->getFragmentList().back();
+  if (CurInsertionPoint != getCurrentSectionData()->getFragmentList().begin())
+    return prior(CurInsertionPoint);
 
   return 0;
 }
 
 MCDataFragment *MCObjectStreamer::getOrCreateDataFragment() const {
   MCDataFragment *F = dyn_cast_or_null<MCDataFragment>(getCurrentFragment());
-  if (!F)
-    F = new MCDataFragment(getCurrentSectionData());
+  // When bundling is enabled, we don't want to add data to a fragment that
+  // already has instructions (see MCELFStreamer::EmitInstToData for details)
+  if (!F || (Assembler->isBundlingEnabled() && F->hasInstructions())) {
+    F = new MCDataFragment();
+    insert(F);
+  }
   return F;
 }
 
@@ -99,6 +102,8 @@ void MCObjectStreamer::EmitValueImpl(const MCExpr *Value, unsigned Size,
                                      unsigned AddrSpace) {
   assert(AddrSpace == 0 && "Address space must be 0!");
   MCDataFragment *DF = getOrCreateDataFragment();
+
+  MCLineEntry::Make(this, getCurrentSection().first);
 
   // Avoid fixups when possible.
   int64_t AbsValue;
@@ -146,7 +151,7 @@ void MCObjectStreamer::EmitULEB128Value(const MCExpr *Value) {
     return;
   }
   Value = ForceExpAbs(Value);
-  new MCLEBFragment(*Value, false, getCurrentSectionData());
+  insert(new MCLEBFragment(*Value, false));
 }
 
 void MCObjectStreamer::EmitSLEB128Value(const MCExpr *Value) {
@@ -156,7 +161,7 @@ void MCObjectStreamer::EmitSLEB128Value(const MCExpr *Value) {
     return;
   }
   Value = ForceExpAbs(Value);
-  new MCLEBFragment(*Value, true, getCurrentSectionData());
+  insert(new MCLEBFragment(*Value, true));
 }
 
 void MCObjectStreamer::EmitWeakReference(MCSymbol *Alias,
@@ -164,10 +169,20 @@ void MCObjectStreamer::EmitWeakReference(MCSymbol *Alias,
   report_fatal_error("This file format doesn't support weak aliases.");
 }
 
-void MCObjectStreamer::ChangeSection(const MCSection *Section) {
+void MCObjectStreamer::ChangeSection(const MCSection *Section,
+                                     const MCExpr *Subsection) {
   assert(Section && "Cannot switch to a null section!");
 
   CurSectionData = &getAssembler().getOrCreateSectionData(*Section);
+
+  int64_t IntSubsection = 0;
+  if (Subsection &&
+      !Subsection->EvaluateAsAbsolute(IntSubsection, getAssembler()))
+    report_fatal_error("Cannot evaluate subsection number");
+  if (IntSubsection < 0 || IntSubsection > 8192)
+    report_fatal_error("Subsection number out of range");
+  CurInsertionPoint =
+    CurSectionData->getSubsectionInsertionPoint(unsigned(IntSubsection));
 }
 
 void MCObjectStreamer::EmitAssignment(MCSymbol *Symbol, const MCExpr *Value) {
@@ -186,7 +201,7 @@ void MCObjectStreamer::EmitInstruction(const MCInst &Inst) {
 
   // Now that a machine instruction has been assembled into this section, make
   // a line entry for any .loc directive that has been seen.
-  MCLineEntry::Make(this, getCurrentSection());
+  MCLineEntry::Make(this, getCurrentSection().first);
 
   // If this instruction doesn't need relaxation, just emit it as data.
   MCAssembler &Assembler = getAssembler();
@@ -217,8 +232,8 @@ void MCObjectStreamer::EmitInstruction(const MCInst &Inst) {
 void MCObjectStreamer::EmitInstToFragment(const MCInst &Inst) {
   // Always create a new, separate fragment here, because its size can change
   // during relaxation.
-  MCRelaxableFragment *IF =
-    new MCRelaxableFragment(Inst, getCurrentSectionData());
+  MCRelaxableFragment *IF = new MCRelaxableFragment(Inst);
+  insert(IF);
 
   SmallString<128> Code;
   raw_svector_ostream VecOS(Code);
@@ -227,8 +242,10 @@ void MCObjectStreamer::EmitInstToFragment(const MCInst &Inst) {
   IF->getContents().append(Code.begin(), Code.end());
 }
 
-const char *BundlingNotImplementedMsg =
+#ifndef NDEBUG
+static const char *BundlingNotImplementedMsg =
   "Aligned bundling is not implemented for this object format";
+#endif
 
 void MCObjectStreamer::EmitBundleAlignMode(unsigned AlignPow2) {
   llvm_unreachable(BundlingNotImplementedMsg);
@@ -257,7 +274,7 @@ void MCObjectStreamer::EmitDwarfAdvanceLineAddr(int64_t LineDelta,
     return;
   }
   AddrDelta = ForceExpAbs(AddrDelta);
-  new MCDwarfLineAddrFragment(LineDelta, *AddrDelta, getCurrentSectionData());
+  insert(new MCDwarfLineAddrFragment(LineDelta, *AddrDelta));
 }
 
 void MCObjectStreamer::EmitDwarfAdvanceFrameAddr(const MCSymbol *LastLabel,
@@ -269,7 +286,7 @@ void MCObjectStreamer::EmitDwarfAdvanceFrameAddr(const MCSymbol *LastLabel,
     return;
   }
   AddrDelta = ForceExpAbs(AddrDelta);
-  new MCDwarfCallFrameFragment(*AddrDelta, getCurrentSectionData());
+  insert(new MCDwarfCallFrameFragment(*AddrDelta));
 }
 
 void MCObjectStreamer::EmitBytes(StringRef Data, unsigned AddrSpace) {
@@ -283,8 +300,7 @@ void MCObjectStreamer::EmitValueToAlignment(unsigned ByteAlignment,
                                             unsigned MaxBytesToEmit) {
   if (MaxBytesToEmit == 0)
     MaxBytesToEmit = ByteAlignment;
-  new MCAlignFragment(ByteAlignment, Value, ValueSize, MaxBytesToEmit,
-                      getCurrentSectionData());
+  insert(new MCAlignFragment(ByteAlignment, Value, ValueSize, MaxBytesToEmit));
 
   // Update the maximum alignment on the current section if necessary.
   if (ByteAlignment > getCurrentSectionData()->getAlignment())
@@ -301,7 +317,7 @@ bool MCObjectStreamer::EmitValueToOffset(const MCExpr *Offset,
                                          unsigned char Value) {
   int64_t Res;
   if (Offset->EvaluateAsAbsolute(Res, getAssembler())) {
-    new MCOrgFragment(*Offset, Value, getCurrentSectionData());
+    insert(new MCOrgFragment(*Offset, Value));
     return false;
   }
 

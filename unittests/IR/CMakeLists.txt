@@ -5,6 +5,7 @@ set(LLVM_LINK_COMPONENTS
   )
 
 set(IRSources
+  AttributesTest.cpp
   ConstantsTest.cpp
   DominatorTreeTest.cpp
   IRBuilderTest.cpp
@@ -12,9 +13,11 @@ set(IRSources
   MDBuilderTest.cpp
   MetadataTest.cpp
   PassManagerTest.cpp
+  PatternMatch.cpp
   TypeBuilderTest.cpp
   TypesTest.cpp
   ValueMapTest.cpp
+  ValueTest.cpp
   VerifierTest.cpp
   WaymarkTest.cpp
   )

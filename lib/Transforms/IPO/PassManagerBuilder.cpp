@@ -32,8 +32,19 @@ static cl::opt<bool>
 RunLoopVectorization("vectorize-loops",
                      cl::desc("Run the Loop vectorization passes"));
 
+// This is a helper flag that we use for testing the profitability of
+// vectorization on -O2 and -Os. It should go away once we make a decision.
 static cl::opt<bool>
-RunBBVectorization("vectorize", cl::desc("Run the BB vectorization passes"));
+VectorizeO2("vectorize-o2",
+            cl::desc("Enable vectorization on all O levels"));
+
+static cl::opt<bool>
+RunSLPVectorization("vectorize-slp",
+                    cl::desc("Run the SLP vectorization passes"));
+
+static cl::opt<bool>
+RunBBVectorization("vectorize-slp-aggressive",
+                    cl::desc("Run the BB vectorization passes"));
 
 static cl::opt<bool>
 UseGVNAfterVectorization("use-gvn-after-vectorization",
@@ -52,7 +63,8 @@ PassManagerBuilder::PassManagerBuilder() {
     DisableSimplifyLibCalls = false;
     DisableUnitAtATime = false;
     DisableUnrollLoops = false;
-    Vectorize = RunBBVectorization;
+    BBVectorize = RunBBVectorization;
+    SLPVectorize = RunSLPVectorization;
     LoopVectorize = RunLoopVectorization;
 }
 
@@ -186,7 +198,7 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
   MPM.add(createLoopIdiomPass());             // Recognize idioms like memset.
   MPM.add(createLoopDeletionPass());          // Delete dead loops
 
-  if (LoopVectorize && OptLevel > 2)
+  if (LoopVectorize && (OptLevel > 2 || VectorizeO2))
     MPM.add(createLoopVectorizePass());
 
   if (!DisableUnrollLoops)
@@ -207,13 +219,20 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
 
   addExtensionsToPM(EP_ScalarOptimizerLate, MPM);
 
-  if (Vectorize) {
+  if (SLPVectorize)
+    MPM.add(createSLPVectorizerPass());     // Vectorize parallel scalar chains.
+
+  if (BBVectorize) {
     MPM.add(createBBVectorizePass());
     MPM.add(createInstructionCombiningPass());
     if (OptLevel > 1 && UseGVNAfterVectorization)
       MPM.add(createGVNPass());                   // Remove redundancies
     else
       MPM.add(createEarlyCSEPass());              // Catch trivial redundancies
+
+    // BBVectorize may have significantly shortened a loop body; unroll again.
+    if (!DisableUnrollLoops)
+      MPM.add(createLoopUnrollPass());
   }
 
   MPM.add(createAggressiveDCEPass());         // Delete dead instructions
@@ -317,6 +336,14 @@ void PassManagerBuilder::populateLTOPassManager(PassManagerBase &PM,
   PM.add(createGlobalDCEPass());
 }
 
+inline PassManagerBuilder *unwrap(LLVMPassManagerBuilderRef P) {
+    return reinterpret_cast<PassManagerBuilder*>(P);
+}
+
+inline LLVMPassManagerBuilderRef wrap(PassManagerBuilder *P) {
+  return reinterpret_cast<LLVMPassManagerBuilderRef>(P);
+}
+
 LLVMPassManagerBuilderRef LLVMPassManagerBuilderCreate() {
   PassManagerBuilder *PMB = new PassManagerBuilder();
   return wrap(PMB);
@@ -387,9 +414,9 @@ LLVMPassManagerBuilderPopulateModulePassManager(LLVMPassManagerBuilderRef PMB,
 
 void LLVMPassManagerBuilderPopulateLTOPassManager(LLVMPassManagerBuilderRef PMB,
                                                   LLVMPassManagerRef PM,
-                                                  bool Internalize,
-                                                  bool RunInliner) {
+                                                  LLVMBool Internalize,
+                                                  LLVMBool RunInliner) {
   PassManagerBuilder *Builder = unwrap(PMB);
   PassManagerBase *LPM = unwrap(PM);
-  Builder->populateLTOPassManager(*LPM, Internalize, RunInliner);
+  Builder->populateLTOPassManager(*LPM, Internalize != 0, RunInliner != 0);
 }

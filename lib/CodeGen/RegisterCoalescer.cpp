@@ -15,7 +15,6 @@
 
 #define DEBUG_TYPE "regalloc"
 #include "RegisterCoalescer.h"
-#include "LiveDebugVariables.h"
 #include "llvm/ADT/OwningPtr.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallSet.h"
@@ -38,7 +37,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetInstrInfo.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Target/TargetOptions.h"
 #include "llvm/Target/TargetRegisterInfo.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
 #include <algorithm>
@@ -84,7 +82,6 @@ namespace {
     const TargetRegisterInfo* TRI;
     const TargetInstrInfo* TII;
     LiveIntervals *LIS;
-    LiveDebugVariables *LDV;
     const MachineLoopInfo* Loops;
     AliasAnalysis *AA;
     RegisterClassInfo RegClassInfo;
@@ -169,8 +166,7 @@ namespace {
 
     /// reMaterializeTrivialDef - If the source of a copy is defined by a
     /// trivial computation, replace the copy by rematerialize the definition.
-    bool reMaterializeTrivialDef(LiveInterval &SrcInt, unsigned DstReg,
-                                 MachineInstr *CopyMI);
+    bool reMaterializeTrivialDef(CoalescerPair &CP, MachineInstr *CopyMI);
 
     /// canJoinPhys - Return true if a physreg copy should be joined.
     bool canJoinPhys(const CoalescerPair &CP);
@@ -208,7 +204,6 @@ char &llvm::RegisterCoalescerID = RegisterCoalescer::ID;
 INITIALIZE_PASS_BEGIN(RegisterCoalescer, "simple-register-coalescing",
                       "Simple Register Coalescing", false, false)
 INITIALIZE_PASS_DEPENDENCY(LiveIntervals)
-INITIALIZE_PASS_DEPENDENCY(LiveDebugVariables)
 INITIALIZE_PASS_DEPENDENCY(SlotIndexes)
 INITIALIZE_PASS_DEPENDENCY(MachineLoopInfo)
 INITIALIZE_AG_DEPENDENCY(AliasAnalysis)
@@ -394,8 +389,6 @@ void RegisterCoalescer::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<AliasAnalysis>();
   AU.addRequired<LiveIntervals>();
   AU.addPreserved<LiveIntervals>();
-  AU.addRequired<LiveDebugVariables>();
-  AU.addPreserved<LiveDebugVariables>();
   AU.addPreserved<SlotIndexes>();
   AU.addRequired<MachineLoopInfo>();
   AU.addPreserved<MachineLoopInfo>();
@@ -737,9 +730,16 @@ bool RegisterCoalescer::removeCopyByCommutingDef(const CoalescerPair &CP,
 
 /// reMaterializeTrivialDef - If the source of a copy is defined by a trivial
 /// computation, replace the copy by rematerialize the definition.
-bool RegisterCoalescer::reMaterializeTrivialDef(LiveInterval &SrcInt,
-                                                unsigned DstReg,
+bool RegisterCoalescer::reMaterializeTrivialDef(CoalescerPair &CP,
                                                 MachineInstr *CopyMI) {
+  unsigned SrcReg = CP.isFlipped() ? CP.getDstReg() : CP.getSrcReg();
+  unsigned SrcIdx = CP.isFlipped() ? CP.getDstIdx() : CP.getSrcIdx();
+  unsigned DstReg = CP.isFlipped() ? CP.getSrcReg() : CP.getDstReg();
+  unsigned DstIdx = CP.isFlipped() ? CP.getSrcIdx() : CP.getDstIdx();
+  if (TargetRegisterInfo::isPhysicalRegister(SrcReg))
+    return false;
+
+  LiveInterval &SrcInt = LIS->getInterval(SrcReg);
   SlotIndex CopyIdx = LIS->getInstructionIndex(CopyMI).getRegSlot(true);
   LiveInterval::iterator SrcLR = SrcInt.FindLiveRangeContaining(CopyIdx);
   assert(SrcLR != SrcInt.end() && "Live range not found!");
@@ -760,23 +760,43 @@ bool RegisterCoalescer::reMaterializeTrivialDef(LiveInterval &SrcInt,
   const MCInstrDesc &MCID = DefMI->getDesc();
   if (MCID.getNumDefs() != 1)
     return false;
+  // Only support subregister destinations when the def is read-undef.
+  MachineOperand &DstOperand = CopyMI->getOperand(0);
+  unsigned CopyDstReg = DstOperand.getReg();
+  if (DstOperand.getSubReg() && !DstOperand.isUndef())
+    return false;
+
+  const TargetRegisterClass *DefRC = TII->getRegClass(MCID, 0, TRI, *MF);
   if (!DefMI->isImplicitDef()) {
-    // Make sure the copy destination register class fits the instruction
-    // definition register class. The mismatch can happen as a result of earlier
-    // extract_subreg, insert_subreg, subreg_to_reg coalescing.
-    const TargetRegisterClass *RC = TII->getRegClass(MCID, 0, TRI, *MF);
-    if (TargetRegisterInfo::isVirtualRegister(DstReg)) {
-      if (MRI->getRegClass(DstReg) != RC)
+    if (TargetRegisterInfo::isPhysicalRegister(DstReg)) {
+      unsigned NewDstReg = DstReg;
+
+      unsigned NewDstIdx = TRI->composeSubRegIndices(CP.getSrcIdx(),
+                                              DefMI->getOperand(0).getSubReg());
+      if (NewDstIdx)
+        NewDstReg = TRI->getSubReg(DstReg, NewDstIdx);
+
+      // Finally, make sure that the physical subregister that will be
+      // constructed later is permitted for the instruction.
+      if (!DefRC->contains(NewDstReg))
         return false;
-    } else if (!RC->contains(DstReg))
-      return false;
+    } else {
+      // Theoretically, some stack frame reference could exist. Just make sure
+      // it hasn't actually happened.
+      assert(TargetRegisterInfo::isVirtualRegister(DstReg) &&
+             "Only expect to deal with virtual or physical registers");
+    }
   }
 
   MachineBasicBlock *MBB = CopyMI->getParent();
   MachineBasicBlock::iterator MII =
     llvm::next(MachineBasicBlock::iterator(CopyMI));
-  TII->reMaterialize(*MBB, MII, DstReg, 0, DefMI, *TRI);
+  TII->reMaterialize(*MBB, MII, DstReg, SrcIdx, DefMI, *TRI);
   MachineInstr *NewMI = prior(MII);
+
+  LIS->ReplaceMachineInstrInMaps(CopyMI, NewMI);
+  CopyMI->eraseFromParent();
+  ErasedInstrs.insert(CopyMI);
 
   // NewMI may have dead implicit defs (E.g. EFLAGS for MOV<bits>r0 on X86).
   // We need to remember these so we can add intervals once we insert
@@ -792,6 +812,46 @@ bool RegisterCoalescer::reMaterializeTrivialDef(LiveInterval &SrcInt,
     }
   }
 
+  if (TargetRegisterInfo::isVirtualRegister(DstReg)) {
+    unsigned NewIdx = NewMI->getOperand(0).getSubReg();
+    const TargetRegisterClass *RCForInst;
+    if (NewIdx)
+      RCForInst = TRI->getMatchingSuperRegClass(MRI->getRegClass(DstReg), DefRC,
+                                                NewIdx);
+
+    if (MRI->constrainRegClass(DstReg, DefRC)) {
+      // The materialized instruction is quite capable of setting DstReg
+      // directly, but it may still have a now-trivial subregister index which
+      // we should clear.
+      NewMI->getOperand(0).setSubReg(0);
+    } else if (NewIdx && RCForInst) {
+      // The subreg index on NewMI is essential; we still have to make sure
+      // DstReg:idx is in a class that NewMI can use.
+      MRI->constrainRegClass(DstReg, RCForInst);
+    } else {
+      // DstReg is actually incompatible with NewMI, we have to move to a
+      // super-reg's class. This could come from a sequence like:
+      //     GR32 = MOV32r0
+      //     GR8 = COPY GR32:sub_8
+      MRI->setRegClass(DstReg, CP.getNewRC());
+      updateRegDefsUses(DstReg, DstReg, DstIdx);
+      NewMI->getOperand(0).setSubReg(
+          TRI->composeSubRegIndices(SrcIdx, DefMI->getOperand(0).getSubReg()));
+    }
+  } else if (NewMI->getOperand(0).getReg() != CopyDstReg) {
+    // The New instruction may be defining a sub-register of what's actually
+    // been asked for. If so it must implicitly define the whole thing.
+    assert(TargetRegisterInfo::isPhysicalRegister(DstReg) &&
+           "Only expect virtual or physical registers in remat");
+    NewMI->addOperand(MachineOperand::CreateReg(CopyDstReg,
+                                                true  /*IsDef*/,
+                                                true  /*IsImp*/,
+                                                false /*IsKill*/));
+  }
+
+  if (NewMI->getOperand(0).getSubReg())
+    NewMI->getOperand(0).setIsUndef();
+
   // CopyMI may have implicit operands, transfer them over to the newly
   // rematerialized instruction. And update implicit def interval valnos.
   for (unsigned i = CopyMI->getDesc().getNumOperands(),
@@ -806,8 +866,6 @@ bool RegisterCoalescer::reMaterializeTrivialDef(LiveInterval &SrcInt,
     }
   }
 
-  LIS->ReplaceMachineInstrInMaps(CopyMI, NewMI);
-
   SlotIndex NewMIIdx = LIS->getInstructionIndex(NewMI);
   for (unsigned i = 0, e = NewMIImplDefs.size(); i != e; ++i) {
     unsigned Reg = NewMIImplDefs[i];
@@ -816,8 +874,6 @@ bool RegisterCoalescer::reMaterializeTrivialDef(LiveInterval &SrcInt,
         LI->createDeadDef(NewMIIdx.getRegSlot(), LIS->getVNInfoAllocator());
   }
 
-  CopyMI->eraseFromParent();
-  ErasedInstrs.insert(CopyMI);
   DEBUG(dbgs() << "Remat: " << *NewMI);
   ++NumReMats;
 
@@ -882,9 +938,6 @@ void RegisterCoalescer::updateRegDefsUses(unsigned SrcReg,
                                           unsigned SubIdx) {
   bool DstIsPhys = TargetRegisterInfo::isPhysicalRegister(DstReg);
   LiveInterval *DstInt = DstIsPhys ? 0 : &LIS->getInterval(DstReg);
-
-  // Update LiveDebugVariables.
-  LDV->renameRegister(SrcReg, DstReg, SubIdx);
 
   SmallPtrSet<MachineInstr*, 8> Visited;
   for (MachineRegisterInfo::reg_iterator I = MRI->reg_begin(SrcReg);
@@ -1010,9 +1063,7 @@ bool RegisterCoalescer::joinCopy(MachineInstr *CopyMI, bool &Again) {
     if (!canJoinPhys(CP)) {
       // Before giving up coalescing, if definition of source is defined by
       // trivial computation, try rematerializing it.
-      if (!CP.isFlipped() &&
-          reMaterializeTrivialDef(LIS->getInterval(CP.getSrcReg()),
-                                  CP.getDstReg(), CopyMI))
+      if (reMaterializeTrivialDef(CP, CopyMI))
         return true;
       return false;
     }
@@ -1045,9 +1096,7 @@ bool RegisterCoalescer::joinCopy(MachineInstr *CopyMI, bool &Again) {
 
     // If definition of source is defined by trivial computation, try
     // rematerializing it.
-    if (!CP.isFlipped() &&
-        reMaterializeTrivialDef(LIS->getInterval(CP.getSrcReg()),
-                                CP.getDstReg(), CopyMI))
+    if (reMaterializeTrivialDef(CP, CopyMI))
       return true;
 
     // If we can eliminate the copy without merging the live ranges, do so now.
@@ -2136,7 +2185,6 @@ bool RegisterCoalescer::runOnMachineFunction(MachineFunction &fn) {
   TRI = TM->getRegisterInfo();
   TII = TM->getInstrInfo();
   LIS = &getAnalysis<LiveIntervals>();
-  LDV = &getAnalysis<LiveDebugVariables>();
   AA = &getAnalysis<AliasAnalysis>();
   Loops = &getAnalysis<MachineLoopInfo>();
 
@@ -2182,7 +2230,6 @@ bool RegisterCoalescer::runOnMachineFunction(MachineFunction &fn) {
   }
 
   DEBUG(dump());
-  DEBUG(LDV->dump());
   if (VerifyCoalescing)
     MF->verify(this, "After register coalescing");
   return true;

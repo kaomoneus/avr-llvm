@@ -43,7 +43,7 @@ namespace llvm {
 class SelectionDAGISel : public MachineFunctionPass {
 public:
   const TargetMachine &TM;
-  const TargetLowering &TLI;
+  const TargetLowering *TLI;
   const TargetLibraryInfo *LibInfo;
   const TargetTransformInfo *TTI;
   FunctionLoweringInfo *FuncInfo;
@@ -60,7 +60,7 @@ public:
                             CodeGenOpt::Level OL = CodeGenOpt::Default);
   virtual ~SelectionDAGISel();
 
-  const TargetLowering &getTargetLowering() { return TLI; }
+  const TargetLowering *getTargetLowering() { return TLI; }
 
   virtual void getAnalysisUsage(AnalysisUsage &AU) const;
 
@@ -249,16 +249,23 @@ private:
                     const SDValue *Ops, unsigned NumOps, unsigned EmitNodeInfo);
 
   void PrepareEHLandingPad();
-  void SelectAllBasicBlocks(const Function &Fn);
-  bool TryToFoldFastISelLoad(const LoadInst *LI, const Instruction *FoldInst,
-                             FastISel *FastIS);
-  void FinishBasicBlock();
 
+  /// \brief Perform instruction selection on all basic blocks in the function.
+  void SelectAllBasicBlocks(const Function &Fn);
+
+  /// \brief Perform instruction selection on a single basic block, for
+  /// instructions between \p Begin and \p End.  \p HadTailCall will be set
+  /// to true if a call in the block was translated as a tail call.
   void SelectBasicBlock(BasicBlock::const_iterator Begin,
                         BasicBlock::const_iterator End,
                         bool &HadTailCall);
+  void FinishBasicBlock();
+
   void CodeGenAndEmitDAG();
-  void LowerArguments(const BasicBlock *BB);
+
+  /// \brief Generate instructions for lowering the incoming arguments of the
+  /// given function.
+  void LowerArguments(const Function &F);
 
   void ComputeLiveOutVRegInfo();
 

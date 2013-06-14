@@ -27,7 +27,6 @@ namespace llvm {
 class X86RegisterInfo : public X86GenRegisterInfo {
 public:
   X86TargetMachine &TM;
-  const TargetInstrInfo &TII;
 
 private:
   /// Is64Bit - Is the target 64-bits.
@@ -56,7 +55,7 @@ private:
   unsigned BasePtr;
 
 public:
-  X86RegisterInfo(X86TargetMachine &tm, const TargetInstrInfo &tii);
+  X86RegisterInfo(X86TargetMachine &tm);
 
   // FIXME: This should be tablegen'd like getDwarfRegNum is
   int getSEHRegNum(unsigned i) const;
@@ -117,12 +116,9 @@ public:
   bool hasReservedSpillSlot(const MachineFunction &MF, unsigned Reg,
                             int &FrameIdx) const;
 
-  void eliminateCallFramePseudoInstr(MachineFunction &MF,
-                                     MachineBasicBlock &MBB,
-                                     MachineBasicBlock::iterator MI) const;
-
   void eliminateFrameIndex(MachineBasicBlock::iterator MI,
-                           int SPAdj, RegScavenger *RS = NULL) const;
+                           int SPAdj, unsigned FIOperandNum,
+                           RegScavenger *RS = NULL) const;
 
   // Debug information queries.
   unsigned getFrameRegister(const MachineFunction &MF) const;

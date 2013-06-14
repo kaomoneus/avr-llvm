@@ -193,7 +193,7 @@ struct file_magic {
     macho_executable,         ///< Mach-O Executable
     macho_fixed_virtual_memory_shared_lib, ///< Mach-O Shared Lib, FVM
     macho_core,               ///< Mach-O Core File
-    macho_preload_executabl,  ///< Mach-O Preloaded Executable
+    macho_preload_executable, ///< Mach-O Preloaded Executable
     macho_dynamically_linked_shared_lib, ///< Mach-O dynlinked shared lib
     macho_dynamic_linker,     ///< The Mach-O dynamic linker
     macho_bundle,             ///< Mach-O Bundle file
@@ -602,7 +602,7 @@ private:
   void *FileMappingHandle;
 #endif
 
-  error_code init(int FD, uint64_t Offset);
+  error_code init(int FD, bool CloseFD, uint64_t Offset);
 
 public:
   typedef char char_type;
@@ -633,8 +633,10 @@ public:
                      error_code &ec);
 
   /// \param fd An open file descriptor to map. mapped_file_region takes
-  ///           ownership. It must have been opended in the correct mode.
+  ///   ownership if closefd is true. It must have been opended in the correct
+  ///   mode.
   mapped_file_region(int fd,
+                     bool closefd,
                      mapmode mode,
                      uint64_t length,
                      uint64_t offset,

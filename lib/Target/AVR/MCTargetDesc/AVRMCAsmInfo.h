@@ -20,13 +20,12 @@ namespace llvm
 {
 
 class StringRef;
-class Target;
 
 class AVRMCAsmInfo : public MCAsmInfo
 {
   virtual void anchor();
 public:
-  explicit AVRMCAsmInfo(const Target &T, StringRef TT);
+  explicit AVRMCAsmInfo(StringRef TT);
 };
 
 } // end namespace llvm

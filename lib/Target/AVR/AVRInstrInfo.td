@@ -37,9 +37,9 @@ def SDT_AVRSelectCC : SDTypeProfile<1, 3, [SDTCisSameAs<0, 1>,
 //===----------------------------------------------------------------------===//
 
 def AVRretflag : SDNode<"AVRISD::RET_FLAG", SDTNone,
-                        [SDNPHasChain, SDNPOptInGlue]>;
+                        [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
 def AVRretiflag : SDNode<"AVRISD::RETI_FLAG", SDTNone,
-                         [SDNPHasChain, SDNPOptInGlue]>;
+                         [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
 
 def AVRcallseq_start : SDNode<"ISD::CALLSEQ_START", SDT_AVRCallSeqStart,
                               [SDNPHasChain, SDNPOutGlue]>;
@@ -811,7 +811,7 @@ let isCall = 1 in
                        (outs),
       //:TODO: the imm field can be either 16 or 22 bits in devices with more
       // than 64k of ROM, fix it once we support the largests devices.
-                       (ins i16imm:$dst, variable_ops),
+                       (ins i16imm:$dst),
                        "call\t$dst",
                        [(AVRcall imm:$dst)]>;
   }

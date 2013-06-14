@@ -61,7 +61,7 @@ AVRDAGToDAGISel::SelectAddr(SDNode *Op, SDValue N, SDValue &Base, SDValue &Disp)
   // if N (the address) is a FI get the TargetFrameIndex.
   if (const FrameIndexSDNode *FIN = dyn_cast<FrameIndexSDNode>(N))
   {
-    Base = CurDAG->getTargetFrameIndex(FIN->getIndex(), TLI.getPointerTy());
+    Base = CurDAG->getTargetFrameIndex(FIN->getIndex(), TLI->getPointerTy());
     Disp = CurDAG->getTargetConstant(0, MVT::i8);
 
     return true;
@@ -90,7 +90,7 @@ AVRDAGToDAGISel::SelectAddr(SDNode *Op, SDValue N, SDValue &Base, SDValue &Disp)
     if (N.getOperand(0).getOpcode() == ISD::FrameIndex)
     {
       int FI = cast<FrameIndexSDNode>(N.getOperand(0))->getIndex();
-      Base = CurDAG->getTargetFrameIndex(FI, TLI.getPointerTy());
+      Base = CurDAG->getTargetFrameIndex(FI, TLI->getPointerTy());
       Disp = CurDAG->getTargetConstant(RHSC, MVT::i16);
 
       return true;
@@ -150,9 +150,8 @@ SDNode *AVRDAGToDAGISel::SelectIndexedLoad(SDNode *N)
     return 0;
   }
 
-  return CurDAG->getMachineNode(Opcode, N->getDebugLoc(), VT,
-                                TLI.getPointerTy(), MVT::Other,
-                                LD->getBasePtr(), LD->getChain());
+  return CurDAG->getMachineNode(Opcode, SDLoc(N), VT, TLI->getPointerTy(),
+                                MVT::Other, LD->getBasePtr(), LD->getChain());
 }
 
 unsigned AVRDAGToDAGISel::SelectIndexedProgMemLoad(const LoadSDNode *LD, MVT VT)
@@ -193,7 +192,7 @@ unsigned AVRDAGToDAGISel::SelectIndexedProgMemLoad(const LoadSDNode *LD, MVT VT)
 SDNode *AVRDAGToDAGISel::Select(SDNode *N)
 {
   unsigned Opcode = N->getOpcode();
-  DebugLoc dl = N->getDebugLoc();
+  SDLoc dl(N);
 
   // Dump information about the Node being selected.
   DEBUG(errs() << "Selecting: "; N->dump(CurDAG); errs() << "\n");
@@ -212,9 +211,9 @@ SDNode *AVRDAGToDAGISel::Select(SDNode *N)
       // Convert the frameindex into a temp instruction that will hold the
       // effective address of the final stack slot.
       int FI = cast<FrameIndexSDNode>(N)->getIndex();
-      SDValue TFI = CurDAG->getTargetFrameIndex(FI, TLI.getPointerTy());
+      SDValue TFI = CurDAG->getTargetFrameIndex(FI, TLI->getPointerTy());
 
-      return CurDAG->SelectNodeTo(N, AVR::FRMIDX, TLI.getPointerTy(), TFI,
+      return CurDAG->SelectNodeTo(N, AVR::FRMIDX, TLI->getPointerTy(), TFI,
                                   CurDAG->getTargetConstant(0, MVT::i16));
     }
   case ISD::STORE:
@@ -245,8 +244,7 @@ SDNode *AVRDAGToDAGISel::Select(SDNode *N)
       unsigned Opc = (StoredVal.getValueType() == MVT::i16) ? AVR::STDWSPQRr
                                                             : AVR::STDSPQRr;
 
-      SDNode *ResNode = CurDAG->getMachineNode(Opc, dl, MVT::Other, Ops,
-                                               array_lengthof(Ops));
+      SDNode *ResNode = CurDAG->getMachineNode(Opc, dl, MVT::Other, Ops);
 
       // Transfer memoperands.
       MachineSDNode::mmo_iterator MemOp = MF->allocateMemRefsArray(1);
@@ -356,7 +354,7 @@ SDNode *AVRDAGToDAGISel::Select(SDNode *N)
       Ops.push_back(Chain.getValue(1));
 
       SDNode *ResNode = CurDAG->getMachineNode(AVR::ICALL, dl, MVT::Other,
-                                               MVT::Glue, &Ops[0], Ops.size());
+                                               MVT::Glue, Ops);
 
       ReplaceUses(SDValue(N, 0), SDValue(ResNode, 0));
       ReplaceUses(SDValue(N, 1), SDValue(ResNode, 1));

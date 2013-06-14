@@ -6,14 +6,7 @@ LLVM Programmer's Manual
    :local:
 
 .. warning::
-   This is a work in progress.
-
-.. sectionauthor:: Chris Lattner <sabre@nondot.org>,
-                   Dinakar Dhurjati <dhurjati@cs.uiuc.edu>,
-                   Gabor Greif <ggreif@gmail.com>,
-                   Joel Stanley <jstanley@cs.uiuc.edu>,
-                   Reid Spencer <rspencer@x10sys.com> and
-                   Owen Anderson <owen@apple.com>
+   This is always a work in progress.
 
 .. _introduction:
 
@@ -84,8 +77,8 @@ Here are some useful links:
    (even better, get the book)
    <http://www.mindview.net/Books/TICPP/ThinkingInCPP2e.html>`_.
 
-You are also encouraged to take a look at the :ref:`LLVM Coding Standards
-<coding_standards>` guide which focuses on how to write maintainable code more
+You are also encouraged to take a look at the :doc:`LLVM Coding Standards
+<CodingStandards>` guide which focuses on how to write maintainable code more
 than where to put your curly braces.
 
 .. _resources:
@@ -185,8 +178,8 @@ rarely have to include this file directly).
 
 These five templates can be used with any classes, whether they have a v-table
 or not.  If you want to add support for these templates, see the document
-:ref:`How to set up LLVM-style RTTI for your class hierarchy
-<how-to-set-up-llvm-style-rtti>`
+:doc:`How to set up LLVM-style RTTI for your class hierarchy
+<HowToSetUpLLVMStyleRTTI>`
 
 .. _string_apis:
 
@@ -633,6 +626,33 @@ SmallVectors are most useful when on the stack.
 SmallVector also provides a nice portable and efficient replacement for
 ``alloca``.
 
+.. note::
+
+   Prefer to use ``SmallVectorImpl<T>`` as a parameter type.
+
+   In APIs that don't care about the "small size" (most?), prefer to use
+   the ``SmallVectorImpl<T>`` class, which is basically just the "vector
+   header" (and methods) without the elements allocated after it. Note that
+   ``SmallVector<T, N>`` inherits from ``SmallVectorImpl<T>`` so the
+   conversion is implicit and costs nothing. E.g.
+
+   .. code-block:: c++
+
+      // BAD: Clients cannot pass e.g. SmallVector<Foo, 4>.
+      hardcodedSmallSize(SmallVector<Foo, 2> &Out);
+      // GOOD: Clients can pass any SmallVector<Foo, N>.
+      allowsAnySmallSize(SmallVectorImpl<Foo> &Out);
+
+      void someFunc() {
+        SmallVector<Foo, 8> Vec;
+        hardcodedSmallSize(Vec); // Error.
+        allowsAnySmallSize(Vec); // Works.
+      }
+
+   Even though it has "``Impl``" in the name, this is so widely used that
+   it really isn't "private to the implementation" anymore. A name like
+   ``SmallVectorHeader`` would be more appropriate.
+
 .. _dss_vector:
 
 <vector>
@@ -996,7 +1016,9 @@ coupled with a good choice of :ref:`sequential container <ds_sequential>`.
 This combination provides the several nice properties: the result data is
 contiguous in memory (good for cache locality), has few allocations, is easy to
 address (iterators in the final vector are just indices or pointers), and can be
-efficiently queried with a standard binary or radix search.
+efficiently queried with a standard binary search (e.g.
+``std::lower_bound``; if you want the whole range of elements comparing
+equal, use ``std::equal_range``).
 
 .. _dss_smallset:
 
@@ -1058,6 +1080,22 @@ numbered basic blocks.
 SparseSet is useful for algorithms that need very fast clear/find/insert/erase
 and fast iteration over small sets.  It is not intended for building composite
 data structures.
+
+.. _dss_sparsemultiset:
+
+llvm/ADT/SparseMultiSet.h
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+SparseMultiSet adds multiset behavior to SparseSet, while retaining SparseSet's
+desirable attributes. Like SparseSet, it typically uses a lot of memory, but
+provides operations that are almost as fast as a vector.  Typical keys are
+physical registers, virtual registers, or numbered basic blocks.
+
+SparseMultiSet is useful for algorithms that need very fast
+clear/find/insert/erase of the entire collection, and iteration over sets of
+elements sharing a key. It is often a more efficient choice than using composite
+data structures (e.g. vector-of-vectors, map-of-vectors). It is not intended for
+building composite data structures.
 
 .. _dss_FoldingSet:
 
@@ -2256,13 +2294,13 @@ accomplished by the following scheme:
 A bit-encoding in the 2 LSBits (least significant bits) of the ``Use::Prev``
 allows to find the start of the ``User`` object:
 
-* ``00`` –> binary digit 0
+* ``00`` --- binary digit 0
 
-* ``01`` –> binary digit 1
+* ``01`` --- binary digit 1
 
-* ``10`` –> stop and calculate (``s``)
+* ``10`` --- stop and calculate (``s``)
 
-* ``11`` –> full stop (``S``)
+* ``11`` --- full stop (``S``)
 
 Given a ``Use*``, all we have to do is to walk till we get a stop and we either
 have a ``User`` immediately behind or we have to walk to the next stop picking

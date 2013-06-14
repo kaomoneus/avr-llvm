@@ -225,31 +225,6 @@ MCOperand X86MCInstLower::LowerSymbolOperand(const MachineOperand &MO,
 }
 
 
-
-static void lower_subreg32(MCInst *MI, unsigned OpNo) {
-  // Convert registers in the addr mode according to subreg32.
-  unsigned Reg = MI->getOperand(OpNo).getReg();
-  if (Reg != 0)
-    MI->getOperand(OpNo).setReg(getX86SubSuperRegister(Reg, MVT::i32));
-}
-
-static void lower_lea64_32mem(MCInst *MI, unsigned OpNo) {
-  // Convert registers in the addr mode according to subreg64.
-  for (unsigned i = 0; i != 4; ++i) {
-    if (!MI->getOperand(OpNo+i).isReg()) continue;
-
-    unsigned Reg = MI->getOperand(OpNo+i).getReg();
-    if (Reg == 0) continue;
-
-    MI->getOperand(OpNo+i).setReg(getX86SubSuperRegister(Reg, MVT::i64));
-  }
-}
-
-/// LowerSubReg32_Op0 - Things like MOVZX16rr8 -> MOVZX32rr8.
-static void LowerSubReg32_Op0(MCInst &OutMI, unsigned NewOpc) {
-  OutMI.setOpcode(NewOpc);
-  lower_subreg32(&OutMI, 0);
-}
 /// LowerUnaryToTwoAddr - R = setb   -> R = sbb R, R
 static void LowerUnaryToTwoAddr(MCInst &OutMI, unsigned NewOpc) {
   OutMI.setOpcode(NewOpc);
@@ -375,9 +350,7 @@ void X86MCInstLower::Lower(const MachineInstr *MI, MCInst &OutMI) const {
   // Handle a few special cases to eliminate operand modifiers.
 ReSimplify:
   switch (OutMI.getOpcode()) {
-  case X86::LEA64_32r: // Handle 'subreg rewriting' for the lea64_32mem operand.
-    lower_lea64_32mem(&OutMI, 1);
-    // FALL THROUGH.
+  case X86::LEA64_32r:
   case X86::LEA64r:
   case X86::LEA16r:
   case X86::LEA32r:
@@ -387,24 +360,62 @@ ReSimplify:
     assert(OutMI.getOperand(1+X86::AddrSegmentReg).getReg() == 0 &&
            "LEA has segment specified!");
     break;
-  case X86::MOVZX64rr32:  LowerSubReg32_Op0(OutMI, X86::MOV32rr); break;
-  case X86::MOVZX64rm32:  LowerSubReg32_Op0(OutMI, X86::MOV32rm); break;
-  case X86::MOV64ri64i32: LowerSubReg32_Op0(OutMI, X86::MOV32ri); break;
-  case X86::MOVZX64rr8:   LowerSubReg32_Op0(OutMI, X86::MOVZX32rr8); break;
-  case X86::MOVZX64rm8:   LowerSubReg32_Op0(OutMI, X86::MOVZX32rm8); break;
-  case X86::MOVZX64rr16:  LowerSubReg32_Op0(OutMI, X86::MOVZX32rr16); break;
-  case X86::MOVZX64rm16:  LowerSubReg32_Op0(OutMI, X86::MOVZX32rm16); break;
-  case X86::MOV8r0:       LowerUnaryToTwoAddr(OutMI, X86::XOR8rr); break;
   case X86::MOV32r0:      LowerUnaryToTwoAddr(OutMI, X86::XOR32rr); break;
 
-  case X86::MOV16r0:
-    LowerSubReg32_Op0(OutMI, X86::MOV32r0);   // MOV16r0 -> MOV32r0
-    LowerUnaryToTwoAddr(OutMI, X86::XOR32rr); // MOV32r0 -> XOR32rr
+  case X86::MOV32ri64:
+    OutMI.setOpcode(X86::MOV32ri);
     break;
-  case X86::MOV64r0:
-    LowerSubReg32_Op0(OutMI, X86::MOV32r0);   // MOV64r0 -> MOV32r0
-    LowerUnaryToTwoAddr(OutMI, X86::XOR32rr); // MOV32r0 -> XOR32rr
+
+  // Commute operands to get a smaller encoding by using VEX.R instead of VEX.B
+  // if one of the registers is extended, but other isn't.
+  case X86::VMOVAPDrr:
+  case X86::VMOVAPDYrr:
+  case X86::VMOVAPSrr:
+  case X86::VMOVAPSYrr:
+  case X86::VMOVDQArr:
+  case X86::VMOVDQAYrr:
+  case X86::VMOVDQUrr:
+  case X86::VMOVDQUYrr:
+  case X86::VMOVUPDrr:
+  case X86::VMOVUPDYrr:
+  case X86::VMOVUPSrr:
+  case X86::VMOVUPSYrr: {
+    if (!X86II::isX86_64ExtendedReg(OutMI.getOperand(0).getReg()) &&
+        X86II::isX86_64ExtendedReg(OutMI.getOperand(1).getReg())) {
+      unsigned NewOpc;
+      switch (OutMI.getOpcode()) {
+      default: llvm_unreachable("Invalid opcode");
+      case X86::VMOVAPDrr:  NewOpc = X86::VMOVAPDrr_REV;  break;
+      case X86::VMOVAPDYrr: NewOpc = X86::VMOVAPDYrr_REV; break;
+      case X86::VMOVAPSrr:  NewOpc = X86::VMOVAPSrr_REV;  break;
+      case X86::VMOVAPSYrr: NewOpc = X86::VMOVAPSYrr_REV; break;
+      case X86::VMOVDQArr:  NewOpc = X86::VMOVDQArr_REV;  break;
+      case X86::VMOVDQAYrr: NewOpc = X86::VMOVDQAYrr_REV; break;
+      case X86::VMOVDQUrr:  NewOpc = X86::VMOVDQUrr_REV;  break;
+      case X86::VMOVDQUYrr: NewOpc = X86::VMOVDQUYrr_REV; break;
+      case X86::VMOVUPDrr:  NewOpc = X86::VMOVUPDrr_REV;  break;
+      case X86::VMOVUPDYrr: NewOpc = X86::VMOVUPDYrr_REV; break;
+      case X86::VMOVUPSrr:  NewOpc = X86::VMOVUPSrr_REV;  break;
+      case X86::VMOVUPSYrr: NewOpc = X86::VMOVUPSYrr_REV; break;
+      }
+      OutMI.setOpcode(NewOpc);
+    }
     break;
+  }
+  case X86::VMOVSDrr:
+  case X86::VMOVSSrr: {
+    if (!X86II::isX86_64ExtendedReg(OutMI.getOperand(0).getReg()) &&
+        X86II::isX86_64ExtendedReg(OutMI.getOperand(2).getReg())) {
+      unsigned NewOpc;
+      switch (OutMI.getOpcode()) {
+      default: llvm_unreachable("Invalid opcode");
+      case X86::VMOVSDrr:   NewOpc = X86::VMOVSDrr_REV;   break;
+      case X86::VMOVSSrr:   NewOpc = X86::VMOVSSrr_REV;   break;
+      }
+      OutMI.setOpcode(NewOpc);
+    }
+    break;
+  }
 
   // TAILJMPr64, CALL64r, CALL64pcrel32 - These instructions have register
   // inputs modeled as normal uses instead of implicit uses.  As such, truncate

@@ -1,5 +1,3 @@
-.. _compiler_writer_info:
-
 ========================================================
 Architecture & Platform Information for Compiler Writers
 ========================================================
@@ -12,8 +10,6 @@ Architecture & Platform Information for Compiler Writers
   This document is a work-in-progress.  Additions and clarifications are
   welcome.
 
-  Compiled by `Misha Brukman <http://misha.brukman.net>`_.
-
 Hardware
 ========
 
@@ -23,6 +19,15 @@ ARM
 * `ARM documentation <http://www.arm.com/documentation/>`_ (`Processor Cores <http://www.arm.com/documentation/ARMProcessor_Cores/>`_ Cores)
 
 * `ABI <http://www.arm.com/products/DevTools/ABI.html>`_
+
+* `ARM C Language Extensions <http://infocenter.arm.com/help/topic/com.arm.doc.ihi0053a/IHI0053A_acle.pdf>`_
+
+AArch64
+-------
+
+* `ARMv8 Instruction Set Overview <http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.genc010197a/index.html>`_
+
+* `ARM C Language Extensions <http://infocenter.arm.com/help/topic/com.arm.doc.ihi0053a/IHI0053A_acle.pdf>`_
 
 Itanium (ia64)
 --------------
@@ -40,19 +45,15 @@ PowerPC
 IBM - Official manuals and docs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* `PowerPC Architecture Book <http://www-106.ibm.com/developerworks/eserver/articles/archguide.html>`_
+* `Power Instruction Set Architecture, Versions 2.03 through 2.06 (authentication required, free sign-up) <https://www.power.org/technology-introduction/standards-specifications>`_
 
-  * Book I: `PowerPC User Instruction Set Architecture <http://www-106.ibm.com/developerworks/eserver/pdfs/archpub1.pdf>`_
+* `PowerPC Compiler Writer's Guide <http://www.ibm.com/chips/techlib/techlib.nsf/techdocs/852569B20050FF7785256996007558C6>`_
 
-  * Book II: `PowerPC Virtual Environment Architecture <http://www-106.ibm.com/developerworks/eserver/pdfs/archpub2.pdf>`_
+* `Intro to PowerPC Architecture <http://www.ibm.com/developerworks/linux/library/l-powarch/>`_
 
-  * Book III: `PowerPC Operating Environment Architecture <http://www-106.ibm.com/developerworks/eserver/pdfs/archpub3.pdf>`_
+* `PowerPC Processor Manuals (embedded) <http://www.ibm.com/chips/techlib/techlib.nsf/products/PowerPC>`_
 
-* `PowerPC Compiler Writer's Guide <http://www-3.ibm.com/chips/techlib/techlib.nsf/techdocs/852569B20050FF7785256996007558C6>`_
-
-* `PowerPC Processor Manuals <http://www-3.ibm.com/chips/techlib/techlib.nsf/products/PowerPC>`_
-
-* `Intro to PowerPC Architecture <http://www-106.ibm.com/developerworks/linux/library/l-powarch/>`_
+* `Various IBM specifications and white papers <https://www.power.org/documentation/?document_company=105&document_category=all&publish_year=all&grid_order=DESC&grid_sort=title>`_
 
 * `IBM AIX/5L for POWER Assembly Reference <http://publibn.boulder.ibm.com/doc_link/en_US/a_doc_lib/aixassem/alangref/alangreftfrm.htm>`_
 
@@ -68,6 +69,11 @@ SPARC
 
 * `SPARC resources <http://www.sparc.org/resource.htm>`_
 * `SPARC standards <http://www.sparc.org/standards.html>`_
+
+SystemZ
+-------
+
+* `z/Architecture Principles of Operation (registration required, free sign-up) <http://www-01.ibm.com/support/docview.wss?uid=isg2b9de5f05a9d57819852571c500428f9a>`_
 
 X86
 ---
@@ -97,16 +103,33 @@ Other relevant lists
 ABI
 ===
 
+* `System V Application Binary Interface <http://www.sco.com/developers/gabi/latest/contents.html>`_
+* `Itanium C++ ABI <http://mentorembedded.github.io/cxx-abi/>`_
+
 Linux
 -----
 
 * `PowerPC 64-bit ELF ABI Supplement <http://www.linuxbase.org/spec/ELF/ppc64/>`_
+* `Procedure Call Standard for the AArch64 Architecture <http://infocenter.arm.com/help/topic/com.arm.doc.ihi0055a/IHI0055A_aapcs64.pdf>`_
+* `ELF for the ARM 64-bit Architecture (AArch64) <http://infocenter.arm.com/help/topic/com.arm.doc.ihi0056a/IHI0056A_aaelf64.pdf>`_
+* `System z ELF ABI Supplement <http://legacy.redhat.com/pub/redhat/linux/7.1/es/os/s390x/doc/lzsabi0.pdf>`_
 
 OS X
 ----
 
 * `Mach-O Runtime Architecture <http://developer.apple.com/documentation/Darwin/RuntimeArchitecture-date.html>`_
 * `Notes on Mach-O ABI <http://www.unsanity.org/archives/000044.php>`_
+
+Windows
+-------
+
+* `Microsoft PE/COFF Specification <http://www.microsoft.com/whdc/system/platform/firmware/pecoff.mspx>`_
+
+NVPTX
+=====
+
+* `CUDA Documentation <http://docs.nvidia.com/cuda/index.html>`_ includes the PTX
+  ISA and Driver API documentation
 
 Miscellaneous Resources
 =======================

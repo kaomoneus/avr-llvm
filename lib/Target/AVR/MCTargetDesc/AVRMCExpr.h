@@ -59,6 +59,9 @@ public: // MCTargetExpr
     return getSubExpr()->FindAssociatedSection();
   }
 
+  // There are no TLS AVMMCExprs at the moment.
+  void fixELFSymbolsInTLSFixups(MCAssembler &Asm) const {}
+
   static bool classof(const MCExpr *E)
   {
     return E->getKind() == MCExpr::Target;

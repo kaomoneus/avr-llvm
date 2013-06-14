@@ -387,8 +387,8 @@ def CC_X86_32_ThisCall : CallingConv<[
   // Promote i8/i16 arguments to i32.
   CCIfType<[i8, i16], CCPromoteToType<i32>>,
 
-  // Pass sret arguments indirectly through EAX
-  CCIfSRet<CCAssignToReg<[EAX]>>,
+  // Pass sret arguments indirectly through stack.
+  CCIfSRet<CCAssignToStack<4, 4>>,
 
   // The first integer argument is passed in ECX
   CCIfType<[i32], CCAssignToReg<[ECX]>>,
@@ -519,6 +519,9 @@ def CSR_64EHRet : CalleeSavedRegs<(add RAX, RDX, CSR_64)>;
 def CSR_Win64 : CalleeSavedRegs<(add RBX, RBP, RDI, RSI, R12, R13, R14, R15,
                                      (sequence "XMM%u", 6, 15))>;
 
+def CSR_MostRegs_64 : CalleeSavedRegs<(add RBX, RCX, RDX, RSI, RDI, R8, R9, R10,
+                                           R11, R12, R13, R14, R15, RBP,
+                                           (sequence "XMM%u", 0, 15))>;
 
 // Standard C + YMM6-15
 def CSR_Win64_Intel_OCL_BI_AVX : CalleeSavedRegs<(add RBX, RBP, RDI, RSI, R12,

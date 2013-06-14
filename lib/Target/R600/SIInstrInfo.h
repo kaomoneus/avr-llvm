@@ -35,11 +35,10 @@ public:
                            unsigned DestReg, unsigned SrcReg,
                            bool KillSrc) const;
 
-  /// \returns the encoding type of this instruction.
-  unsigned getEncodingType(const MachineInstr &MI) const;
+  unsigned commuteOpcode(unsigned Opcode) const;
 
-  /// \returns the size of this instructions encoding in number of bytes.
-  unsigned getEncodingBytes(const MachineInstr &MI) const;
+  virtual MachineInstr *commuteInstruction(MachineInstr *MI,
+                                           bool NewMI=false) const;
 
   virtual MachineInstr * getMovImmInstr(MachineFunction *MF, unsigned DstReg,
                                         int64_t Imm) const;
@@ -48,14 +47,51 @@ public:
   virtual bool isMov(unsigned Opcode) const;
 
   virtual bool isSafeToMoveRegClassDefs(const TargetRegisterClass *RC) const;
+
+  virtual int getIndirectIndexBegin(const MachineFunction &MF) const;
+
+  virtual int getIndirectIndexEnd(const MachineFunction &MF) const;
+
+  virtual unsigned calculateIndirectAddress(unsigned RegIndex,
+                                            unsigned Channel) const;
+
+  virtual const TargetRegisterClass *getIndirectAddrStoreRegClass(
+                                                      unsigned SourceReg) const;
+
+  virtual const TargetRegisterClass *getIndirectAddrLoadRegClass() const;
+
+  virtual MachineInstrBuilder buildIndirectWrite(MachineBasicBlock *MBB,
+                                                 MachineBasicBlock::iterator I,
+                                                 unsigned ValueReg,
+                                                 unsigned Address,
+                                                 unsigned OffsetReg) const;
+
+  virtual MachineInstrBuilder buildIndirectRead(MachineBasicBlock *MBB,
+                                                MachineBasicBlock::iterator I,
+                                                unsigned ValueReg,
+                                                unsigned Address,
+                                                unsigned OffsetReg) const;
+
+  virtual const TargetRegisterClass *getSuperIndirectRegClass() const;
   };
+
+namespace AMDGPU {
+
+  int getVOPe64(uint16_t Opcode);
+  int getCommuteRev(uint16_t Opcode);
+  int getCommuteOrig(uint16_t Opcode);
+  int isMIMG(uint16_t Opcode);
+
+} // End namespace AMDGPU
 
 } // End namespace llvm
 
 namespace SIInstrFlags {
   enum Flags {
     // First 4 bits are the instruction encoding
-    NEED_WAIT = 1 << 4
+    VM_CNT = 1 << 0,
+    EXP_CNT = 1 << 1,
+    LGKM_CNT = 1 << 2
   };
 }
 

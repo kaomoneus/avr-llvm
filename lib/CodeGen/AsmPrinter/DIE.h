@@ -26,7 +26,7 @@ namespace llvm {
   class raw_ostream;
 
   //===--------------------------------------------------------------------===//
-  /// DIEAbbrevData - Dwarf abbreviation data, describes the one attribute of a
+  /// DIEAbbrevData - Dwarf abbreviation data, describes one attribute of a
   /// Dwarf abbreviation.
   class DIEAbbrevData {
     /// Attribute - Dwarf attribute code.
@@ -66,7 +66,7 @@ namespace llvm {
 
     /// Data - Raw data bytes for abbreviation.
     ///
-    SmallVector<DIEAbbrevData, 8> Data;
+    SmallVector<DIEAbbrevData, 12> Data;
 
   public:
     DIEAbbrev(uint16_t T, uint16_t C) : Tag(T), ChildrenFlag(C), Data() {}
@@ -75,7 +75,7 @@ namespace llvm {
     uint16_t getTag() const { return Tag; }
     unsigned getNumber() const { return Number; }
     uint16_t getChildrenFlag() const { return ChildrenFlag; }
-    const SmallVector<DIEAbbrevData, 8> &getData() const { return Data; }
+    const SmallVectorImpl<DIEAbbrevData> &getData() const { return Data; }
     void setTag(uint16_t T) { Tag = T; }
     void setChildrenFlag(uint16_t CF) { ChildrenFlag = CF; }
     void setNumber(unsigned N) { Number = N; }
@@ -84,12 +84,6 @@ namespace llvm {
     /// abbreviation.
     void AddAttribute(uint16_t Attribute, uint16_t Form) {
       Data.push_back(DIEAbbrevData(Attribute, Form));
-    }
-
-    /// AddFirstAttribute - Adds a set of attribute information to the front
-    /// of the abbreviation.
-    void AddFirstAttribute(uint16_t Attribute, uint16_t Form) {
-      Data.insert(Data.begin(), DIEAbbrevData(Attribute, Form));
     }
 
     /// Profile - Used to gather unique data for the abbreviation folding set.
@@ -108,7 +102,7 @@ namespace llvm {
 
   //===--------------------------------------------------------------------===//
   /// DIE - A structured debug information entry.  Has an abbreviation which
-  /// describes it's organization.
+  /// describes its organization.
   class DIEValue;
 
   class DIE {
@@ -133,14 +127,15 @@ namespace llvm {
 
     /// Attribute values.
     ///
-    SmallVector<DIEValue*, 32> Values;
+    SmallVector<DIEValue*, 12> Values;
 
+#ifndef NDEBUG
     // Private data for print()
     mutable unsigned IndentCount;
+#endif
   public:
     explicit DIE(unsigned Tag)
-      : Offset(0), Size(0), Abbrev(Tag, dwarf::DW_CHILDREN_no), Parent(0),
-        IndentCount(0) {}
+      : Offset(0), Size(0), Abbrev(Tag, dwarf::DW_CHILDREN_no), Parent(0) {}
     virtual ~DIE();
 
     // Accessors.
@@ -150,8 +145,11 @@ namespace llvm {
     unsigned getOffset() const { return Offset; }
     unsigned getSize() const { return Size; }
     const std::vector<DIE *> &getChildren() const { return Children; }
-    const SmallVector<DIEValue*, 32> &getValues() const { return Values; }
+    const SmallVectorImpl<DIEValue*> &getValues() const { return Values; }
     DIE *getParent() const { return Parent; }
+    /// Climb up the parent chain to get the compile unit DIE this DIE belongs
+    /// to.
+    DIE *getCompileUnit();
     void setTag(unsigned Tag) { Abbrev.setTag(Tag); }
     void setOffset(unsigned O) { Offset = O; }
     void setSize(unsigned S) { Size = S; }
@@ -176,7 +174,7 @@ namespace llvm {
     }
 
 #ifndef NDEBUG
-    void print(raw_ostream &O, unsigned IncIndent = 0);
+    void print(raw_ostream &O, unsigned IndentCount = 0) const;
     void dump();
 #endif
   };
@@ -215,8 +213,8 @@ namespace llvm {
     virtual unsigned SizeOf(AsmPrinter *AP, unsigned Form) const = 0;
 
 #ifndef NDEBUG
-    virtual void print(raw_ostream &O) = 0;
-    void dump();
+    virtual void print(raw_ostream &O) const = 0;
+    void dump() const;
 #endif
   };
 
@@ -232,9 +230,10 @@ namespace llvm {
     ///
     static unsigned BestForm(bool IsSigned, uint64_t Int) {
       if (IsSigned) {
-        if ((char)Int == (signed)Int)   return dwarf::DW_FORM_data1;
-        if ((short)Int == (signed)Int)  return dwarf::DW_FORM_data2;
-        if ((int)Int == (signed)Int)    return dwarf::DW_FORM_data4;
+        const int64_t SignedInt = Int;
+        if ((char)Int == SignedInt)     return dwarf::DW_FORM_data1;
+        if ((short)Int == SignedInt)    return dwarf::DW_FORM_data2;
+        if ((int)Int == SignedInt)      return dwarf::DW_FORM_data4;
       } else {
         if ((unsigned char)Int == Int)  return dwarf::DW_FORM_data1;
         if ((unsigned short)Int == Int) return dwarf::DW_FORM_data2;
@@ -257,7 +256,7 @@ namespace llvm {
     static bool classof(const DIEValue *I) { return I->getType() == isInteger; }
 
 #ifndef NDEBUG
-    virtual void print(raw_ostream &O);
+    virtual void print(raw_ostream &O) const;
 #endif
   };
 
@@ -285,7 +284,7 @@ namespace llvm {
     static bool classof(const DIEValue *L) { return L->getType() == isLabel; }
 
 #ifndef NDEBUG
-    virtual void print(raw_ostream &O);
+    virtual void print(raw_ostream &O) const;
 #endif
   };
 
@@ -311,7 +310,7 @@ namespace llvm {
     static bool classof(const DIEValue *D) { return D->getType() == isDelta; }
 
 #ifndef NDEBUG
-    virtual void print(raw_ostream &O);
+    virtual void print(raw_ostream &O) const;
 #endif
   };
 
@@ -322,7 +321,9 @@ namespace llvm {
   class DIEEntry : public DIEValue {
     DIE *const Entry;
   public:
-    explicit DIEEntry(DIE *E) : DIEValue(isEntry), Entry(E) {}
+    explicit DIEEntry(DIE *E) : DIEValue(isEntry), Entry(E) {
+      assert(E && "Cannot construct a DIEEntry with a null DIE");
+    }
 
     DIE *getEntry() const { return Entry; }
 
@@ -340,7 +341,7 @@ namespace llvm {
     static bool classof(const DIEValue *E) { return E->getType() == isEntry; }
 
 #ifndef NDEBUG
-    virtual void print(raw_ostream &O);
+    virtual void print(raw_ostream &O) const;
 #endif
   };
 
@@ -379,7 +380,7 @@ namespace llvm {
     static bool classof(const DIEValue *E) { return E->getType() == isBlock; }
 
 #ifndef NDEBUG
-    virtual void print(raw_ostream &O);
+    virtual void print(raw_ostream &O) const;
 #endif
   };
 

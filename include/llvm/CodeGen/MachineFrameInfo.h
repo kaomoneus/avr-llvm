@@ -419,6 +419,9 @@ public:
   ///
   void setStackSize(uint64_t Size) { StackSize = Size; }
 
+  /// Estimate and return the size of the stack frame.
+  unsigned estimateStackSize(const MachineFunction &MF) const;
+
   /// getOffsetAdjustment - Return the correction for frame offsets.
   ///
   int getOffsetAdjustment() const { return OffsetAdjustment; }
@@ -493,23 +496,11 @@ public:
     return Objects[ObjectIdx+NumFixedObjects].Size == ~0ULL;
   }
 
-  /// CreateStackObjectWithMinAlign - Create a new statically sized stack
-  /// object, returning a nonnegative identifier to represent it. This function
-  /// takes a preferred alignment and a minimal alignment.
-  ///
-  int CreateStackObjectWithMinAlign(uint64_t Size, unsigned PrefAlignment,
-                        unsigned MinAlignment, bool isSS,
-                        bool MayNeedSP = false, const AllocaInst *Alloca = 0);
-
   /// CreateStackObject - Create a new statically sized stack object, returning
-  /// a nonnegative identifier to represent it. Will not emit an error when
-  /// Alignment can't be satisfied.
+  /// a nonnegative identifier to represent it.
   ///
   int CreateStackObject(uint64_t Size, unsigned Alignment, bool isSS,
-                        bool MayNeedSP = false, const AllocaInst *Alloca = 0) {
-    return CreateStackObjectWithMinAlign(Size, Alignment, 0, isSS,
-                                         MayNeedSP, Alloca);
-  }
+                        bool MayNeedSP = false, const AllocaInst *Alloca = 0);
 
   /// CreateSpillStackObject - Create a new statically sized stack object that
   /// represents a spill slot, returning a nonnegative identifier to represent
@@ -529,8 +520,7 @@ public:
   /// variable sized object is created, whether or not the index returned is
   /// actually used.
   ///
-  int CreateVariableSizedObject(unsigned PrefAlignment, unsigned MinAlignment,
-                                const AllocaInst *Alloca = 0);
+  int CreateVariableSizedObject(unsigned Alignment);
 
   /// getCalleeSavedInfo - Returns a reference to call saved info vector for the
   /// current function.

@@ -62,6 +62,17 @@ static bool getVerboseAsm() {
   llvm_unreachable("Invalid verbose asm state");
 }
 
+void LLVMTargetMachine::initAsmInfo() {
+  AsmInfo = TheTarget.createMCAsmInfo(*getRegisterInfo(), TargetTriple);
+  // TargetSelect.h moved to a different directory between LLVM 2.9 and 3.0,
+  // and if the old one gets included then MCAsmInfo will be NULL and
+  // we'll crash later.
+  // Provide the user with a useful error message about what's wrong.
+  assert(AsmInfo && "MCAsmInfo not initialized. "
+         "Make sure you include the correct TargetSelect.h"
+         "and that InitializeAllTargetMCs() is being invoked!");
+}
+
 LLVMTargetMachine::LLVMTargetMachine(const Target &T, StringRef Triple,
                                      StringRef CPU, StringRef FS,
                                      TargetOptions Options,
@@ -69,14 +80,6 @@ LLVMTargetMachine::LLVMTargetMachine(const Target &T, StringRef Triple,
                                      CodeGenOpt::Level OL)
   : TargetMachine(T, Triple, CPU, FS, Options) {
   CodeGenInfo = T.createMCCodeGenInfo(Triple, RM, CM, OL);
-  AsmInfo = T.createMCAsmInfo(Triple);
-  // TargetSelect.h moved to a different directory between LLVM 2.9 and 3.0,
-  // and if the old one gets included then MCAsmInfo will be NULL and
-  // we'll crash later.
-  // Provide the user with a useful error message about what's wrong.
-  assert(AsmInfo && "MCAsmInfo not initialized."
-         "Make sure you include the correct TargetSelect.h"
-         "and that InitializeAllTargetMCs() is being invoked!");
 }
 
 void LLVMTargetMachine::addAnalysisPasses(PassManagerBase &PM) {
@@ -226,7 +229,6 @@ bool LLVMTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
 
   PM.add(Printer);
 
-  PM.add(createGCInfoDeleter());
   return false;
 }
 
@@ -245,7 +247,6 @@ bool LLVMTargetMachine::addPassesToEmitMachineCode(PassManagerBase &PM,
     return true;
 
   addCodeEmitter(PM, JCE);
-  PM.add(createGCInfoDeleter());
 
   return false; // success!
 }

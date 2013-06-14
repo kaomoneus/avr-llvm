@@ -81,6 +81,7 @@ MBlazeTargetLowering::MBlazeTargetLowering(MBlazeTargetMachine &TM)
   setOperationAction(ISD::FCOPYSIGN,  MVT::f64, Expand);
   setOperationAction(ISD::FSIN,       MVT::f32, Expand);
   setOperationAction(ISD::FCOS,       MVT::f32, Expand);
+  setOperationAction(ISD::FSINCOS,    MVT::f32, Expand);
   setOperationAction(ISD::FPOWI,      MVT::f32, Expand);
   setOperationAction(ISD::FPOW,       MVT::f32, Expand);
   setOperationAction(ISD::FLOG,       MVT::f32, Expand);
@@ -159,7 +160,8 @@ MBlazeTargetLowering::MBlazeTargetLowering(MBlazeTargetMachine &TM)
   // Operations not directly supported by MBlaze.
   setOperationAction(ISD::DYNAMIC_STACKALLOC, MVT::i32,   Expand);
   setOperationAction(ISD::BR_JT,              MVT::Other, Expand);
-  setOperationAction(ISD::BR_CC,              MVT::Other, Expand);
+  setOperationAction(ISD::BR_CC,              MVT::f32,   Expand);
+  setOperationAction(ISD::BR_CC,              MVT::i32,   Expand);
   setOperationAction(ISD::SIGN_EXTEND_INREG,  MVT::i1,    Expand);
   setOperationAction(ISD::ROTL,               MVT::i32,   Expand);
   setOperationAction(ISD::ROTR,               MVT::i32,   Expand);
@@ -190,7 +192,7 @@ MBlazeTargetLowering::MBlazeTargetLowering(MBlazeTargetMachine &TM)
   computeRegisterProperties();
 }
 
-EVT MBlazeTargetLowering::getSetCCResultType(EVT VT) const {
+EVT MBlazeTargetLowering::getSetCCResultType(LLVMContext &, EVT) const {
   return MVT::i32;
 }
 
@@ -573,7 +575,7 @@ SDValue MBlazeTargetLowering::LowerSELECT_CC(SDValue Op,
   SDValue RHS = Op.getOperand(1);
   SDValue TrueVal = Op.getOperand(2);
   SDValue FalseVal = Op.getOperand(3);
-  DebugLoc dl = Op.getDebugLoc();
+  SDLoc dl(Op);
   unsigned Opc;
 
   SDValue CompareFlag;
@@ -592,7 +594,7 @@ SDValue MBlazeTargetLowering::LowerSELECT_CC(SDValue Op,
 SDValue MBlazeTargetLowering::
 LowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const {
   // FIXME there isn't actually debug info here
-  DebugLoc dl = Op.getDebugLoc();
+  SDLoc dl(Op);
   const GlobalValue *GV = cast<GlobalAddressSDNode>(Op)->getGlobal();
   SDValue GA = DAG.getTargetGlobalAddress(GV, dl, MVT::i32);
 
@@ -609,7 +611,7 @@ LowerJumpTable(SDValue Op, SelectionDAG &DAG) const {
   SDValue ResNode;
   SDValue HiPart;
   // FIXME there isn't actually debug info here
-  DebugLoc dl = Op.getDebugLoc();
+  SDLoc dl(Op);
 
   EVT PtrVT = Op.getValueType();
   JumpTableSDNode *JT  = cast<JumpTableSDNode>(Op);
@@ -623,7 +625,7 @@ LowerConstantPool(SDValue Op, SelectionDAG &DAG) const {
   SDValue ResNode;
   ConstantPoolSDNode *N = cast<ConstantPoolSDNode>(Op);
   const Constant *C = N->getConstVal();
-  DebugLoc dl = Op.getDebugLoc();
+  SDLoc dl(Op);
 
   SDValue CP = DAG.getTargetConstantPool(C, MVT::i32, N->getAlignment(),
                                          N->getOffset(), 0);
@@ -635,7 +637,7 @@ SDValue MBlazeTargetLowering::LowerVASTART(SDValue Op,
   MachineFunction &MF = DAG.getMachineFunction();
   MBlazeFunctionInfo *FuncInfo = MF.getInfo<MBlazeFunctionInfo>();
 
-  DebugLoc dl = Op.getDebugLoc();
+  SDLoc dl(Op);
   SDValue FI = DAG.getFrameIndex(FuncInfo->getVarArgsFrameIndex(),
                                  getPointerTy());
 
@@ -684,7 +686,7 @@ SDValue MBlazeTargetLowering::
 LowerCall(TargetLowering::CallLoweringInfo &CLI,
           SmallVectorImpl<SDValue> &InVals) const {
   SelectionDAG &DAG                     = CLI.DAG;
-  DebugLoc &dl                          = CLI.DL;
+  SDLoc dl                              = CLI.DL;
   SmallVector<ISD::OutputArg, 32> &Outs = CLI.Outs;
   SmallVector<SDValue, 32> &OutVals     = CLI.OutVals;
   SmallVector<ISD::InputArg, 32> &Ins   = CLI.Ins;
@@ -717,7 +719,8 @@ LowerCall(TargetLowering::CallLoweringInfo &CLI,
   // Variable argument function calls require a minimum of 24-bytes of stack
   if (isVarArg && NumBytes < 24) NumBytes = 24;
 
-  Chain = DAG.getCALLSEQ_START(Chain, DAG.getIntPtrConstant(NumBytes, true));
+  Chain = DAG.getCALLSEQ_START(Chain, DAG.getIntPtrConstant(NumBytes, true),
+                               dl);
 
   SmallVector<std::pair<unsigned, SDValue>, 8> RegsToPass;
   SmallVector<SDValue, 8> MemOpChains;
@@ -827,7 +830,7 @@ LowerCall(TargetLowering::CallLoweringInfo &CLI,
 
   // Create the CALLSEQ_END node.
   Chain = DAG.getCALLSEQ_END(Chain, DAG.getIntPtrConstant(NumBytes, true),
-                             DAG.getIntPtrConstant(0, true), InFlag);
+                             DAG.getIntPtrConstant(0, true), InFlag, dl);
   if (!Ins.empty())
     InFlag = Chain.getValue(1);
 
@@ -842,7 +845,7 @@ LowerCall(TargetLowering::CallLoweringInfo &CLI,
 SDValue MBlazeTargetLowering::
 LowerCallResult(SDValue Chain, SDValue InFlag, CallingConv::ID CallConv,
                 bool isVarArg, const SmallVectorImpl<ISD::InputArg> &Ins,
-                DebugLoc dl, SelectionDAG &DAG,
+                SDLoc dl, SelectionDAG &DAG,
                 SmallVectorImpl<SDValue> &InVals) const {
   // Assign locations to each value returned by this call.
   SmallVector<CCValAssign, 16> RVLocs;
@@ -872,7 +875,7 @@ LowerCallResult(SDValue Chain, SDValue InFlag, CallingConv::ID CallConv,
 SDValue MBlazeTargetLowering::
 LowerFormalArguments(SDValue Chain, CallingConv::ID CallConv, bool isVarArg,
                      const SmallVectorImpl<ISD::InputArg> &Ins,
-                     DebugLoc dl, SelectionDAG &DAG,
+                     SDLoc dl, SelectionDAG &DAG,
                      SmallVectorImpl<SDValue> &InVals) const {
   MachineFunction &MF = DAG.getMachineFunction();
   MachineFrameInfo *MFI = MF.getFrameInfo();
@@ -1015,7 +1018,7 @@ SDValue MBlazeTargetLowering::
 LowerReturn(SDValue Chain, CallingConv::ID CallConv, bool isVarArg,
             const SmallVectorImpl<ISD::OutputArg> &Outs,
             const SmallVectorImpl<SDValue> &OutVals,
-            DebugLoc dl, SelectionDAG &DAG) const {
+            SDLoc dl, SelectionDAG &DAG) const {
   // CCValAssign - represent the assignment of
   // the return value to a location
   SmallVector<CCValAssign, 16> RVLocs;
@@ -1027,15 +1030,17 @@ LowerReturn(SDValue Chain, CallingConv::ID CallConv, bool isVarArg,
   // Analize return values.
   CCInfo.AnalyzeReturn(Outs, RetCC_MBlaze);
 
-  // If this is the first return lowered for this function, add
-  // the regs to the liveout set for the function.
-  if (DAG.getMachineFunction().getRegInfo().liveout_empty()) {
-    for (unsigned i = 0; i != RVLocs.size(); ++i)
-      if (RVLocs[i].isRegLoc())
-        DAG.getMachineFunction().getRegInfo().addLiveOut(RVLocs[i].getLocReg());
-  }
-
   SDValue Flag;
+  SmallVector<SDValue, 4> RetOps(1, Chain);
+
+  // If this function is using the interrupt_handler calling convention
+  // then use "rtid r14, 0" otherwise use "rtsd r15, 8"
+  unsigned Ret = (CallConv == CallingConv::MBLAZE_INTR) ? MBlazeISD::IRet
+                                                        : MBlazeISD::Ret;
+  unsigned Reg = (CallConv == CallingConv::MBLAZE_INTR) ? MBlaze::R14
+                                                        : MBlaze::R15;
+  RetOps.push_back(DAG.getRegister(Reg, MVT::i32));
+
 
   // Copy the result values into the output registers.
   for (unsigned i = 0; i != RVLocs.size(); ++i) {
@@ -1048,20 +1053,16 @@ LowerReturn(SDValue Chain, CallingConv::ID CallConv, bool isVarArg,
     // guarantee that all emitted copies are
     // stuck together, avoiding something bad
     Flag = Chain.getValue(1);
+    RetOps.push_back(DAG.getRegister(VA.getLocReg(), VA.getLocVT()));
   }
 
-  // If this function is using the interrupt_handler calling convention
-  // then use "rtid r14, 0" otherwise use "rtsd r15, 8"
-  unsigned Ret = (CallConv == CallingConv::MBLAZE_INTR) ? MBlazeISD::IRet
-                                                        : MBlazeISD::Ret;
-  unsigned Reg = (CallConv == CallingConv::MBLAZE_INTR) ? MBlaze::R14
-                                                        : MBlaze::R15;
-  SDValue DReg = DAG.getRegister(Reg, MVT::i32);
+  RetOps[0] = Chain;  // Update chain.
 
+  // Add the flag if we have it.
   if (Flag.getNode())
-    return DAG.getNode(Ret, dl, MVT::Other, Chain, DReg, Flag);
+    RetOps.push_back(Flag);
 
-  return DAG.getNode(Ret, dl, MVT::Other, Chain, DReg);
+  return DAG.getNode(Ret, dl, MVT::Other, &RetOps[0], RetOps.size());
 }
 
 //===----------------------------------------------------------------------===//

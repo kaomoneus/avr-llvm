@@ -166,7 +166,7 @@ SDValue AVRTargetLowering::LowerShifts(SDValue Op, SelectionDAG &DAG) const
   unsigned Opc8;
   const SDNode *N = Op.getNode();
   EVT VT = Op.getValueType();
-  DebugLoc dl = N->getDebugLoc();
+  SDLoc dl(N);
 
   // Expand non-constant shifts to loops.
   if (!isa<ConstantSDNode>(N->getOperand(1)))
@@ -226,9 +226,9 @@ AVRTargetLowering::LowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const
   int64_t Offset = cast<GlobalAddressSDNode>(Op)->getOffset();
 
   // Create the TargetGlobalAddress node, folding in the constant offset.
-  SDValue Result = DAG.getTargetGlobalAddress(GV, Op.getDebugLoc(),
-                                              getPointerTy(), Offset);
-  return DAG.getNode(AVRISD::Wrapper, Op.getDebugLoc(), getPointerTy(), Result);
+  SDValue Result = DAG.getTargetGlobalAddress(GV, SDLoc(Op), getPointerTy(),
+                                              Offset);
+  return DAG.getNode(AVRISD::Wrapper, SDLoc(Op), getPointerTy(), Result);
 }
 
 SDValue
@@ -238,7 +238,7 @@ AVRTargetLowering::LowerBlockAddress(SDValue Op, SelectionDAG &DAG) const
 
   SDValue Result = DAG.getTargetBlockAddress(BA, getPointerTy());
 
-  return DAG.getNode(AVRISD::Wrapper, Op.getDebugLoc(), getPointerTy(), Result);
+  return DAG.getNode(AVRISD::Wrapper, SDLoc(Op), getPointerTy(), Result);
 }
 
 /// IntCCToAVRCC - Convert a DAG integer condition code to an AVR CC.
@@ -260,7 +260,7 @@ static AVRCC::CondCodes intCCToAVRCC(ISD::CondCode CC)
 /// the given operands.
 SDValue AVRTargetLowering::getAVRCmp(SDValue LHS, SDValue RHS, ISD::CondCode CC,
                                      SDValue &AVRcc, SelectionDAG &DAG,
-                                     DebugLoc dl) const
+                                     SDLoc dl) const
 {
   SDValue Cmp;
   EVT VT = LHS.getValueType();
@@ -473,7 +473,7 @@ SDValue AVRTargetLowering::LowerBR_CC(SDValue Op, SelectionDAG &DAG) const
   SDValue LHS = Op.getOperand(2);
   SDValue RHS = Op.getOperand(3);
   SDValue Dest = Op.getOperand(4);
-  DebugLoc dl = Op.getDebugLoc();
+  SDLoc dl(Op);
 
   SDValue TargetCC;
   SDValue Cmp = getAVRCmp(LHS, RHS, CC, TargetCC, DAG, dl);
@@ -489,7 +489,7 @@ SDValue AVRTargetLowering::LowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const
   SDValue TrueV = Op.getOperand(2);
   SDValue FalseV = Op.getOperand(3);
   ISD::CondCode CC = cast<CondCodeSDNode>(Op.getOperand(4))->get();
-  DebugLoc dl = Op.getDebugLoc();
+  SDLoc dl(Op);
 
   SDValue TargetCC;
   SDValue Cmp = getAVRCmp(LHS, RHS, CC, TargetCC, DAG, dl);
@@ -505,7 +505,7 @@ SDValue AVRTargetLowering::LowerSETCC(SDValue Op, SelectionDAG &DAG) const
   SDValue LHS = Op.getOperand(0);
   SDValue RHS = Op.getOperand(1);
   ISD::CondCode CC = cast<CondCodeSDNode>(Op.getOperand(2))->get();
-  DebugLoc dl = Op.getDebugLoc();
+  SDLoc dl(Op);
 
   SDValue TargetCC;
   SDValue Cmp = getAVRCmp(LHS, RHS, CC, TargetCC, DAG, dl);
@@ -523,7 +523,7 @@ SDValue AVRTargetLowering::LowerVASTART(SDValue Op, SelectionDAG &DAG) const
   const MachineFunction &MF = DAG.getMachineFunction();
   const AVRMachineFunctionInfo *AFI = MF.getInfo<AVRMachineFunctionInfo>();
   const Value *SV = cast<SrcValueSDNode>(Op.getOperand(2))->getValue();
-  DebugLoc DL = Op.getDebugLoc();
+  SDLoc DL(Op);
 
   // Vastart just stores the address of the VarArgsFrameIndex slot into the
   // memory location argument.
@@ -568,7 +568,7 @@ void AVRTargetLowering::ReplaceNodeResults(SDNode *N,
                                            SmallVectorImpl<SDValue> &Results,
                                            SelectionDAG &DAG) const
 {
-  DebugLoc dl = N->getDebugLoc();
+  SDLoc dl(N);
 
   switch (N->getOpcode())
   {
@@ -880,7 +880,7 @@ static void analyzeArguments(const Function *F, const DataLayout *TD,
 
 SDValue AVRTargetLowering::
 LowerFormalArguments(SDValue Chain, CallingConv::ID CallConv, bool isVarArg,
-                     const SmallVectorImpl<ISD::InputArg> &Ins, DebugLoc dl,
+                     const SmallVectorImpl<ISD::InputArg> &Ins, SDLoc dl,
                      SelectionDAG &DAG,
                      SmallVectorImpl<SDValue> &InVals) const
 {
@@ -993,7 +993,7 @@ AVRTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
                              SmallVectorImpl<SDValue> &InVals) const
 {
   SelectionDAG &DAG = CLI.DAG;
-  DebugLoc &dl = CLI.DL;
+  SDLoc &dl = CLI.DL;
   SmallVector<ISD::OutputArg, 32> &Outs = CLI.Outs;
   SmallVector<SDValue, 32> &OutVals = CLI.OutVals;
   SmallVector<ISD::InputArg, 32> &Ins = CLI.Ins;
@@ -1033,7 +1033,8 @@ AVRTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   // Get a count of how many bytes are to be pushed on the stack.
   unsigned NumBytes = CCInfo.getNextStackOffset();
 
-  Chain = DAG.getCALLSEQ_START(Chain, DAG.getIntPtrConstant(NumBytes, true));
+  Chain = DAG.getCALLSEQ_START(Chain, DAG.getIntPtrConstant(NumBytes, true),
+                               dl);
 
   SmallVector<std::pair<unsigned, SDValue>, 8> RegsToPass;
 
@@ -1147,7 +1148,7 @@ AVRTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
 
   // Create the CALLSEQ_END node.
   Chain = DAG.getCALLSEQ_END(Chain, DAG.getIntPtrConstant(NumBytes, true),
-                             DAG.getIntPtrConstant(0, true), InFlag);
+                             DAG.getIntPtrConstant(0, true), InFlag, dl);
 
   if (!Ins.empty())
   {
@@ -1167,7 +1168,7 @@ SDValue
 AVRTargetLowering::LowerCallResult(SDValue Chain, SDValue InFlag,
                                    CallingConv::ID CallConv, bool isVarArg,
                                    const SmallVectorImpl<ISD::InputArg> &Ins,
-                                   DebugLoc dl, SelectionDAG &DAG,
+                                   SDLoc dl, SelectionDAG &DAG,
                                    SmallVectorImpl<SDValue> &InVals) const
 {
   // Assign locations to each value returned by this call.
@@ -1205,7 +1206,7 @@ AVRTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
                                bool isVarArg,
                                const SmallVectorImpl<ISD::OutputArg> &Outs,
                                const SmallVectorImpl<SDValue> &OutVals,
-                               DebugLoc dl, SelectionDAG &DAG) const
+                               SDLoc dl, SelectionDAG &DAG) const
 {
   // CCValAssign - represent the assignment of the return value to locations.
   SmallVector<CCValAssign, 16> RVLocs;
@@ -1220,7 +1221,6 @@ AVRTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
   // If this is the first return lowered for this function, add the regs to
   // the liveout set for the function.
   MachineFunction &MF = DAG.getMachineFunction();
-  MachineRegisterInfo &MRI = MF.getRegInfo();
   unsigned e = RVLocs.size();
 
   // Reverse splitted return values to get the "big endian" format required
@@ -1230,18 +1230,8 @@ AVRTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
     std::reverse(RVLocs.begin(), RVLocs.end());
   }
 
-  if (MRI.liveout_empty())
-  {
-    for (unsigned i = 0; i != e; ++i)
-    {
-      if (RVLocs[i].isRegLoc())
-      {
-        MRI.addLiveOut(RVLocs[i].getLocReg());
-      }
-    }
-  }
-
   SDValue Flag;
+  SmallVector<SDValue, 4> RetOps(1, Chain);
   // Copy the result values into the output registers.
   for (unsigned i = 0; i != e; ++i)
   {
@@ -1252,6 +1242,7 @@ AVRTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
 
     // Guarantee that all emitted copies are stuck together with flags.
     Flag = Chain.getValue(1);
+    RetOps.push_back(DAG.getRegister(VA.getLocReg(), VA.getLocVT()));
   }
 
   // Don't emit the ret/reti instruction when the naked attribute is present in
@@ -1265,12 +1256,15 @@ AVRTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
   unsigned RetOpc = (CallConv == CallingConv::AVR_INTR
                      || CallConv == CallingConv::AVR_SIGNAL) ?
                     AVRISD::RETI_FLAG : AVRISD::RET_FLAG;
+
+  RetOps[0] = Chain;  // Update chain.
+
   if (Flag.getNode())
   {
-    return DAG.getNode(RetOpc, dl, MVT::Other, Chain, Flag);
+    RetOps.push_back(Flag);
   }
 
-  return DAG.getNode(RetOpc, dl, MVT::Other, Chain);
+  return DAG.getNode(RetOpc, dl, MVT::Other, &RetOps[0], RetOps.size());
 }
 
 //===----------------------------------------------------------------------===//

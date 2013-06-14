@@ -13,7 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm-objdump.h"
-
 #include "llvm/Object/ELF.h"
 #include "llvm/Support/Format.h"
 #include "llvm/Support/MathExtras.h"
@@ -22,10 +21,10 @@
 using namespace llvm;
 using namespace llvm::object;
 
-template<endianness target_endianness, std::size_t max_alignment, bool is64Bits>
+template<class ELFT>
 void printProgramHeaders(
-    const ELFObjectFile<target_endianness, max_alignment, is64Bits> *o) {
-  typedef ELFObjectFile<target_endianness, max_alignment, is64Bits> ELFO;
+    const ELFObjectFile<ELFT> *o) {
+  typedef ELFObjectFile<ELFT> ELFO;
   outs() << "Program Header:\n";
   for (typename ELFO::Elf_Phdr_Iter pi = o->begin_program_headers(),
                                     pe = o->end_program_headers();
@@ -40,11 +39,23 @@ void printProgramHeaders(
     case ELF::PT_GNU_EH_FRAME:
       outs() << "EH_FRAME ";
       break;
+    case ELF::PT_INTERP:
+      outs() << "  INTERP ";
+      break;
+    case ELF::PT_DYNAMIC:
+      outs() << " DYNAMIC ";
+      break;
+    case ELF::PT_PHDR:
+      outs() << "    PHDR ";
+      break;
+    case ELF::PT_TLS:
+      outs() << "    TLS ";
+      break;
     default:
       outs() << " UNKNOWN ";
     }
 
-    const char *Fmt = is64Bits ? "0x%016" PRIx64 " " : "0x%08" PRIx64 " ";
+    const char *Fmt = ELFT::Is64Bits ? "0x%016" PRIx64 " " : "0x%08" PRIx64 " ";
 
     outs() << "off    "
            << format(Fmt, (uint64_t)pi->p_offset)
@@ -52,7 +63,7 @@ void printProgramHeaders(
            << format(Fmt, (uint64_t)pi->p_vaddr)
            << "paddr "
            << format(Fmt, (uint64_t)pi->p_paddr)
-           << format("align 2**%u\n", CountTrailingZeros_64(pi->p_align))
+           << format("align 2**%u\n", countTrailingZeros<uint64_t>(pi->p_align))
            << "         filesz "
            << format(Fmt, (uint64_t)pi->p_filesz)
            << "memsz "
@@ -68,22 +79,18 @@ void printProgramHeaders(
 
 void llvm::printELFFileHeader(const object::ObjectFile *Obj) {
   // Little-endian 32-bit
-  if (const ELFObjectFile<support::little, 4, false> *ELFObj =
-          dyn_cast<ELFObjectFile<support::little, 4, false> >(Obj))
+  if (const ELF32LEObjectFile *ELFObj = dyn_cast<ELF32LEObjectFile>(Obj))
     printProgramHeaders(ELFObj);
 
   // Big-endian 32-bit
-  if (const ELFObjectFile<support::big, 4, false> *ELFObj =
-          dyn_cast<ELFObjectFile<support::big, 4, false> >(Obj))
+  if (const ELF32BEObjectFile *ELFObj = dyn_cast<ELF32BEObjectFile>(Obj))
     printProgramHeaders(ELFObj);
 
   // Little-endian 64-bit
-  if (const ELFObjectFile<support::little, 8, true> *ELFObj =
-          dyn_cast<ELFObjectFile<support::little, 8, true> >(Obj))
+  if (const ELF64LEObjectFile *ELFObj = dyn_cast<ELF64LEObjectFile>(Obj))
     printProgramHeaders(ELFObj);
 
   // Big-endian 64-bit
-  if (const ELFObjectFile<support::big, 8, true> *ELFObj =
-          dyn_cast<ELFObjectFile<support::big, 8, true> >(Obj))
+  if (const ELF64BEObjectFile *ELFObj = dyn_cast<ELF64BEObjectFile>(Obj))
     printProgramHeaders(ELFObj);
 }

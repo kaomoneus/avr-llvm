@@ -71,7 +71,7 @@ public:
                 MCInstPrinter *printer, MCCodeEmitter *emitter,
                 MCAsmBackend *asmbackend,
                 bool showInst)
-    : MCStreamer(Context), OS(os), MAI(Context.getAsmInfo()),
+    : MCStreamer(SK_AsmStreamer, Context), OS(os), MAI(Context.getAsmInfo()),
       InstPrinter(printer), Emitter(emitter), AsmBackend(asmbackend),
       CommentStream(CommentToEmit), IsVerboseAsm(isVerboseAsm),
       ShowInst(showInst), UseLoc(useLoc), UseCFI(useCFI),
@@ -124,14 +124,15 @@ public:
   /// @name MCStreamer Interface
   /// @{
 
-  virtual void ChangeSection(const MCSection *Section);
+  virtual void ChangeSection(const MCSection *Section,
+                             const MCExpr *Subsection);
 
   virtual void InitSections() {
-    // FIXME, this is MachO specific, but the testsuite
-    // expects this.
-    SwitchSection(getContext().getMachOSection("__TEXT", "__text",
-                         MCSectionMachO::S_ATTR_PURE_INSTRUCTIONS,
-                         0, SectionKind::getText()));
+    InitToTextSection();
+  }
+
+  virtual void InitToTextSection() {
+    SwitchSection(getContext().getObjectFileInfo()->getTextSection());
   }
 
   virtual void EmitLabel(MCSymbol *Symbol);
@@ -140,6 +141,7 @@ public:
   virtual void EmitEHSymAttributes(const MCSymbol *Symbol,
                                    MCSymbol *EHSymbol);
   virtual void EmitAssemblerFlag(MCAssemblerFlag Flag);
+  virtual void EmitLinkerOptions(ArrayRef<std::string> Options);
   virtual void EmitDataRegion(MCDataRegionType Kind);
   virtual void EmitThumbFunc(MCSymbol *Func);
 
@@ -209,7 +211,7 @@ public:
 
   virtual void EmitFileDirective(StringRef Filename);
   virtual bool EmitDwarfFileDirective(unsigned FileNo, StringRef Directory,
-                                      StringRef Filename);
+                                      StringRef Filename, unsigned CUID = 0);
   virtual void EmitDwarfLocDirective(unsigned FileNo, unsigned Line,
                                      unsigned Column, unsigned Flags,
                                      unsigned Isa, unsigned Discriminator,
@@ -271,6 +273,10 @@ public:
   virtual void FinishImpl();
 
   /// @}
+
+  static bool classof(const MCStreamer *S) {
+    return S->getKind() == SK_AsmStreamer;
+  }
 };
 
 } // end anonymous namespace.
@@ -323,9 +329,10 @@ static inline int64_t truncateToSize(int64_t Value, unsigned Bytes) {
   return Value & ((uint64_t) (int64_t) -1 >> (64 - Bytes * 8));
 }
 
-void MCAsmStreamer::ChangeSection(const MCSection *Section) {
+void MCAsmStreamer::ChangeSection(const MCSection *Section,
+                                  const MCExpr *Subsection) {
   assert(Section && "Cannot switch to a null section!");
-  Section->PrintSwitchToSection(MAI, OS);
+  Section->PrintSwitchToSection(MAI, OS, Subsection);
 }
 
 void MCAsmStreamer::EmitEHSymAttributes(const MCSymbol *Symbol,
@@ -368,6 +375,16 @@ void MCAsmStreamer::EmitAssemblerFlag(MCAssemblerFlag Flag) {
   case MCAF_Code64:                OS << '\t'<< MAI.getCode64Directive(); break;
   }
   EmitEOL();
+}
+
+void MCAsmStreamer::EmitLinkerOptions(ArrayRef<std::string> Options) {
+  assert(!Options.empty() && "At least one option is required!");
+  OS << "\t.linker_option \"" << Options[0] << '"';
+  for (ArrayRef<std::string>::iterator it = Options.begin() + 1,
+         ie = Options.end(); it != ie; ++it) {
+    OS << ", " << '"' << *it << '"';
+  }
+  OS << "\n";
 }
 
 void MCAsmStreamer::EmitDataRegion(MCDataRegionType Kind) {
@@ -622,7 +639,8 @@ static void PrintQuotedString(StringRef Data, raw_ostream &OS) {
 
 
 void MCAsmStreamer::EmitBytes(StringRef Data, unsigned AddrSpace) {
-  assert(getCurrentSection() && "Cannot emit contents before setting section!");
+  assert(getCurrentSection().first &&
+         "Cannot emit contents before setting section!");
   if (Data.empty()) return;
 
   if (Data.size() == 1) {
@@ -653,7 +671,8 @@ void MCAsmStreamer::EmitIntValue(uint64_t Value, unsigned Size,
 
 void MCAsmStreamer::EmitValueImpl(const MCExpr *Value, unsigned Size,
                                   unsigned AddrSpace) {
-  assert(getCurrentSection() && "Cannot emit contents before setting section!");
+  assert(getCurrentSection().first &&
+         "Cannot emit contents before setting section!");
   const char *Directive = 0;
   switch (Size) {
   default: break;
@@ -808,14 +827,14 @@ void MCAsmStreamer::EmitFileDirective(StringRef Filename) {
 }
 
 bool MCAsmStreamer::EmitDwarfFileDirective(unsigned FileNo, StringRef Directory,
-                                           StringRef Filename) {
+                                           StringRef Filename, unsigned CUID) {
   if (!UseDwarfDirectory && !Directory.empty()) {
     if (sys::path::is_absolute(Filename))
-      return EmitDwarfFileDirective(FileNo, "", Filename);
+      return EmitDwarfFileDirective(FileNo, "", Filename, CUID);
 
     SmallString<128> FullPathName = Directory;
     sys::path::append(FullPathName, Filename);
-    return EmitDwarfFileDirective(FileNo, "", FullPathName);
+    return EmitDwarfFileDirective(FileNo, "", FullPathName, CUID);
   }
 
   if (UseLoc) {
@@ -826,8 +845,11 @@ bool MCAsmStreamer::EmitDwarfFileDirective(unsigned FileNo, StringRef Directory,
     }
     PrintQuotedString(Filename, OS);
     EmitEOL();
+    // All .file will belong to a single CUID.
+    CUID = 0;
   }
-  return this->MCStreamer::EmitDwarfFileDirective(FileNo, Directory, Filename);
+  return this->MCStreamer::EmitDwarfFileDirective(FileNo, Directory, Filename,
+                                                  CUID);
 }
 
 void MCAsmStreamer::EmitDwarfLocDirective(unsigned FileNo, unsigned Line,
@@ -1345,7 +1367,8 @@ void MCAsmStreamer::EmitTCEntry(const MCSymbol &S) {
 }
 
 void MCAsmStreamer::EmitInstruction(const MCInst &Inst) {
-  assert(getCurrentSection() && "Cannot emit contents before setting section!");
+  assert(getCurrentSection().first &&
+         "Cannot emit contents before setting section!");
 
   // Show the encoding in a comment if we have a code emitter.
   if (Emitter)

@@ -24,6 +24,8 @@ using namespace llvm;
 
 MCAsmInfo::MCAsmInfo() {
   PointerSize = 4;
+  CalleeSaveStackSlotSize = 4;
+
   IsLittleEndian = true;
   StackGrowsUp = false;
   HasSubsectionsViaSymbols = false;
@@ -85,10 +87,10 @@ MCAsmInfo::MCAsmInfo() {
   SupportsDebugInformation = false;
   ExceptionsType = ExceptionHandling::None;
   DwarfUsesInlineInfoSection = false;
-  DwarfSectionOffsetDirective = 0;
   DwarfUsesRelocationsAcrossSections = true;
   DwarfRegNumForCFI = false;
   HasMicrosoftFastStdCallMangling = false;
+  NeedsDwarfSectionOffsetDirective = false;
 }
 
 MCAsmInfo::~MCAsmInfo() {

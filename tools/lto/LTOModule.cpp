@@ -158,12 +158,12 @@ SSPBufferSize("stack-protector-buffer-size", cl::init(8),
 LTOModule::LTOModule(llvm::Module *m, llvm::TargetMachine *t)
   : _module(m), _target(t),
     _context(*_target->getMCAsmInfo(), *_target->getRegisterInfo(), NULL),
-    _mangler(_context, *_target->getDataLayout()) {}
+    _mangler(_context, t) {}
 
 /// isBitcodeFile - Returns 'true' if the file (or memory contents) is LLVM
 /// bitcode.
 bool LTOModule::isBitcodeFile(const void *mem, size_t length) {
-  return llvm::sys::IdentifyFileType((const char*)mem, length)
+  return llvm::sys::identifyFileType(StringRef((const char*)mem, length))
     == llvm::sys::Bitcode_FileType;
 }
 
@@ -487,7 +487,7 @@ void LTOModule::addDefinedSymbol(const GlobalValue *def, bool isFunction) {
 
   // set alignment part log2() can have rounding errors
   uint32_t align = def->getAlignment();
-  uint32_t attr = align ? CountTrailingZeros_32(def->getAlignment()) : 0;
+  uint32_t attr = align ? countTrailingZeros(def->getAlignment()) : 0;
 
   // set permissions part
   if (isFunction) {
@@ -733,7 +733,8 @@ namespace {
       return Symbols.end();
     }
 
-    RecordStreamer(MCContext &Context) : MCStreamer(Context) {}
+    RecordStreamer(MCContext &Context)
+        : MCStreamer(SK_RecordStreamer, Context) {}
 
     virtual void EmitInstruction(const MCInst &Inst) {
       // Scan for values.
@@ -742,7 +743,7 @@ namespace {
           AddValueSymbols(Inst.getOperand(i).getExpr());
     }
     virtual void EmitLabel(MCSymbol *Symbol) {
-      Symbol->setSection(*getCurrentSection());
+      Symbol->setSection(*getCurrentSection().first);
       markDefined(*Symbol);
     }
     virtual void EmitDebugLabel(MCSymbol *Symbol) {
@@ -770,7 +771,9 @@ namespace {
     virtual void EmitBundleUnlock() {}
 
     // Noop calls.
-    virtual void ChangeSection(const MCSection *Section) {}
+    virtual void ChangeSection(const MCSection *Section,
+                               const MCExpr *Subsection) {}
+    virtual void InitToTextSection() {}
     virtual void InitSections() {}
     virtual void EmitAssemblerFlag(MCAssemblerFlag Flag) {}
     virtual void EmitThumbFunc(MCSymbol *Func) {}
@@ -803,6 +806,10 @@ namespace {
                                           const MCSymbol *Label,
                                           unsigned PointerSize) {}
     virtual void FinishImpl() {}
+
+    static bool classof(const MCStreamer *S) {
+      return S->getKind() == SK_RecordStreamer;
+    }
   };
 } // end anonymous namespace
 

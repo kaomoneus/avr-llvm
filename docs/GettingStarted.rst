@@ -1,5 +1,3 @@
-.. _getting_started:
-
 ====================================
 Getting Started with the LLVM System  
 ====================================
@@ -83,7 +81,7 @@ Here's the short story for getting up and running quickly with LLVM:
 
    * ``make [-j]`` --- The ``-j`` specifies the number of jobs (commands) to run
      simultaneously.  This builds both LLVM and Clang for Debug+Asserts mode.
-     The ``--enabled-optimized`` configure option is used to specify a Release
+     The ``--enable-optimized`` configure option is used to specify a Release
      build.
 
    * ``make check-all`` --- This run the regression tests to ensure everything
@@ -126,6 +124,8 @@ LLVM is known to work on the following platforms:
 +-----------------+----------------------+-------------------------+
 |Linux            | amd64                | GCC                     |
 +-----------------+----------------------+-------------------------+
+|Linux            | ARM\ :sup:`13`       | GCC                     |
++-----------------+----------------------+-------------------------+
 |Solaris          | V9 (Ultrasparc)      | GCC                     |
 +-----------------+----------------------+-------------------------+
 |FreeBSD          | x86\ :sup:`1`        | GCC                     |
@@ -161,8 +161,6 @@ LLVM has partial support for the following platforms:
 
 .. note::
 
-  Code generation supported for Pentium processors and up
-
   #. Code generation supported for Pentium processors and up
   #. Code generation supported for 32-bit ABI only
   #. No native code generation
@@ -182,9 +180,9 @@ LLVM has partial support for the following platforms:
      Windows-specifics that will cause the build to fail.
   #. To use LLVM modules on Win32-based system, you may configure LLVM
      with ``--enable-shared``.
-
   #. To compile SPU backend, you need to add ``LDFLAGS=-Wl,--stack,16777216`` to
      configure.
+  #. MCJIT not working well pre-v7, old JIT engine not supported any more.
 
 Note that you will need about 1-3 GB of space for a full LLVM build in Debug
 mode, depending on the system (it is so large because of all the debugging
@@ -219,11 +217,7 @@ uses the package and provides other details.
 +--------------------------------------------------------------+-----------------+---------------------------------------------+
 | `SVN <http://subversion.tigris.org/project_packages.html>`_  | >=1.3           | Subversion access to LLVM\ :sup:`2`         |
 +--------------------------------------------------------------+-----------------+---------------------------------------------+
-| `DejaGnu <http://savannah.gnu.org/projects/dejagnu>`_        | 1.4.2           | Automated test suite\ :sup:`3`              |
-+--------------------------------------------------------------+-----------------+---------------------------------------------+
-| `tcl <http://www.tcl.tk/software/tcltk/>`_                   | 8.3, 8.4        | Automated test suite\ :sup:`3`              |
-+--------------------------------------------------------------+-----------------+---------------------------------------------+
-| `expect <http://expect.nist.gov/>`_                          | 5.38.0          | Automated test suite\ :sup:`3`              |
+| `python <http://www.python.org/>`_                           | >=2.4           | Automated test suite\ :sup:`3`              |
 +--------------------------------------------------------------+-----------------+---------------------------------------------+
 | `perl <http://www.perl.com/download.csp>`_                   | >=5.6.0         | Utilities                                   |
 +--------------------------------------------------------------+-----------------+---------------------------------------------+
@@ -234,6 +228,8 @@ uses the package and provides other details.
 | `GNU Automake <http://www.gnu.org/software/automake/>`_      | 1.9.6           | aclocal macro generator\ :sup:`4`           |
 +--------------------------------------------------------------+-----------------+---------------------------------------------+
 | `libtool <http://savannah.gnu.org/projects/libtool>`_        | 1.5.22          | Shared library manager\ :sup:`4`            |
++--------------------------------------------------------------+-----------------+---------------------------------------------+
+| `zlib <http://zlib.net>`_                                    | >=1.2.3.4       | Compression library\ :sup:`5`               |
 +--------------------------------------------------------------+-----------------+---------------------------------------------+
 
 .. note::
@@ -249,6 +245,8 @@ uses the package and provides other details.
    #. If you want to make changes to the configure scripts, you will need GNU
       autoconf (2.60), and consequently, GNU M4 (version 1.4 or higher). You
       will also need automake (1.9.6). We only use aclocal from that package.
+   #. Optional, adds compression/uncompression capabilities to selected LLVM
+      tools.
 
 Additionally, your compilation host is expected to have the usual plethora of
 Unix utilities. Specifically:
@@ -367,6 +365,9 @@ optimizations are turned on. The symptom is an infinite loop in
 **GCC 4.3.5 and GCC 4.4.5 on ARM**: These can miscompile ``value >> 1`` even at
 ``-O0``. A test failure in ``test/Assembler/alignstack.ll`` is one symptom of
 the problem.
+
+**GCC 4.6.3 on ARM**: Miscompiles ``llvm-readobj`` at ``-O3``. A test failure
+in ``test/Object/readobj-shared-object.test`` is one symptom of the problem.
 
 **GNU ld 2.16.X**. Some 2.16.X versions of the ld linker will produce very long
 warning messages complaining that some "``.gnu.linkonce.t.*``" symbol was
@@ -524,13 +525,13 @@ By placing it in the ``llvm/projects``, it will be automatically configured by
 the LLVM configure script as well as automatically updated when you run ``svn
 update``.
 
-GIT mirror
+Git Mirror
 ----------
 
-GIT mirrors are available for a number of LLVM subprojects. These mirrors sync
+Git mirrors are available for a number of LLVM subprojects. These mirrors sync
 automatically with each Subversion commit and contain all necessary git-svn
 marks (so, you can recreate git-svn metadata locally). Note that right now
-mirrors reflect only ``trunk`` for each project. You can do the read-only GIT
+mirrors reflect only ``trunk`` for each project. You can do the read-only Git
 clone of LLVM via:
 
 .. code-block:: console
@@ -541,9 +542,22 @@ If you want to check out clang too, run:
 
 .. code-block:: console
 
-  % git clone http://llvm.org/git/llvm.git
   % cd llvm/tools
   % git clone http://llvm.org/git/clang.git
+
+If you want to check out compiler-rt too, run:
+
+.. code-block:: console
+
+  % cd llvm/projects
+  % git clone http://llvm.org/git/compiler-rt.git
+
+If you want to check out the Test Suite Source Code (optional), run:
+
+.. code-block:: console
+
+  % cd llvm/projects
+  % git clone http://llvm.org/git/test-suite.git
 
 Since the upstream repository is in Subversion, you should use ``git
 pull --rebase`` instead of ``git pull`` to avoid generating a non-linear history
@@ -629,8 +643,10 @@ To set up clone from which you can submit code using ``git-svn``, run:
   % git config svn-remote.svn.fetch :refs/remotes/origin/master
   % git svn rebase -l
 
+Likewise for compiler-rt and test-suite.
+
 To update this clone without generating git-svn tags that conflict with the
-upstream git repo, run:
+upstream Git repo, run:
 
 .. code-block:: console
 
@@ -641,11 +657,26 @@ upstream git repo, run:
      git checkout master &&
      git svn rebase -l)
 
+Likewise for compiler-rt and test-suite.
+
 This leaves your working directories on their master branches, so you'll need to
 ``checkout`` each working branch individually and ``rebase`` it on top of its
 parent branch.
 
-To commit back changes via git-svn, use ``dcommit``:
+For those who wish to be able to update an llvm repo/revert patches easily using
+git-svn, please look in the directory for the scripts ``git-svnup`` and
+``git-svnrevert``.
+
+To perform the aforementioned update steps go into your source directory and
+just type ``git-svnup`` or ``git svnup`` and everything will just work.
+
+If one wishes to revert a commit with git-svn, but do not want the git hash to
+escape into the commit message, one can use the script ``git-svnrevert`` or
+``git svnrevert`` which will take in the git hash for the commit you want to
+revert, look up the appropriate svn revision, and output a message where all
+references to the git hash have been replaced with the svn revision.
+
+To commit back changes via git-svn, use ``git svn dcommit``:
 
 .. code-block:: console
 
@@ -728,7 +759,7 @@ The following options can be used to set or enable LLVM specific options:
   case. The current set of targets is:
 
     ``arm, cpp, hexagon, mblaze, mips, mipsel, msp430, powerpc, ptx, sparc, spu,
-    x86, x86_64, xcore``.
+    systemz, x86, x86_64, xcore``.
 
 ``--enable-doxygen``
 
@@ -966,7 +997,7 @@ Optional Configuration Items
 ----------------------------
 
 If you're running on a Linux system that supports the `binfmt_misc
-<http://www.tat.physik.uni-tuebingen.de/~rguenth/linux/binfmt_misc.html>`_
+<http://en.wikipedia.org/wiki/binfmt_misc>`_
 module, and you have root access on the system, you can set your system up to
 execute LLVM bitcode files directly. To do this, use commands like this (the
 first command may not be required if you are already using the module):

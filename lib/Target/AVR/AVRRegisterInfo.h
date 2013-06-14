@@ -22,12 +22,10 @@
 namespace llvm
 {
 
-class TargetInstrInfo;
-
 class AVRRegisterInfo : public AVRGenRegisterInfo
 {
 public:
-  AVRRegisterInfo(const TargetInstrInfo &tii);
+  AVRRegisterInfo();
 public: // TargetRegisterInfo
   /// Code Generation virtual methods...
   const uint16_t *getCalleeSavedRegs(const MachineFunction *MF = 0) const;
@@ -39,15 +37,11 @@ public: // TargetRegisterInfo
 
   /// Stack Frame Processing Methods
   void eliminateFrameIndex(MachineBasicBlock::iterator MI, int SPAdj,
+                           unsigned FIOperandNum,
                            RegScavenger *RS = NULL) const;
-  void eliminateCallFramePseudoInstr(MachineFunction &MF,
-                                     MachineBasicBlock &MBB,
-                                     MachineBasicBlock::iterator MI) const;
 
   /// Debug information queries.
   unsigned getFrameRegister(const MachineFunction &MF) const;
-private:
-  const TargetInstrInfo &TII;
 };
 
 } // end namespace llvm

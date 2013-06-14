@@ -752,6 +752,7 @@ void MachineInstr::addMemOperand(MachineFunction &MF,
 }
 
 bool MachineInstr::hasPropertyInBundle(unsigned Mask, QueryType Type) const {
+  assert(!isBundledWithPred() && "Must be called on bundle header");
   for (MachineBasicBlock::const_instr_iterator MII = this;; ++MII) {
     if (MII->getDesc().getFlags() & Mask) {
       if (Type == AnyInBundle)
@@ -1427,7 +1428,8 @@ static void printDebugLoc(DebugLoc DL, const MachineFunction *MF,
   }
 }
 
-void MachineInstr::print(raw_ostream &OS, const TargetMachine *TM) const {
+void MachineInstr::print(raw_ostream &OS, const TargetMachine *TM,
+                         bool SkipOpers) const {
   // We can be a bit tidier if we know the TargetMachine and/or MachineFunction.
   const MachineFunction *MF = 0;
   const MachineRegisterInfo *MRI = 0;
@@ -1464,6 +1466,9 @@ void MachineInstr::print(raw_ostream &OS, const TargetMachine *TM) const {
   else
     OS << "UNKNOWN";
 
+  if (SkipOpers)
+    return;
+
   // Print the rest of the operands.
   bool OmittedAnyCallClobbers = false;
   bool FirstOp = true;
@@ -1475,10 +1480,14 @@ void MachineInstr::print(raw_ostream &OS, const TargetMachine *TM) const {
     OS << " ";
     getOperand(InlineAsm::MIOp_AsmString).print(OS, TM);
 
-    // Print HasSideEffects, IsAlignStack
+    // Print HasSideEffects, MayLoad, MayStore, IsAlignStack
     unsigned ExtraInfo = getOperand(InlineAsm::MIOp_ExtraInfo).getImm();
     if (ExtraInfo & InlineAsm::Extra_HasSideEffects)
       OS << " [sideeffect]";
+    if (ExtraInfo & InlineAsm::Extra_MayLoad)
+      OS << " [mayload]";
+    if (ExtraInfo & InlineAsm::Extra_MayStore)
+      OS << " [maystore]";
     if (ExtraInfo & InlineAsm::Extra_IsAlignStack)
       OS << " [alignstack]";
     if (getInlineAsmDialect() == InlineAsm::AD_ATT)
@@ -1506,12 +1515,12 @@ void MachineInstr::print(raw_ostream &OS, const TargetMachine *TM) const {
       unsigned Reg = MO.getReg();
       if (TargetRegisterInfo::isPhysicalRegister(Reg)) {
         const MachineRegisterInfo &MRI = MF->getRegInfo();
-        if (MRI.use_empty(Reg) && !MRI.isLiveOut(Reg)) {
+        if (MRI.use_empty(Reg)) {
           bool HasAliasLive = false;
           for (MCRegAliasIterator AI(Reg, TM->getRegisterInfo(), true);
                AI.isValid(); ++AI) {
             unsigned AliasReg = *AI;
-            if (!MRI.use_empty(AliasReg) || MRI.isLiveOut(AliasReg)) {
+            if (!MRI.use_empty(AliasReg)) {
               HasAliasLive = true;
               break;
             }

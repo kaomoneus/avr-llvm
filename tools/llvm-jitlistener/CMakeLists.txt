@@ -6,8 +6,10 @@ include_directories( ${LLVM_INTEL_JITEVENTS_INCDIR} )
 set(LLVM_LINK_COMPONENTS
   asmparser
   bitreader
+  debuginfo
   inteljitevents
   interpreter
+  irreader
   jit
   mcjit
   nativecodegen

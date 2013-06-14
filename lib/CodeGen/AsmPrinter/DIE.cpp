@@ -55,11 +55,9 @@ void DIEAbbrev::Profile(FoldingSetNodeID &ID) const {
 ///
 void DIEAbbrev::Emit(AsmPrinter *AP) const {
   // Emit its Dwarf tag type.
-  // FIXME: Doing work even in non-asm-verbose runs.
   AP->EmitULEB128(Tag, dwarf::TagString(Tag));
 
   // Emit whether it has children DIEs.
-  // FIXME: Doing work even in non-asm-verbose runs.
   AP->EmitULEB128(ChildrenFlag, dwarf::ChildrenString(ChildrenFlag));
 
   // For each attribute description.
@@ -67,12 +65,10 @@ void DIEAbbrev::Emit(AsmPrinter *AP) const {
     const DIEAbbrevData &AttrData = Data[i];
 
     // Emit attribute type.
-    // FIXME: Doing work even in non-asm-verbose runs.
     AP->EmitULEB128(AttrData.getAttribute(),
                     dwarf::AttributeString(AttrData.getAttribute()));
 
     // Emit form type.
-    // FIXME: Doing work even in non-asm-verbose runs.
     AP->EmitULEB128(AttrData.getForm(),
                     dwarf::FormEncodingString(AttrData.getForm()));
   }
@@ -112,9 +108,20 @@ DIE::~DIE() {
     delete Children[i];
 }
 
+/// Climb up the parent chain to get the compile unit DIE to which this DIE
+/// belongs.
+DIE *DIE::getCompileUnit() {
+  DIE *p = this;
+  while (p) {
+    if (p->getTag() == dwarf::DW_TAG_compile_unit)
+      return p;
+    p = p->getParent();
+  }
+  llvm_unreachable("We should not have orphaned DIEs.");
+}
+
 #ifndef NDEBUG
-void DIE::print(raw_ostream &O, unsigned IncIndent) {
-  IndentCount += IncIndent;
+void DIE::print(raw_ostream &O, unsigned IndentCount) const {
   const std::string Indent(IndentCount, ' ');
   bool isBlock = Abbrev.getTag() == 0;
 
@@ -133,7 +140,7 @@ void DIE::print(raw_ostream &O, unsigned IncIndent) {
     O << "Size: " << Size << "\n";
   }
 
-  const SmallVector<DIEAbbrevData, 8> &Data = Abbrev.getData();
+  const SmallVectorImpl<DIEAbbrevData> &Data = Abbrev.getData();
 
   IndentCount += 2;
   for (unsigned i = 0, N = Data.size(); i < N; ++i) {
@@ -153,11 +160,10 @@ void DIE::print(raw_ostream &O, unsigned IncIndent) {
   IndentCount -= 2;
 
   for (unsigned j = 0, M = Children.size(); j < M; ++j) {
-    Children[j]->print(O, 4);
+    Children[j]->print(O, IndentCount+4);
   }
 
   if (!isBlock) O << "\n";
-  IndentCount -= IncIndent;
 }
 
 void DIE::dump() {
@@ -168,7 +174,7 @@ void DIE::dump() {
 void DIEValue::anchor() { }
 
 #ifndef NDEBUG
-void DIEValue::dump() {
+void DIEValue::dump() const {
   print(dbgs());
 }
 #endif
@@ -193,11 +199,13 @@ void DIEInteger::EmitValue(AsmPrinter *Asm, unsigned Form) const {
   case dwarf::DW_FORM_data1: Size = 1; break;
   case dwarf::DW_FORM_ref2:  // Fall thru
   case dwarf::DW_FORM_data2: Size = 2; break;
+  case dwarf::DW_FORM_sec_offset: // Fall thru
   case dwarf::DW_FORM_ref4:  // Fall thru
   case dwarf::DW_FORM_data4: Size = 4; break;
   case dwarf::DW_FORM_ref8:  // Fall thru
   case dwarf::DW_FORM_data8: Size = 8; break;
   case dwarf::DW_FORM_GNU_str_index: Asm->EmitULEB128(Integer); return;
+  case dwarf::DW_FORM_GNU_addr_index: Asm->EmitULEB128(Integer); return;
   case dwarf::DW_FORM_udata: Asm->EmitULEB128(Integer); return;
   case dwarf::DW_FORM_sdata: Asm->EmitSLEB128(Integer); return;
   case dwarf::DW_FORM_addr:
@@ -217,11 +225,13 @@ unsigned DIEInteger::SizeOf(AsmPrinter *AP, unsigned Form) const {
   case dwarf::DW_FORM_data1: return sizeof(int8_t);
   case dwarf::DW_FORM_ref2:  // Fall thru
   case dwarf::DW_FORM_data2: return sizeof(int16_t);
+  case dwarf::DW_FORM_sec_offset: // Fall thru
   case dwarf::DW_FORM_ref4:  // Fall thru
   case dwarf::DW_FORM_data4: return sizeof(int32_t);
   case dwarf::DW_FORM_ref8:  // Fall thru
   case dwarf::DW_FORM_data8: return sizeof(int64_t);
   case dwarf::DW_FORM_GNU_str_index: return MCAsmInfo::getULEB128Size(Integer);
+  case dwarf::DW_FORM_GNU_addr_index: return MCAsmInfo::getULEB128Size(Integer);
   case dwarf::DW_FORM_udata: return MCAsmInfo::getULEB128Size(Integer);
   case dwarf::DW_FORM_sdata: return MCAsmInfo::getSLEB128Size(Integer);
   case dwarf::DW_FORM_addr:  return AP->getDataLayout().getPointerSize();
@@ -230,7 +240,7 @@ unsigned DIEInteger::SizeOf(AsmPrinter *AP, unsigned Form) const {
 }
 
 #ifndef NDEBUG
-void DIEInteger::print(raw_ostream &O) {
+void DIEInteger::print(raw_ostream &O) const {
   O << "Int: " << (int64_t)Integer << "  0x";
   O.write_hex(Integer);
 }
@@ -250,12 +260,13 @@ void DIELabel::EmitValue(AsmPrinter *AP, unsigned Form) const {
 ///
 unsigned DIELabel::SizeOf(AsmPrinter *AP, unsigned Form) const {
   if (Form == dwarf::DW_FORM_data4) return 4;
+  if (Form == dwarf::DW_FORM_sec_offset) return 4;
   if (Form == dwarf::DW_FORM_strp) return 4;
   return AP->getDataLayout().getPointerSize();
 }
 
 #ifndef NDEBUG
-void DIELabel::print(raw_ostream &O) {
+void DIELabel::print(raw_ostream &O) const {
   O << "Lbl: " << Label->getName();
 }
 #endif
@@ -279,7 +290,7 @@ unsigned DIEDelta::SizeOf(AsmPrinter *AP, unsigned Form) const {
 }
 
 #ifndef NDEBUG
-void DIEDelta::print(raw_ostream &O) {
+void DIEDelta::print(raw_ostream &O) const {
   O << "Del: " << LabelHi->getName() << "-" << LabelLo->getName();
 }
 #endif
@@ -295,7 +306,7 @@ void DIEEntry::EmitValue(AsmPrinter *AP, unsigned Form) const {
 }
 
 #ifndef NDEBUG
-void DIEEntry::print(raw_ostream &O) {
+void DIEEntry::print(raw_ostream &O) const {
   O << format("Die: 0x%lx", (long)(intptr_t)Entry);
 }
 #endif
@@ -308,7 +319,7 @@ void DIEEntry::print(raw_ostream &O) {
 ///
 unsigned DIEBlock::ComputeSize(AsmPrinter *AP) {
   if (!Size) {
-    const SmallVector<DIEAbbrevData, 8> &AbbrevData = Abbrev.getData();
+    const SmallVectorImpl<DIEAbbrevData> &AbbrevData = Abbrev.getData();
     for (unsigned i = 0, N = Values.size(); i < N; ++i)
       Size += Values[i]->SizeOf(AP, AbbrevData[i].getForm());
   }
@@ -327,7 +338,7 @@ void DIEBlock::EmitValue(AsmPrinter *Asm, unsigned Form) const {
   case dwarf::DW_FORM_block:  Asm->EmitULEB128(Size); break;
   }
 
-  const SmallVector<DIEAbbrevData, 8> &AbbrevData = Abbrev.getData();
+  const SmallVectorImpl<DIEAbbrevData> &AbbrevData = Abbrev.getData();
   for (unsigned i = 0, N = Values.size(); i < N; ++i)
     Values[i]->EmitValue(Asm, AbbrevData[i].getForm());
 }
@@ -345,7 +356,7 @@ unsigned DIEBlock::SizeOf(AsmPrinter *AP, unsigned Form) const {
 }
 
 #ifndef NDEBUG
-void DIEBlock::print(raw_ostream &O) {
+void DIEBlock::print(raw_ostream &O) const {
   O << "Blk: ";
   DIE::print(O, 5);
 }

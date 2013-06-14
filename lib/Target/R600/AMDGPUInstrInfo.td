@@ -23,12 +23,6 @@ def AMDGPUDTIntTernaryOp : SDTypeProfile<1, 3, [
 // AMDGPU DAG Nodes
 //
 
-// out = ((a << 32) | b) >> c)
-//
-// Can be used to optimize rtol:
-// rotl(a, b) = bitalign(a, a, 32 - b)
-def AMDGPUbitalign : SDNode<"AMDGPUISD::BITALIGN", AMDGPUDTIntTernaryOp>;
-
 // This argument to this node is a dword address.
 def AMDGPUdwordaddr : SDNode<"AMDGPUISD::DWORDADDR", SDTIntUnaryOp>;
 
@@ -71,4 +65,10 @@ def AMDGPUumin : SDNode<"AMDGPUISD::UMIN", SDTIntBinOp,
 // e is rounding error
 def AMDGPUurecip : SDNode<"AMDGPUISD::URECIP", SDTIntUnaryOp>;
 
-def fpow : SDNode<"ISD::FPOW", SDTFPBinOp>;
+def AMDGPUregister_load : SDNode<"AMDGPUISD::REGISTER_LOAD",
+                          SDTypeProfile<1, 2, [SDTCisPtrTy<1>, SDTCisInt<2>]>,
+                          [SDNPHasChain, SDNPMayLoad]>;
+
+def AMDGPUregister_store : SDNode<"AMDGPUISD::REGISTER_STORE",
+                           SDTypeProfile<0, 3, [SDTCisPtrTy<1>, SDTCisInt<2>]>,
+                           [SDNPHasChain, SDNPMayStore]>;

@@ -11,8 +11,8 @@
 #define DEBUGME 0
 #define DEBUG_TYPE "structcfg"
 
+#include "AMDGPU.h"
 #include "AMDGPUInstrInfo.h"
-#include "AMDIL.h"
 #include "llvm/ADT/SCCIterator.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
@@ -28,8 +28,11 @@
 #include "llvm/CodeGen/MachinePostDominators.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/Target/TargetInstrInfo.h"
+#include "llvm/Target/TargetMachine.h"
 
 using namespace llvm;
+
+#define DEFAULT_VEC_SLOTS 8
 
 // TODO: move-begin.
 
@@ -57,7 +60,7 @@ STATISTIC(numClonedInstr,           "CFGStructurizer cloned instructions");
 // Miscellaneous utility for CFGStructurizer.
 //
 //===----------------------------------------------------------------------===//
-namespace llvmCFGStruct {
+namespace {
 #define SHOWNEWINSTR(i) \
   if (DEBUGME) errs() << "New instr: " << *i << "\n"
 
@@ -98,7 +101,7 @@ void ReverseVector(SmallVector<NodeT *, DEFAULT_VEC_SLOTS> &Src) {
   }
 }
 
-} //end namespace llvmCFGStruct
+} // end anonymous namespace
 
 //===----------------------------------------------------------------------===//
 //
@@ -106,7 +109,7 @@ void ReverseVector(SmallVector<NodeT *, DEFAULT_VEC_SLOTS> &Src) {
 //
 //===----------------------------------------------------------------------===//
 
-namespace llvmCFGStruct {
+namespace {
 template<class PassT>
 struct CFGStructTraits {
 };
@@ -142,7 +145,7 @@ public:
   LandInformation() : landBlk(NULL) {}
 };
 
-} //end of namespace llvmCFGStruct
+} // end anonymous namespace
 
 //===----------------------------------------------------------------------===//
 //
@@ -150,7 +153,7 @@ public:
 //
 //===----------------------------------------------------------------------===//
 
-namespace llvmCFGStruct {
+namespace {
 // bixia TODO: port it to BasicBlock, not just MachineBasicBlock.
 template<class PassT>
 class  CFGStructurizer {
@@ -2446,7 +2449,7 @@ CFGStructurizer<PassT>::findNearestCommonPostDom
   return commonDom;
 } //findNearestCommonPostDom
 
-} //end namespace llvm
+} // end anonymous namespace
 
 //todo: move-end
 
@@ -2458,9 +2461,7 @@ CFGStructurizer<PassT>::findNearestCommonPostDom
 //===----------------------------------------------------------------------===//
 
 
-using namespace llvmCFGStruct;
-
-namespace llvm {
+namespace {
 class AMDGPUCFGStructurizer : public MachineFunctionPass {
 public:
   typedef MachineInstr              InstructionType;
@@ -2474,26 +2475,26 @@ public:
 
 protected:
   TargetMachine &TM;
-  const TargetInstrInfo *TII;
-  const AMDGPURegisterInfo *TRI;
 
 public:
   AMDGPUCFGStructurizer(char &pid, TargetMachine &tm);
   const TargetInstrInfo *getTargetInstrInfo() const;
-
-private:
-
+  const AMDGPURegisterInfo *getTargetRegisterInfo() const;
 };
 
-} //end of namespace llvm
+} // end anonymous namespace
 AMDGPUCFGStructurizer::AMDGPUCFGStructurizer(char &pid, TargetMachine &tm)
-: MachineFunctionPass(pid), TM(tm), TII(tm.getInstrInfo()),
-  TRI(static_cast<const AMDGPURegisterInfo *>(tm.getRegisterInfo())) {
+  : MachineFunctionPass(pid), TM(tm) {
 }
 
 const TargetInstrInfo *AMDGPUCFGStructurizer::getTargetInstrInfo() const {
-  return TII;
+  return TM.getInstrInfo();
 }
+
+const AMDGPURegisterInfo *AMDGPUCFGStructurizer::getTargetRegisterInfo() const {
+  return static_cast<const AMDGPURegisterInfo *>(TM.getRegisterInfo());
+}
+
 //===----------------------------------------------------------------------===//
 //
 // CFGPrepare
@@ -2501,9 +2502,7 @@ const TargetInstrInfo *AMDGPUCFGStructurizer::getTargetInstrInfo() const {
 //===----------------------------------------------------------------------===//
 
 
-using namespace llvmCFGStruct;
-
-namespace llvm {
+namespace {
 class AMDGPUCFGPrepare : public AMDGPUCFGStructurizer {
 public:
   static char ID;
@@ -2515,13 +2514,10 @@ public:
   virtual void getAnalysisUsage(AnalysisUsage &AU) const;
 
   bool runOnMachineFunction(MachineFunction &F);
-
-private:
-
 };
 
 char AMDGPUCFGPrepare::ID = 0;
-} //end of namespace llvm
+} // end anonymous namespace
 
 AMDGPUCFGPrepare::AMDGPUCFGPrepare(TargetMachine &tm)
   : AMDGPUCFGStructurizer(ID, tm )  {
@@ -2545,9 +2541,7 @@ void AMDGPUCFGPrepare::getAnalysisUsage(AnalysisUsage &AU) const {
 //===----------------------------------------------------------------------===//
 
 
-using namespace llvmCFGStruct;
-
-namespace llvm {
+namespace {
 class AMDGPUCFGPerform : public AMDGPUCFGStructurizer {
 public:
   static char ID;
@@ -2557,13 +2551,10 @@ public:
   virtual const char *getPassName() const;
   virtual void getAnalysisUsage(AnalysisUsage &AU) const;
   bool runOnMachineFunction(MachineFunction &F);
-
-private:
-
 };
 
 char AMDGPUCFGPerform::ID = 0;
-} //end of namespace llvm
+} // end anonymous namespace
 
   AMDGPUCFGPerform::AMDGPUCFGPerform(TargetMachine &tm)
 : AMDGPUCFGStructurizer(ID, tm) {
@@ -2587,7 +2578,7 @@ void AMDGPUCFGPerform::getAnalysisUsage(AnalysisUsage &AU) const {
 //
 //===----------------------------------------------------------------------===//
 
-namespace llvmCFGStruct {
+namespace {
 // this class is tailor to the AMDGPU backend
 template<>
 struct CFGStructTraits<AMDGPUCFGStructurizer> {
@@ -2595,6 +2586,7 @@ struct CFGStructTraits<AMDGPUCFGStructurizer> {
 
   static int getBranchNzeroOpcode(int oldOpcode) {
     switch(oldOpcode) {
+    case AMDGPU::JUMP_COND:
     case AMDGPU::JUMP: return AMDGPU::IF_PREDICATE_SET;
     case AMDGPU::BRANCH_COND_i32:
     case AMDGPU::BRANCH_COND_f32: return AMDGPU::IF_LOGICALNZ_f32;
@@ -2606,6 +2598,7 @@ struct CFGStructTraits<AMDGPUCFGStructurizer> {
 
   static int getBranchZeroOpcode(int oldOpcode) {
     switch(oldOpcode) {
+    case AMDGPU::JUMP_COND:
     case AMDGPU::JUMP: return AMDGPU::IF_PREDICATE_SET;
     case AMDGPU::BRANCH_COND_i32:
     case AMDGPU::BRANCH_COND_f32: return AMDGPU::IF_LOGICALZ_f32;
@@ -2617,6 +2610,7 @@ struct CFGStructTraits<AMDGPUCFGStructurizer> {
 
   static int getContinueNzeroOpcode(int oldOpcode) {
     switch(oldOpcode) {
+    case AMDGPU::JUMP_COND:
     case AMDGPU::JUMP: return AMDGPU::CONTINUE_LOGICALNZ_i32;
     default:
       assert(0 && "internal error");
@@ -2626,6 +2620,7 @@ struct CFGStructTraits<AMDGPUCFGStructurizer> {
 
   static int getContinueZeroOpcode(int oldOpcode) {
     switch(oldOpcode) {
+    case AMDGPU::JUMP_COND:
     case AMDGPU::JUMP: return AMDGPU::CONTINUE_LOGICALZ_i32;
     default:
       assert(0 && "internal error");
@@ -2654,8 +2649,7 @@ struct CFGStructTraits<AMDGPUCFGStructurizer> {
 
   static bool isCondBranch(MachineInstr *instr) {
     switch (instr->getOpcode()) {
-      case AMDGPU::JUMP:
-        return instr->getOperand(instr->findFirstPredOperandIdx()).getReg() != 0;
+      case AMDGPU::JUMP_COND:
       case AMDGPU::BRANCH_COND_i32:
       case AMDGPU::BRANCH_COND_f32:
       break;
@@ -2668,7 +2662,6 @@ struct CFGStructTraits<AMDGPUCFGStructurizer> {
   static bool isUncondBranch(MachineInstr *instr) {
     switch (instr->getOpcode()) {
     case AMDGPU::JUMP:
-      return instr->getOperand(instr->findFirstPredOperandIdx()).getReg() == 0;
     case AMDGPU::BRANCH:
       return true;
     default:
@@ -3022,28 +3015,24 @@ struct CFGStructTraits<AMDGPUCFGStructurizer> {
     return &pass.getAnalysis<MachineLoopInfo>();
   }
 }; // template class CFGStructTraits
-} //end of namespace llvm
+} // end anonymous namespace
 
 // createAMDGPUCFGPreparationPass- Returns a pass
-FunctionPass *llvm::createAMDGPUCFGPreparationPass(TargetMachine &tm
-                                                 ) {
-  return new AMDGPUCFGPrepare(tm );
+FunctionPass *llvm::createAMDGPUCFGPreparationPass(TargetMachine &tm) {
+  return new AMDGPUCFGPrepare(tm);
 }
 
 bool AMDGPUCFGPrepare::runOnMachineFunction(MachineFunction &func) {
-  return llvmCFGStruct::CFGStructurizer<AMDGPUCFGStructurizer>().prepare(func,
-                                                                        *this,
-                                                                        TRI);
+  return CFGStructurizer<AMDGPUCFGStructurizer>().prepare(func, *this,
+                                                       getTargetRegisterInfo());
 }
 
 // createAMDGPUCFGStructurizerPass- Returns a pass
-FunctionPass *llvm::createAMDGPUCFGStructurizerPass(TargetMachine &tm
-                                                  ) {
-  return new AMDGPUCFGPerform(tm );
+FunctionPass *llvm::createAMDGPUCFGStructurizerPass(TargetMachine &tm) {
+  return new AMDGPUCFGPerform(tm);
 }
 
 bool AMDGPUCFGPerform::runOnMachineFunction(MachineFunction &func) {
-  return llvmCFGStruct::CFGStructurizer<AMDGPUCFGStructurizer>().run(func,
-                                                                    *this,
-                                                                    TRI);
+  return CFGStructurizer<AMDGPUCFGStructurizer>().run(func, *this,
+                                                      getTargetRegisterInfo());
 }

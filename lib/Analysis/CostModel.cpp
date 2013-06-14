@@ -23,6 +23,7 @@
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Value.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
@@ -80,11 +81,40 @@ CostModelAnalysis::runOnFunction(Function &F) {
  return false;
 }
 
+static bool isReverseVectorMask(SmallVector<int, 16> &Mask) {
+  for (unsigned i = 0, MaskSize = Mask.size(); i < MaskSize; ++i)
+    if (Mask[i] > 0 && Mask[i] != (int)(MaskSize - 1 - i))
+      return false;
+  return true;
+}
+
+static TargetTransformInfo::OperandValueKind getOperandInfo(Value *V) {
+  TargetTransformInfo::OperandValueKind OpInfo =
+    TargetTransformInfo::OK_AnyValue;
+
+  // Check for a splat of a constant.
+  ConstantDataVector *CDV = 0;
+  if ((CDV = dyn_cast<ConstantDataVector>(V)))
+    if (CDV->getSplatValue() != NULL)
+      OpInfo = TargetTransformInfo::OK_UniformConstantValue;
+  ConstantVector *CV = 0;
+  if ((CV = dyn_cast<ConstantVector>(V)))
+    if (CV->getSplatValue() != NULL)
+      OpInfo = TargetTransformInfo::OK_UniformConstantValue;
+
+  return OpInfo;
+}
+
 unsigned CostModelAnalysis::getInstructionCost(const Instruction *I) const {
   if (!TTI)
     return -1;
 
   switch (I->getOpcode()) {
+  case Instruction::GetElementPtr:{
+    Type *ValTy = I->getOperand(0)->getType()->getPointerElementType();
+    return TTI->getAddressComputationCost(ValTy);
+  }
+
   case Instruction::Ret:
   case Instruction::PHI:
   case Instruction::Br: {
@@ -108,7 +138,12 @@ unsigned CostModelAnalysis::getInstructionCost(const Instruction *I) const {
   case Instruction::And:
   case Instruction::Or:
   case Instruction::Xor: {
-    return TTI->getArithmeticInstrCost(I->getOpcode(), I->getType());
+    TargetTransformInfo::OperandValueKind Op1VK =
+      getOperandInfo(I->getOperand(0));
+    TargetTransformInfo::OperandValueKind Op2VK =
+      getOperandInfo(I->getOperand(1));
+    return TTI->getArithmeticInstrCost(I->getOpcode(), I->getType(), Op1VK,
+                                       Op2VK);
   }
   case Instruction::Select: {
     const SelectInst *SI = cast<SelectInst>(I);
@@ -166,6 +201,27 @@ unsigned CostModelAnalysis::getInstructionCost(const Instruction *I) const {
       return TTI->getVectorInstrCost(I->getOpcode(),
                                      IE->getType(), Idx);
     }
+  case Instruction::ShuffleVector: {
+    const ShuffleVectorInst *Shuffle = cast<ShuffleVectorInst>(I);
+    Type *VecTypOp0 = Shuffle->getOperand(0)->getType();
+    unsigned NumVecElems = VecTypOp0->getVectorNumElements();
+    SmallVector<int, 16> Mask = Shuffle->getShuffleMask();
+
+    if (NumVecElems == Mask.size() && isReverseVectorMask(Mask))
+      return TTI->getShuffleCost(TargetTransformInfo::SK_Reverse, VecTypOp0, 0,
+                                 0);
+    return -1;
+  }
+  case Instruction::Call:
+    if (const IntrinsicInst *II = dyn_cast<IntrinsicInst>(I)) {
+      SmallVector<Type*, 4> Tys;
+      for (unsigned J = 0, JE = II->getNumArgOperands(); J != JE; ++J)
+        Tys.push_back(II->getArgOperand(J)->getType());
+
+      return TTI->getIntrinsicInstrCost(II->getIntrinsicID(), II->getType(),
+                                        Tys);
+    }
+    return -1;
   default:
     // We don't have any information on this instruction.
     return -1;

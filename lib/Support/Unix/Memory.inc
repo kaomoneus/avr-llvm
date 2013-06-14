@@ -32,7 +32,11 @@
 #  endif
 #endif
 
+#ifdef __APPLE__
 extern "C" void sys_icache_invalidate(const void *Addr, size_t len);
+#else
+extern "C" void __clear_cache(void *, void*);
+#endif
 
 namespace {
 
@@ -51,7 +55,18 @@ int getPosixProtectionFlags(unsigned Flags) {
 	 llvm::sys::Memory::MF_EXEC:
     return PROT_READ | PROT_WRITE | PROT_EXEC;
   case llvm::sys::Memory::MF_EXEC:
+#if defined(__FreeBSD__)
+    // On PowerPC, having an executable page that has no read permission
+    // can have unintended consequences.  The function InvalidateInstruction-
+    // Cache uses instructions dcbf and icbi, both of which are treated by
+    // the processor as loads.  If the page has no read permissions,
+    // executing these instructions will result in a segmentation fault.
+    // Somehow, this problem is not present on Linux, but it does happen
+    // on FreeBSD.
+    return PROT_READ | PROT_EXEC;
+#else
     return PROT_EXEC;
+#endif
   default:
     llvm_unreachable("Illegal memory protection flag specified!");
   }
@@ -256,6 +271,9 @@ bool Memory::setExecutable (MemoryBlock &M, std::string *ErrMsg) {
   kern_return_t kr = vm_protect(mach_task_self(), (vm_address_t)M.Address,
     (vm_size_t)M.Size, 0, VM_PROT_READ | VM_PROT_EXECUTE | VM_PROT_COPY);
   return KERN_SUCCESS == kr;
+#elif defined(__arm__) || defined(__aarch64__)
+  Memory::InvalidateInstructionCache(M.Address, M.Size);
+  return true;
 #else
   return true;
 #endif
@@ -314,14 +332,23 @@ void Memory::InvalidateInstructionCache(const void *Addr,
   for (intptr_t Line = StartLine; Line < EndLine; Line += LineSize)
     asm volatile("icbi 0, %0" : : "r"(Line));
   asm volatile("isync");
-#  elif defined(__arm__) && defined(__GNUC__)
+#  elif (defined(__arm__) || defined(__aarch64__)) && defined(__GNUC__)
   // FIXME: Can we safely always call this for __GNUC__ everywhere?
   const char *Start = static_cast<const char *>(Addr);
   const char *End = Start + Len;
   __clear_cache(const_cast<char *>(Start), const_cast<char *>(End));
 #  elif defined(__mips__)
   const char *Start = static_cast<const char *>(Addr);
+#    if defined(ANDROID)
+  // The declaration of "cacheflush" in Android bionic:
+  // extern int cacheflush(long start, long end, long flags);
+  const char *End = Start + Len;
+  long LStart = reinterpret_cast<long>(const_cast<char *>(Start));
+  long LEnd = reinterpret_cast<long>(const_cast<char *>(End));
+  cacheflush(LStart, LEnd, BCACHE);
+#    else
   cacheflush(const_cast<char *>(Start), Len, BCACHE);
+#    endif
 #  endif
 
 #endif  // end apple

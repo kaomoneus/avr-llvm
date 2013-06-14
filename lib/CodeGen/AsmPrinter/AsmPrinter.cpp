@@ -133,9 +133,13 @@ const DataLayout &AsmPrinter::getDataLayout() const {
   return *TM.getDataLayout();
 }
 
+StringRef AsmPrinter::getTargetTriple() const {
+  return TM.getTargetTriple();
+}
+
 /// getCurrentSection() - Return the current section we are emitting to.
 const MCSection *AsmPrinter::getCurrentSection() const {
-  return OutStreamer.getCurrentSection();
+  return OutStreamer.getCurrentSection().first;
 }
 
 
@@ -159,7 +163,7 @@ bool AsmPrinter::doInitialization(Module &M) {
   const_cast<TargetLoweringObjectFile&>(getObjFileLowering())
     .Initialize(OutContext, TM);
 
-  Mang = new Mangler(OutContext, *TM.getDataLayout());
+  Mang = new Mangler(OutContext, &TM);
 
   // Allow the target to emit any magic that it wants at the start of the file.
   EmitStartOfAsmFile(M);
@@ -635,13 +639,13 @@ void AsmPrinter::emitPrologLabel(const MachineInstr &MI) {
     OutStreamer.EmitCompactUnwindEncoding(MMI->getCompactUnwindEncoding());
 
   MachineModuleInfo &MMI = MF->getMMI();
-  std::vector<MachineMove> &Moves = MMI.getFrameMoves();
+  std::vector<MCCFIInstruction> Instructions = MMI.getFrameInstructions();
   bool FoundOne = false;
   (void)FoundOne;
-  for (std::vector<MachineMove>::iterator I = Moves.begin(),
-         E = Moves.end(); I != E; ++I) {
+  for (std::vector<MCCFIInstruction>::iterator I = Instructions.begin(),
+         E = Instructions.end(); I != E; ++I) {
     if (I->getLabel() == Label) {
-      EmitCFIFrameMove(*I);
+      emitCFIInstruction(*I);
       FoundOne = true;
     }
   }
@@ -816,7 +820,7 @@ void AsmPrinter::EmitDwarfRegOp(const MachineLocation &MLoc) const {
   // caller might be in the middle of an dwarf expression. We should
   // probably assert that Reg >= 0 once debug info generation is more mature.
 
-  if (int Offset =  MLoc.getOffset()) {
+  if (MLoc.isIndirect()) {
     if (Reg < 32) {
       OutStreamer.AddComment(
         dwarf::OperationEncodingString(dwarf::DW_OP_breg0 + Reg));
@@ -827,7 +831,7 @@ void AsmPrinter::EmitDwarfRegOp(const MachineLocation &MLoc) const {
       OutStreamer.AddComment(Twine(Reg));
       EmitULEB128(Reg);
     }
-    EmitSLEB128(Offset);
+    EmitSLEB128(MLoc.getOffset());
   } else {
     if (Reg < 32) {
       OutStreamer.AddComment(
@@ -1216,7 +1220,7 @@ void AsmPrinter::EmitJumpTableEntry(const MachineJumpTableInfo *MJTI,
 bool AsmPrinter::EmitSpecialLLVMGlobal(const GlobalVariable *GV) {
   if (GV->getName() == "llvm.used") {
     if (MAI->hasNoDeadStrip())    // No need to emit this at all.
-      EmitLLVMUsedList(GV->getInitializer());
+      EmitLLVMUsedList(cast<ConstantArray>(GV->getInitializer()));
     return true;
   }
 
@@ -1259,11 +1263,8 @@ bool AsmPrinter::EmitSpecialLLVMGlobal(const GlobalVariable *GV) {
 /// EmitLLVMUsedList - For targets that define a MAI::UsedDirective, mark each
 /// global in the specified llvm.used list for which emitUsedDirectiveFor
 /// is true, as being used with this directive.
-void AsmPrinter::EmitLLVMUsedList(const Constant *List) {
+void AsmPrinter::EmitLLVMUsedList(const ConstantArray *InitList) {
   // Should be an array of 'i8*'.
-  const ConstantArray *InitList = dyn_cast<ConstantArray>(List);
-  if (InitList == 0) return;
-
   for (unsigned i = 0, e = InitList->getNumOperands(); i != e; ++i) {
     const GlobalValue *GV =
       dyn_cast<GlobalValue>(InitList->getOperand(i)->stripPointerCasts());
@@ -1749,105 +1750,104 @@ static void emitGlobalConstantStruct(const ConstantStruct *CS,
 
 static void emitGlobalConstantFP(const ConstantFP *CFP, unsigned AddrSpace,
                                  AsmPrinter &AP) {
-  if (CFP->getType()->isHalfTy()) {
-    if (AP.isVerbose()) {
-      SmallString<10> Str;
-      CFP->getValueAPF().toString(Str);
-      AP.OutStreamer.GetCommentOS() << "half " << Str << '\n';
-    }
-    uint64_t Val = CFP->getValueAPF().bitcastToAPInt().getZExtValue();
-    AP.OutStreamer.EmitIntValue(Val, 2, AddrSpace);
-    return;
-  }
-
-  if (CFP->getType()->isFloatTy()) {
-    if (AP.isVerbose()) {
-      float Val = CFP->getValueAPF().convertToFloat();
-      uint64_t IntVal = CFP->getValueAPF().bitcastToAPInt().getZExtValue();
-      AP.OutStreamer.GetCommentOS() << "float " << Val << '\n'
-                                    << " (" << format("0x%x", IntVal) << ")\n";
-    }
-    uint64_t Val = CFP->getValueAPF().bitcastToAPInt().getZExtValue();
-    AP.OutStreamer.EmitIntValue(Val, 4, AddrSpace);
-    return;
-  }
-
-  // FP Constants are printed as integer constants to avoid losing
-  // precision.
-  if (CFP->getType()->isDoubleTy()) {
-    if (AP.isVerbose()) {
-      double Val = CFP->getValueAPF().convertToDouble();
-      uint64_t IntVal = CFP->getValueAPF().bitcastToAPInt().getZExtValue();
-      AP.OutStreamer.GetCommentOS() << "double " << Val << '\n'
-                                    << " (" << format("0x%lx", IntVal) << ")\n";
-    }
-
-    uint64_t Val = CFP->getValueAPF().bitcastToAPInt().getZExtValue();
-    AP.OutStreamer.EmitIntValue(Val, 8, AddrSpace);
-    return;
-  }
-
-  if (CFP->getType()->isX86_FP80Ty() || CFP->getType()->isFP128Ty()) {
-    // all long double variants are printed as hex
-    // API needed to prevent premature destruction
-    APInt API = CFP->getValueAPF().bitcastToAPInt();
-    const uint64_t *p = API.getRawData();
-    if (AP.isVerbose()) {
-      // Convert to double so we can print the approximate val as a comment.
-      SmallString<8> StrVal;
-      CFP->getValueAPF().toString(StrVal);
-
-      const char *TyNote = CFP->getType()->isFP128Ty() ? "fp128 " : "x86_fp80 ";
-      AP.OutStreamer.GetCommentOS() << TyNote << StrVal << '\n';
-    }
-
-    // The 80-bit type is made of a 64-bit and 16-bit value, the 128-bit has 2
-    // 64-bit words.
-    uint32_t TrailingSize = CFP->getType()->isFP128Ty() ? 8 : 2;
-
-    if (AP.TM.getDataLayout()->isBigEndian()) {
-      AP.OutStreamer.EmitIntValue(p[1], TrailingSize, AddrSpace);
-      AP.OutStreamer.EmitIntValue(p[0], 8, AddrSpace);
-    } else {
-      AP.OutStreamer.EmitIntValue(p[0], 8, AddrSpace);
-      AP.OutStreamer.EmitIntValue(p[1], TrailingSize, AddrSpace);
-    }
-
-    // Emit the tail padding for the long double.
-    const DataLayout &TD = *AP.TM.getDataLayout();
-    AP.OutStreamer.EmitZeros(TD.getTypeAllocSize(CFP->getType()) -
-                             TD.getTypeStoreSize(CFP->getType()), AddrSpace);
-    return;
-  }
-
-  assert(CFP->getType()->isPPC_FP128Ty() &&
-         "Floating point constant type not handled");
-  // All long double variants are printed as hex
-  // API needed to prevent premature destruction.
   APInt API = CFP->getValueAPF().bitcastToAPInt();
-  const uint64_t *p = API.getRawData();
-  if (AP.TM.getDataLayout()->isBigEndian()) {
-    AP.OutStreamer.EmitIntValue(p[0], 8, AddrSpace);
-    AP.OutStreamer.EmitIntValue(p[1], 8, AddrSpace);
-  } else {
-    AP.OutStreamer.EmitIntValue(p[1], 8, AddrSpace);
-    AP.OutStreamer.EmitIntValue(p[0], 8, AddrSpace);
+
+  // First print a comment with what we think the original floating-point value
+  // should have been.
+  if (AP.isVerbose()) {
+    SmallString<8> StrVal;
+    CFP->getValueAPF().toString(StrVal);
+
+    CFP->getType()->print(AP.OutStreamer.GetCommentOS());
+    AP.OutStreamer.GetCommentOS() << ' ' << StrVal << '\n';
   }
+
+  // Now iterate through the APInt chunks, emitting them in endian-correct
+  // order, possibly with a smaller chunk at beginning/end (e.g. for x87 80-bit
+  // floats).
+  unsigned NumBytes = API.getBitWidth() / 8;
+  unsigned TrailingBytes = NumBytes % sizeof(uint64_t);
+  const uint64_t *p = API.getRawData();
+
+  // PPC's long double has odd notions of endianness compared to how LLVM
+  // handles it: p[0] goes first for *big* endian on PPC.
+  if (AP.TM.getDataLayout()->isBigEndian() != CFP->getType()->isPPC_FP128Ty()) {
+    int Chunk = API.getNumWords() - 1;
+
+    if (TrailingBytes)
+      AP.OutStreamer.EmitIntValue(p[Chunk--], TrailingBytes, AddrSpace);
+
+    for (; Chunk >= 0; --Chunk)
+      AP.OutStreamer.EmitIntValue(p[Chunk], sizeof(uint64_t), AddrSpace);
+  } else {
+    unsigned Chunk;
+    for (Chunk = 0; Chunk < NumBytes / sizeof(uint64_t); ++Chunk)
+      AP.OutStreamer.EmitIntValue(p[Chunk], sizeof(uint64_t), AddrSpace);
+
+    if (TrailingBytes)
+      AP.OutStreamer.EmitIntValue(p[Chunk], TrailingBytes, AddrSpace);
+  }
+
+  // Emit the tail padding for the long double.
+  const DataLayout &TD = *AP.TM.getDataLayout();
+  AP.OutStreamer.EmitZeros(TD.getTypeAllocSize(CFP->getType()) -
+                           TD.getTypeStoreSize(CFP->getType()), AddrSpace);
 }
 
 static void emitGlobalConstantLargeInt(const ConstantInt *CI,
                                        unsigned AddrSpace, AsmPrinter &AP) {
   const DataLayout *TD = AP.TM.getDataLayout();
   unsigned BitWidth = CI->getBitWidth();
-  assert((BitWidth & 63) == 0 && "only support multiples of 64-bits");
+
+  // Copy the value as we may massage the layout for constants whose bit width
+  // is not a multiple of 64-bits.
+  APInt Realigned(CI->getValue());
+  uint64_t ExtraBits = 0;
+  unsigned ExtraBitsSize = BitWidth & 63;
+
+  if (ExtraBitsSize) {
+    // The bit width of the data is not a multiple of 64-bits.
+    // The extra bits are expected to be at the end of the chunk of the memory.
+    // Little endian:
+    // * Nothing to be done, just record the extra bits to emit.
+    // Big endian:
+    // * Record the extra bits to emit.
+    // * Realign the raw data to emit the chunks of 64-bits.
+    if (TD->isBigEndian()) {
+      // Basically the structure of the raw data is a chunk of 64-bits cells:
+      //    0        1         BitWidth / 64
+      // [chunk1][chunk2] ... [chunkN].
+      // The most significant chunk is chunkN and it should be emitted first.
+      // However, due to the alignment issue chunkN contains useless bits.
+      // Realign the chunks so that they contain only useless information:
+      // ExtraBits     0       1       (BitWidth / 64) - 1
+      //       chu[nk1 chu][nk2 chu] ... [nkN-1 chunkN]
+      ExtraBits = Realigned.getRawData()[0] &
+        (((uint64_t)-1) >> (64 - ExtraBitsSize));
+      Realigned = Realigned.lshr(ExtraBitsSize);
+    } else
+      ExtraBits = Realigned.getRawData()[BitWidth / 64];
+  }
 
   // We don't expect assemblers to support integer data directives
   // for more than 64 bits, so we emit the data in at most 64-bit
   // quantities at a time.
-  const uint64_t *RawData = CI->getValue().getRawData();
+  const uint64_t *RawData = Realigned.getRawData();
   for (unsigned i = 0, e = BitWidth / 64; i != e; ++i) {
     uint64_t Val = TD->isBigEndian() ? RawData[e - i - 1] : RawData[i];
     AP.OutStreamer.EmitIntValue(Val, 8, AddrSpace);
+  }
+
+  if (ExtraBitsSize) {
+    // Emit the extra bits after the 64-bits chunks.
+
+    // Emit a directive that fills the expected size.
+    uint64_t Size = AP.TM.getDataLayout()->getTypeAllocSize(CI->getType());
+    Size -= (BitWidth / 64) * 8;
+    assert(Size && Size * 8 >= ExtraBitsSize &&
+           (ExtraBits & (((uint64_t)-1) >> (64 - ExtraBitsSize)))
+           == ExtraBits && "Directive too small for extra bits.");
+    AP.OutStreamer.EmitIntValue(ExtraBits, Size, AddrSpace);
   }
 }
 
