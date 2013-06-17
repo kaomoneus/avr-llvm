@@ -90,12 +90,6 @@ bool ArchiveMember::replaceWith(const sys::Path& newFile, std::string* ErrMsg) {
   else
     flags &= ~BSD4SymbolTableFlag;
 
-  // LLVM symbol tables have a very specific name
-  if (path.str() == ARFILE_LLVM_SYMTAB_NAME)
-    flags |= LLVMSymbolTableFlag;
-  else
-    flags &= ~LLVMSymbolTableFlag;
-
   // String table name
   if (path.str() == ARFILE_STRTAB_NAME)
     flags |= StringTableFlag;
@@ -129,14 +123,12 @@ bool ArchiveMember::replaceWith(const sys::Path& newFile, std::string* ErrMsg) {
   }
 
   // Determine what kind of file it is.
-  switch (sys::identifyFileType(StringRef(signature, 4))) {
-    case sys::Bitcode_FileType:
-      flags |= BitcodeFlag;
-      break;
-    default:
-      flags &= ~BitcodeFlag;
-      break;
-  }
+  if (sys::fs::identify_magic(StringRef(signature, 4)) ==
+      sys::fs::file_magic::bitcode)
+    flags |= BitcodeFlag;
+  else
+    flags &= ~BitcodeFlag;
+
   return false;
 }
 

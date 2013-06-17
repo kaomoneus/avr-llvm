@@ -292,6 +292,20 @@ error_code exists(const Twine &path, bool &result) {
   return error_code::success();
 }
 
+bool can_execute(const Twine &Path) {
+  SmallString<128> PathStorage;
+  StringRef P = Path.toNullTerminatedStringRef(PathStorage);
+
+  if (0 != access(P.begin(), R_OK | X_OK))
+    return false;
+  struct stat buf;
+  if (0 != stat(P.begin(), &buf))
+    return false;
+  if (!S_ISREG(buf.st_mode))
+    return false;
+  return true;
+}
+
 bool equivalent(file_status A, file_status B) {
   assert(status_known(A) && status_known(B));
   return A.fs_st_dev == B.fs_st_dev &&

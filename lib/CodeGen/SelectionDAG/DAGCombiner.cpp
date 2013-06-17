@@ -4233,20 +4233,22 @@ SDValue DAGCombiner::visitSELECT_CC(SDNode *N) {
   // Determine if the condition we're dealing with is constant
   SDValue SCC = SimplifySetCC(getSetCCResultType(N0.getValueType()),
                               N0, N1, CC, SDLoc(N), false);
-  if (SCC.getNode()) AddToWorkList(SCC.getNode());
+  if (SCC.getNode()) {
+    AddToWorkList(SCC.getNode());
 
-  if (ConstantSDNode *SCCC = dyn_cast_or_null<ConstantSDNode>(SCC.getNode())) {
-    if (!SCCC->isNullValue())
-      return N2;    // cond always true -> true val
-    else
-      return N3;    // cond always false -> false val
+    if (ConstantSDNode *SCCC = dyn_cast<ConstantSDNode>(SCC.getNode())) {
+      if (!SCCC->isNullValue())
+        return N2;    // cond always true -> true val
+      else
+        return N3;    // cond always false -> false val
+    }
+
+    // Fold to a simpler select_cc
+    if (SCC.getOpcode() == ISD::SETCC)
+      return DAG.getNode(ISD::SELECT_CC, SDLoc(N), N2.getValueType(),
+                         SCC.getOperand(0), SCC.getOperand(1), N2, N3,
+                         SCC.getOperand(2));
   }
-
-  // Fold to a simpler select_cc
-  if (SCC.getNode() && SCC.getOpcode() == ISD::SETCC)
-    return DAG.getNode(ISD::SELECT_CC, SDLoc(N), N2.getValueType(),
-                       SCC.getOperand(0), SCC.getOperand(1), N2, N3,
-                       SCC.getOperand(2));
 
   // If we can fold this based on the true/false value, do so.
   if (SimplifySelectOps(N, N2, N3))
@@ -4547,14 +4549,16 @@ SDValue DAGCombiner::visitSIGN_EXTEND(SDNode *N) {
                        NegOne, DAG.getConstant(0, VT),
                        cast<CondCodeSDNode>(N0.getOperand(2))->get(), true);
     if (SCC.getNode()) return SCC;
-    if (!VT.isVector() && (!LegalOperations ||
-        TLI.isOperationLegal(ISD::SETCC, getSetCCResultType(VT))))
-      return DAG.getNode(ISD::SELECT, SDLoc(N), VT,
-                         DAG.getSetCC(SDLoc(N),
-                                      getSetCCResultType(VT),
-                                      N0.getOperand(0), N0.getOperand(1),
-                                 cast<CondCodeSDNode>(N0.getOperand(2))->get()),
-                         NegOne, DAG.getConstant(0, VT));
+    if (!VT.isVector() &&
+        (!LegalOperations ||
+         TLI.isOperationLegal(ISD::SETCC, getSetCCResultType(VT)))) {
+      return DAG.getSelect(SDLoc(N), VT,
+                           DAG.getSetCC(SDLoc(N),
+                                        getSetCCResultType(VT),
+                                        N0.getOperand(0), N0.getOperand(1),
+                                        cast<CondCodeSDNode>(N0.getOperand(2))->get()),
+                           NegOne, DAG.getConstant(0, VT));
+    }
   }
 
   // fold (sext x) -> (zext x) if the sign bit is known zero.
@@ -5919,7 +5923,7 @@ SDValue DAGCombiner::visitFADD(SDNode *N) {
       ConstantFPSDNode *CFP00 = dyn_cast<ConstantFPSDNode>(N0.getOperand(0));
       ConstantFPSDNode *CFP01 = dyn_cast<ConstantFPSDNode>(N0.getOperand(1));
 
-      // (fadd (fmul c, x), x) -> (fmul c+1, x)
+      // (fadd (fmul c, x), x) -> (fmul x, c+1)
       if (CFP00 && !CFP01 && N0.getOperand(1) == N1) {
         SDValue NewCFP = DAG.getNode(ISD::FADD, SDLoc(N), VT,
                                      SDValue(CFP00, 0),
@@ -5928,7 +5932,7 @@ SDValue DAGCombiner::visitFADD(SDNode *N) {
                            N1, NewCFP);
       }
 
-      // (fadd (fmul x, c), x) -> (fmul c+1, x)
+      // (fadd (fmul x, c), x) -> (fmul x, c+1)
       if (CFP01 && !CFP00 && N0.getOperand(0) == N1) {
         SDValue NewCFP = DAG.getNode(ISD::FADD, SDLoc(N), VT,
                                      SDValue(CFP01, 0),
@@ -5937,7 +5941,7 @@ SDValue DAGCombiner::visitFADD(SDNode *N) {
                            N1, NewCFP);
       }
 
-      // (fadd (fmul c, x), (fadd x, x)) -> (fmul c+2, x)
+      // (fadd (fmul c, x), (fadd x, x)) -> (fmul x, c+2)
       if (CFP00 && !CFP01 && N1.getOpcode() == ISD::FADD &&
           N1.getOperand(0) == N1.getOperand(1) &&
           N0.getOperand(1) == N1.getOperand(0)) {
@@ -5948,7 +5952,7 @@ SDValue DAGCombiner::visitFADD(SDNode *N) {
                            N0.getOperand(1), NewCFP);
       }
 
-      // (fadd (fmul x, c), (fadd x, x)) -> (fmul c+2, x)
+      // (fadd (fmul x, c), (fadd x, x)) -> (fmul x, c+2)
       if (CFP01 && !CFP00 && N1.getOpcode() == ISD::FADD &&
           N1.getOperand(0) == N1.getOperand(1) &&
           N0.getOperand(0) == N1.getOperand(0)) {
@@ -5964,7 +5968,7 @@ SDValue DAGCombiner::visitFADD(SDNode *N) {
       ConstantFPSDNode *CFP10 = dyn_cast<ConstantFPSDNode>(N1.getOperand(0));
       ConstantFPSDNode *CFP11 = dyn_cast<ConstantFPSDNode>(N1.getOperand(1));
 
-      // (fadd x, (fmul c, x)) -> (fmul c+1, x)
+      // (fadd x, (fmul c, x)) -> (fmul x, c+1)
       if (CFP10 && !CFP11 && N1.getOperand(1) == N0) {
         SDValue NewCFP = DAG.getNode(ISD::FADD, SDLoc(N), VT,
                                      SDValue(CFP10, 0),
@@ -5973,7 +5977,7 @@ SDValue DAGCombiner::visitFADD(SDNode *N) {
                            N0, NewCFP);
       }
 
-      // (fadd x, (fmul x, c)) -> (fmul c+1, x)
+      // (fadd x, (fmul x, c)) -> (fmul x, c+1)
       if (CFP11 && !CFP10 && N1.getOperand(0) == N0) {
         SDValue NewCFP = DAG.getNode(ISD::FADD, SDLoc(N), VT,
                                      SDValue(CFP11, 0),
@@ -5983,32 +5987,32 @@ SDValue DAGCombiner::visitFADD(SDNode *N) {
       }
 
 
-      // (fadd (fadd x, x), (fmul c, x)) -> (fmul c+2, x)
-      if (CFP10 && !CFP11 && N1.getOpcode() == ISD::FADD &&
-          N1.getOperand(0) == N1.getOperand(1) &&
-          N0.getOperand(1) == N1.getOperand(0)) {
+      // (fadd (fadd x, x), (fmul c, x)) -> (fmul x, c+2)
+      if (CFP10 && !CFP11 && N0.getOpcode() == ISD::FADD &&
+          N0.getOperand(0) == N0.getOperand(1) &&
+          N1.getOperand(1) == N0.getOperand(0)) {
         SDValue NewCFP = DAG.getNode(ISD::FADD, SDLoc(N), VT,
                                      SDValue(CFP10, 0),
                                      DAG.getConstantFP(2.0, VT));
         return DAG.getNode(ISD::FMUL, SDLoc(N), VT,
-                           N0.getOperand(1), NewCFP);
+                           N1.getOperand(1), NewCFP);
       }
 
-      // (fadd (fadd x, x), (fmul x, c)) -> (fmul c+2, x)
-      if (CFP11 && !CFP10 && N1.getOpcode() == ISD::FADD &&
-          N1.getOperand(0) == N1.getOperand(1) &&
-          N0.getOperand(0) == N1.getOperand(0)) {
+      // (fadd (fadd x, x), (fmul x, c)) -> (fmul x, c+2)
+      if (CFP11 && !CFP10 && N0.getOpcode() == ISD::FADD &&
+          N0.getOperand(0) == N0.getOperand(1) &&
+          N1.getOperand(0) == N0.getOperand(0)) {
         SDValue NewCFP = DAG.getNode(ISD::FADD, SDLoc(N), VT,
                                      SDValue(CFP11, 0),
                                      DAG.getConstantFP(2.0, VT));
         return DAG.getNode(ISD::FMUL, SDLoc(N), VT,
-                           N0.getOperand(0), NewCFP);
+                           N1.getOperand(0), NewCFP);
       }
     }
 
     if (N0.getOpcode() == ISD::FADD && AllowNewFpConst) {
       ConstantFPSDNode *CFP = dyn_cast<ConstantFPSDNode>(N0.getOperand(0));
-      // (fadd (fadd x, x), x) -> (fmul 3.0, x)
+      // (fadd (fadd x, x), x) -> (fmul x, 3.0)
       if (!CFP && N0.getOperand(0) == N0.getOperand(1) &&
           (N0.getOperand(0) == N1)) {
         return DAG.getNode(ISD::FMUL, SDLoc(N), VT,
@@ -6018,7 +6022,7 @@ SDValue DAGCombiner::visitFADD(SDNode *N) {
 
     if (N1.getOpcode() == ISD::FADD && AllowNewFpConst) {
       ConstantFPSDNode *CFP10 = dyn_cast<ConstantFPSDNode>(N1.getOperand(0));
-      // (fadd x, (fadd x, x)) -> (fmul 3.0, x)
+      // (fadd x, (fadd x, x)) -> (fmul x, 3.0)
       if (!CFP10 && N1.getOperand(0) == N1.getOperand(1) &&
           N1.getOperand(0) == N0) {
         return DAG.getNode(ISD::FMUL, SDLoc(N), VT,
@@ -6026,7 +6030,7 @@ SDValue DAGCombiner::visitFADD(SDNode *N) {
       }
     }
 
-    // (fadd (fadd x, x), (fadd x, x)) -> (fmul 4.0, x)
+    // (fadd (fadd x, x), (fadd x, x)) -> (fmul x, 4.0)
     if (AllowNewFpConst &&
         N0.getOpcode() == ISD::FADD && N1.getOpcode() == ISD::FADD &&
         N0.getOperand(0) == N0.getOperand(1) &&
@@ -9605,8 +9609,8 @@ SDValue DAGCombiner::SimplifySelect(SDLoc DL, SDValue N0,
                                   SCC.getOperand(0), SCC.getOperand(1),
                                   SCC.getOperand(4));
       AddToWorkList(SETCC.getNode());
-      return DAG.getNode(ISD::SELECT, SDLoc(SCC), SCC.getValueType(),
-                         SCC.getOperand(2), SCC.getOperand(3), SETCC);
+      return DAG.getSelect(SDLoc(SCC), SCC.getValueType(),
+                           SCC.getOperand(2), SCC.getOperand(3), SETCC);
     }
 
     return SCC;
@@ -9675,10 +9679,10 @@ bool DAGCombiner::SimplifySelectOps(SDNode *TheSelect, SDValue LHS,
       if (LLD->isPredecessorOf(RLD) ||
           RLD->isPredecessorOf(LLD))
         return false;
-      Addr = DAG.getNode(ISD::SELECT, SDLoc(TheSelect),
-                         LLD->getBasePtr().getValueType(),
-                         TheSelect->getOperand(0), LLD->getBasePtr(),
-                         RLD->getBasePtr());
+      Addr = DAG.getSelect(SDLoc(TheSelect),
+                           LLD->getBasePtr().getValueType(),
+                           TheSelect->getOperand(0), LLD->getBasePtr(),
+                           RLD->getBasePtr());
     } else {  // Otherwise SELECT_CC
       SDNode *CondLHS = TheSelect->getOperand(0).getNode();
       SDNode *CondRHS = TheSelect->getOperand(1).getNode();
@@ -9812,8 +9816,8 @@ SDValue DAGCombiner::SimplifySelectCC(SDLoc DL, SDValue N0, SDValue N1,
                                     getSetCCResultType(N0.getValueType()),
                                     N0, N1, CC);
         AddToWorkList(Cond.getNode());
-        SDValue CstOffset = DAG.getNode(ISD::SELECT, DL, Zero.getValueType(),
-                                        Cond, One, Zero);
+        SDValue CstOffset = DAG.getSelect(DL, Zero.getValueType(),
+                                          Cond, One, Zero);
         AddToWorkList(CstOffset.getNode());
         CPIdx = DAG.getNode(ISD::ADD, DL, TLI.getPointerTy(), CPIdx,
                             CstOffset);
