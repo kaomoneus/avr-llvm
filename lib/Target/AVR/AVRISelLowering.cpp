@@ -1544,11 +1544,6 @@ AVRTargetLowering::getSingleConstraintMatchWeight(
     break;
 
   case 'G':
-    if (type->isFloatingPointTy())
-    {
-      weight = CW_Register;
-    }
-    break;
   case 'I':
   case 'J':
   case 'K':
