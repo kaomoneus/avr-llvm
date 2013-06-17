@@ -97,21 +97,27 @@ CoveredBySubRegs = 1 in
 //:TODO: use proper set instructions instead of using always "add"
 
 // main 8 bit register class
-def GPR8 : RegisterClass<"AVR", [i8], 8, (add (sequence "R%u", 0, 31))>;
-
-// Simple lower registers r0..r15 
-def lGPR8 : RegisterClass<"AVR", [i8], 8, (trunc GPR8, 16)>;
-
-// Simple lower registers r16..r31 
-def hGPR8 : RegisterClass<"AVR", [i8], 8, (sub GPR8, lGPR8)>;
-
-// Simple lower registers r16..r31 
-def simplehGPR8 : RegisterClass<"AVR", [i8], 8, (trunc hGPR8, 8)>;
-
-// Special upper registers
-def specialUpperGPR8 : RegisterClass<"AVR", [i8], 8,
+def GPR8 : RegisterClass<"AVR", [i8], 8,
   (
-    add R24, R26, R28, R30
+    // return value and arguments
+    add R24, R25, R18, R19, R20, R21, R22, R23,
+    // scratch registers
+    R30, R31, R26, R27,
+    // callee saved registers
+    R28, R29, R17, R16, R15, R14, R13, R12, R11, R10,
+    R9, R8, R7, R6, R5, R4, R3, R2, R0, R1
+  )>;
+  
+// Simple lower registers r0..r15 
+def GPR8lo : RegisterClass<"AVR", [i8], 8,
+  (
+    add R15, R14, R13, R12, R11, R10, R9, R8, R7, R6, R5, R4, R3, R2, R0, R1
+  )>;
+
+// Simple lower registers r16..r31 
+def LD8lo : RegisterClass<"AVR", [i8], 8,
+  (
+    add R23, R22, R21, R20, R19, R18, R17, R16
   )>;
 
 // 8 bit register class for imm instructions

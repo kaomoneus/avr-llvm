@@ -17,7 +17,7 @@ define void @input_operand(i8 %a) {
 ;CHECK: simple_upper_regs:
 define void @simple_upper_regs(i8 %p0, i8 %p1, i8 %p2, i8 %p3,
                                i8 %p4, i8 %p5, i8 %p6, i8 %p7) {
-  ;CHECK: some_instr r17, r22, r20, r18, r16, r23, r21, r19
+  ;CHECK: some_instr r17, r22, r20, r18, r16, r19, r21, r23
   call void asm sideeffect "some_instr $0, $1, $2, $3, $4, $5, $6, $7",
                            "a,a,a,a,a,a,a,a" (i8 %p0, i8 %p1, i8 %p2, i8 %p3,
                                               i8 %p4, i8 %p5, i8 %p6, i8 %p7) nounwind
@@ -33,14 +33,14 @@ define void @upper_regs(i8 %p0) {
 
 ;CHECK: lower_regs:
 define void @lower_regs(i8 %p0) {
-  ;CHECK: some_instr r2
+  ;CHECK: some_instr r15
   call void asm sideeffect "some_instr $0", "l" (i8 %p0) nounwind
   ret void
 }
 
 ;CHECK: special_upper_regs:
 define void @special_upper_regs(i8 %p0, i8 %p1, i8 %p2, i8 %p3) {
-  ;CHECK: some_instr r24,r28,r30,r26
+  ;CHECK: some_instr r24,r28,r26,r30
   call void asm sideeffect "some_instr $0,$1,$2,$3", "w,w,w,w" (i8 %p0, i8 %p1, i8 %p2, i8 %p3) nounwind
   ret void
 }
