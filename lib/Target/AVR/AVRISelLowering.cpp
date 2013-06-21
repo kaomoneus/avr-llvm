@@ -1496,22 +1496,24 @@ AVRTargetLowering::getConstraintType(const std::string &Constraint) const
     case 'P':
     case 'R':
       return C_Other;
+    default:
+      break;
     }
   }
+
   return TargetLowering::getConstraintType(Constraint);
 }
 
 AVRTargetLowering::ConstraintWeight
-AVRTargetLowering::getSingleConstraintMatchWeight(
-    AsmOperandInfo &info, const char *constraint) const
+AVRTargetLowering::getSingleConstraintMatchWeight(AsmOperandInfo &info,
+                                                  const char *constraint) const
 {
-
   ConstraintWeight weight = CW_Invalid;
   Value *CallOperandVal = info.CallOperandVal;
 
   // If we don't have a value, we can't do a match,
   // but allow it at the lowest weight.
-  // (this behaviour has been copied from ARM backend)
+  // (this behaviour has been copied from the ARM backend)
   if (CallOperandVal == NULL)
   {
     return CW_Default;
@@ -1523,13 +1525,11 @@ AVRTargetLowering::getSingleConstraintMatchWeight(
   default:
     weight = TargetLowering::getSingleConstraintMatchWeight(info, constraint);
     break;
-
   case 'd':
   case 'r':
   case 'l':
     weight = CW_Register;
     break;
-
   case 'a':
   case 'b':
   case 'e':
@@ -1541,27 +1541,107 @@ AVRTargetLowering::getSingleConstraintMatchWeight(
   case 'z':
     weight = CW_SpecificReg;
     break;
-
   case 'G':
+    if (const ConstantFP *C = dyn_cast<ConstantFP>(CallOperandVal))
+    {
+      if (C->isZero())
+      {
+        weight = CW_Constant;
+      }
+    }
+    break;
   case 'I':
+    if (const ConstantInt *C = dyn_cast<ConstantInt>(CallOperandVal))
+    {
+      if (isUInt<6>(C->getZExtValue()))
+      {
+        weight = CW_Constant;
+      }
+    }
+    break;
   case 'J':
+    if (const ConstantInt *C = dyn_cast<ConstantInt>(CallOperandVal))
+    {
+      if ((C->getSExtValue() >= -63) && (C->getSExtValue() <= 0))
+      {
+        weight = CW_Constant;
+      }
+    }
+    break;
   case 'K':
+    if (const ConstantInt *C = dyn_cast<ConstantInt>(CallOperandVal))
+    {
+      if (C->getZExtValue() == 2)
+      {
+        weight = CW_Constant;
+      }
+    }
+    break;
   case 'L':
+    if (const ConstantInt *C = dyn_cast<ConstantInt>(CallOperandVal))
+    {
+      if (C->getZExtValue() == 0)
+      {
+        weight = CW_Constant;
+      }
+    }
+    break;
   case 'M':
+    if (const ConstantInt *C = dyn_cast<ConstantInt>(CallOperandVal))
+    {
+      if (isUInt<8>(C->getZExtValue()))
+      {
+        weight = CW_Constant;
+      }
+    }
+    break;
   case 'N':
+    if (const ConstantInt *C = dyn_cast<ConstantInt>(CallOperandVal))
+    {
+      if (C->getSExtValue() == -1)
+      {
+        weight = CW_Constant;
+      }
+    }
+    break;
   case 'O':
+    if (const ConstantInt *C = dyn_cast<ConstantInt>(CallOperandVal))
+    {
+      if ((C->getZExtValue() == 8) || (C->getZExtValue() == 16)
+          || (C->getZExtValue() == 24))
+      {
+        weight = CW_Constant;
+      }
+    }
+    break;
   case 'P':
+    if (const ConstantInt *C = dyn_cast<ConstantInt>(CallOperandVal))
+    {
+      if (C->getZExtValue() == 1)
+      {
+        weight = CW_Constant;
+      }
+    }
+    break;
   case 'R':
-    weight = CW_Constant;
+    if (const ConstantInt *C = dyn_cast<ConstantInt>(CallOperandVal))
+    {
+      if ((C->getSExtValue() >= -6) && (C->getSExtValue() <= 5))
+      {
+        weight = CW_Constant;
+      }
+    }
     break;
   }
+
   return weight;
 }
 
-std::pair<unsigned, const TargetRegisterClass*> AVRTargetLowering::
-getRegForInlineAsmConstraint(const std::string &Constraint, EVT VT) const
+std::pair<unsigned, const TargetRegisterClass *>
+AVRTargetLowering::getRegForInlineAsmConstraint(const std::string &Constraint,
+                                                EVT VT) const
 {
-  // We support i8 and i16 only.
+  // We only support i8 and i16.
   assert((VT == MVT::i16 || VT == MVT::i8) && "Wrong operand type.");
 
   if (Constraint.size() == 1)
@@ -1572,7 +1652,7 @@ getRegForInlineAsmConstraint(const std::string &Constraint, EVT VT) const
       return std::make_pair(0U, &AVR::LD8loRegClass);
     case 'b': // Base pointer registers: y, z.
       return std::make_pair(0U, &AVR::PTRDISPREGSRegClass);
-    case 'd': // Upper registers r16..r32.
+    case 'd': // Upper registers r16..r31.
       return std::make_pair(0U, &AVR::LD8RegClass);
     case 'l': // Lower registers r0..r15.
       return std::make_pair(0U, &AVR::GPR8loRegClass);
@@ -1583,35 +1663,42 @@ getRegForInlineAsmConstraint(const std::string &Constraint, EVT VT) const
     case 'r': // Any register: r0..r31.
       return std::make_pair(0U, &AVR::GPR8RegClass);
     case 't': // Temporary register: r0.
-      return std::make_pair((unsigned)AVR::R0, &AVR::GPR8RegClass);
+      return std::make_pair(unsigned(AVR::R0), &AVR::GPR8RegClass);
     case 'w': // Special upper register pairs: r24, r26, r28, r30.
       return std::make_pair(0U, &AVR::IWREGSRegClass);
     case 'x': // Pointer register pair X: r27:r26.
-      return std::make_pair((unsigned)AVR::R27R26, &AVR::PTRREGSRegClass);
+      return std::make_pair(unsigned(AVR::R27R26), &AVR::PTRREGSRegClass);
     case 'y': // Pointer register pair Y: r29:r28.
-      return std::make_pair((unsigned)AVR::R29R28, &AVR::PTRREGSRegClass);
+      return std::make_pair(unsigned(AVR::R29R28), &AVR::PTRREGSRegClass);
     case 'z': // Pointer register pair Z: r31:r30.
-      return std::make_pair((unsigned)AVR::R31R30, &AVR::PTRREGSRegClass);
+      return std::make_pair(unsigned(AVR::R31R30), &AVR::PTRREGSRegClass);
+    default:
+      break;
     }
   }
+
   return TargetLowering::getRegForInlineAsmConstraint(Constraint, VT);
 }
 
 void AVRTargetLowering::LowerAsmOperandForConstraint(SDValue Op,
                                                      std::string &Constraint,
-                                                     std::vector<SDValue>&Ops,
+                                                     std::vector<SDValue> &Ops,
                                                      SelectionDAG &DAG) const
 {
   SDValue Result(0, 0);
   EVT Ty = Op.getValueType();
 
   // Currently only support length 1 constraints.
-  if (Constraint.length() != 1) return;
+  if (Constraint.length() != 1)
+  {
+    return;
+  }
 
   char ConstraintLetter = Constraint[0];
   switch (ConstraintLetter)
   {
-  default: break;
+  default:
+    break;
   // Deal with integers first:
   case 'I':
   case 'J':
@@ -1622,78 +1709,75 @@ void AVRTargetLowering::LowerAsmOperandForConstraint(SDValue Op,
   case 'O':
   case 'P':
   case 'R':
-  {
-    ConstantSDNode *C = dyn_cast<ConstantSDNode>(Op);
-    if (!C)
-      return;
+    {
+      const ConstantSDNode *C = dyn_cast<ConstantSDNode>(Op);
+      if (!C)
+      {
+        return;
+      }
 
-    int64_t CVal64 = C->getSExtValue();
-    uint64_t CUVal64 = C->getZExtValue();
+      int64_t CVal64 = C->getSExtValue();
+      uint64_t CUVal64 = C->getZExtValue();
+      switch (ConstraintLetter)
+      {
+      case 'I': // 0..63
+        if (!isUInt<6>(CUVal64)) return;
+        Result = DAG.getTargetConstant(CUVal64, Ty);
+        break;
+      case 'J': // -63..0
+        if (CVal64 < -63 || CVal64 > 0) return;
+        Result = DAG.getTargetConstant(CVal64, Ty);
+        break;
+      case 'K': // 2
+        if (CUVal64 != 2) return;
+        Result = DAG.getTargetConstant(CUVal64, Ty);
+        break;
+      case 'L': // 0
+        if (CUVal64 != 0) return;
+        Result = DAG.getTargetConstant(CUVal64, Ty);
+        break;
+      case 'M': // 0..255
+        if (!isUInt<8>(CUVal64)) return;
+        // i8 type may be printed as a negative number,
+        // e.g. 254 would be printed as -2,
+        // so we force it to i16 at least.
+        if (Ty.getSimpleVT() == MVT::i8)
+        {
+          Ty = MVT::i16;
+        }
+        Result = DAG.getTargetConstant(CUVal64, Ty);
+        break;
+      case 'N': // -1
+        if (CVal64 != -1) return;
+        Result = DAG.getTargetConstant(CVal64, Ty);
+        break;
+      case 'O': // 8, 16, 24
+        if (CUVal64 != 8 && CUVal64 != 16 && CUVal64 != 24) return;
+        Result = DAG.getTargetConstant(CUVal64, Ty);
+        break;
+      case 'P': // 1
+        if (CUVal64 != 1) return;
+        Result = DAG.getTargetConstant(CUVal64, Ty);
+        break;
+      case 'R': // -6..5
+        if (CVal64 < -6 || CVal64 > 5) return;
+        Result = DAG.getTargetConstant(CVal64, Ty);
+        break;
+      }
 
-    switch (ConstraintLetter) {
-    case 'I': // 0..63,
-      if (CVal64 < 0 || CVal64 > 63)
-        return;
-      Result = DAG.getTargetConstant(CVal64, Ty);
-      break;
-    case 'J': // -63..0
-      if (CVal64 < -63 || CVal64 > 0)
-        return;
-      Result = DAG.getTargetConstant(CVal64, Ty);
-      break;
-    case 'K': // 2
-      if (CVal64 != 2)
-        return;
-      Result = DAG.getTargetConstant(CVal64, Ty);
-      break;
-    case 'L': // 0
-      if (CVal64 != 0)
-        return;
-      Result = DAG.getTargetConstant(CVal64, Ty);
-      break;
-    case 'M': // 0..255
-      if (C->getAPIntValue().getActiveBits() > 8)
-        return;
-      // i8 type may be printed as negative number,
-      // e.g. 254 would be printed as -2,
-      // so we force it to i16 at least.
-      if (Ty.getSimpleVT() == MVT::i8)
-        Ty = EVT(MVT::i16);
-      Result = DAG.getTargetConstant(CUVal64, Ty);
-      break;
-    case 'N': // -1
-      if (CVal64 != -1)
-        return;
-      Result = DAG.getTargetConstant(CVal64, Ty);
-      break;
-    case 'O': // 8, 16, 24
-      if (CVal64 != 8 && CVal64 != 16 && CVal64 != 24)
-        return;
-      Result = DAG.getTargetConstant(CVal64, Ty);
-      break;
-    case 'P': // 1
-      if (CVal64 != 1)
-        return;
-      Result = DAG.getTargetConstant(CVal64, Ty);
-      break;
-    case 'R': // -6..5
-      if (CVal64 < -6 || CVal64 > 5)
-        return;
-      Result = DAG.getTargetConstant(CVal64, Ty);
       break;
     }
-    break;
-  }
   case 'G':
-    ConstantFPSDNode * C = dyn_cast<ConstantFPSDNode>(Op);
-    if (!C->isZero())
+    const ConstantFPSDNode *FC = dyn_cast<ConstantFPSDNode>(Op);
+    if (!FC || !FC->isZero())
       return;
     // Soften float to i8 0
     Result = DAG.getTargetConstant(0, MVT::i8);
     break;
   }
 
-  if (Result.getNode()) {
+  if (Result.getNode())
+  {
     Ops.push_back(Result);
     return;
   }

@@ -107,17 +107,11 @@ def GPR8 : RegisterClass<"AVR", [i8], 8,
     R28, R29, R17, R16, R15, R14, R13, R12, R11, R10,
     R9, R8, R7, R6, R5, R4, R3, R2, R0, R1
   )>;
-  
-// Simple lower registers r0..r15 
+
+// Simple lower registers r0..r15
 def GPR8lo : RegisterClass<"AVR", [i8], 8,
   (
     add R15, R14, R13, R12, R11, R10, R9, R8, R7, R6, R5, R4, R3, R2, R0, R1
-  )>;
-
-// Simple lower registers r16..r31 
-def LD8lo : RegisterClass<"AVR", [i8], 8,
-  (
-    add R23, R22, R21, R20, R19, R18, R17, R16
   )>;
 
 // 8 bit register class for imm instructions
@@ -129,6 +123,12 @@ def LD8 : RegisterClass<"AVR", [i8], 8,
     R30, R31, R26, R27,
     // callee saved registers
     R28, R29, R17, R16
+  )>;
+
+// Simple lower registers r16..r23
+def LD8lo : RegisterClass<"AVR", [i8], 8,
+  (
+    add R23, R22, R21, R20, R19, R18, R17, R16
   )>;
 
 // main 16 bit pair register class

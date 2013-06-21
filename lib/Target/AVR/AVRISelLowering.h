@@ -113,17 +113,16 @@ public: // TargetLowering
   MachineBasicBlock *EmitShiftInstr(MachineInstr *MI,
                                     MachineBasicBlock *BB) const;
 
-  // Inline Asm support
-  // Impelementation of TargetLowering hooks.
-
+  /// Inline Asm support.
+  /// Implementation of TargetLowering hooks.
   ConstraintType getConstraintType(const std::string &Constraint) const;
 
-  ConstraintWeight getSingleConstraintMatchWeight(
-    AsmOperandInfo &info, const char *constraint) const;
+  ConstraintWeight
+  getSingleConstraintMatchWeight(AsmOperandInfo &info,
+                                 const char *constraint) const;
 
-  std::pair<unsigned, const TargetRegisterClass*>
-            getRegForInlineAsmConstraint(const std::string &Constraint,
-            EVT VT) const;
+  std::pair<unsigned, const TargetRegisterClass *>
+  getRegForInlineAsmConstraint(const std::string &Constraint, EVT VT) const;
 
   void LowerAsmOperandForConstraint(SDValue Op, std::string &Constraint,
                                     std::vector<SDValue> &Ops,
