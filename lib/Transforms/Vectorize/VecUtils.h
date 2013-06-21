@@ -25,22 +25,29 @@
 
 namespace llvm {
 
-class BasicBlock; class Instruction; class Type;
-class VectorType; class StoreInst; class Value;
-class ScalarEvolution; class DataLayout;
-class TargetTransformInfo; class AliasAnalysis;
+class BasicBlock;
+class Instruction;
+class Type;
+class VectorType;
+class StoreInst;
+class Value;
+class ScalarEvolution;
+class DataLayout;
+class TargetTransformInfo;
+class AliasAnalysis;
 class Loop;
 
 /// Bottom Up SLP vectorization utility class.
-struct BoUpSLP  {
-  typedef SmallVector<Value*, 8> ValueList;
-  typedef SmallPtrSet<Value*, 16> ValueSet;
-  typedef SmallVector<StoreInst*, 8> StoreList;
-  static const int max_cost = 1<<20;
+struct BoUpSLP {
+  typedef SmallVector<Value *, 8> ValueList;
+  typedef SmallVector<Instruction *, 16> InstrList;
+  typedef SmallPtrSet<Value *, 16> ValueSet;
+  typedef SmallVector<StoreInst *, 8> StoreList;
+  static const int max_cost = 1 << 20;
 
   // \brief C'tor.
   BoUpSLP(BasicBlock *Bb, ScalarEvolution *Se, DataLayout *Dl,
-         TargetTransformInfo *Tti, AliasAnalysis *Aa, Loop *Lp);
+          TargetTransformInfo *Tti, AliasAnalysis *Aa, Loop *Lp);
 
   /// \brief Take the pointer operand from the Load/Store instruction.
   /// \returns NULL if this is not a valid Load/Store instruction.
@@ -72,12 +79,13 @@ struct BoUpSLP  {
   bool vectorizeStores(ArrayRef<StoreInst *> Stores, int costThreshold);
 
   /// \brief Vectorize a group of scalars into a vector tree.
-  void vectorizeArith(ArrayRef<Value *> Operands);
+  /// \returns the vectorized value.
+  Value *vectorizeArith(ArrayRef<Value *> Operands);
 
   /// \returns the list of new instructions that were added in order to collect
   /// scalars into vectors. This list can be used to further optimize the gather
   /// sequences.
-  ValueList &getGatherSeqInstructions() {return GatherInstructions; }
+  InstrList &getGatherSeqInstructions() { return GatherInstructions; }
 
 private:
   /// \brief This method contains the recursive part of getTreeCost.
@@ -117,7 +125,7 @@ private:
   /// Only consider the first \p VF elements.
   int getFirstUserIndex(ArrayRef<Value *> VL, unsigned VF);
 
-  /// \returns the instruction \p I or \p Jt hat appears last in the BB .
+  /// \returns the instruction \p I or \p J that appears last in the BB .
   int getLastIndex(Instruction *I, Instruction *J);
 
   /// \returns the insertion point for \p Index.
@@ -128,9 +136,9 @@ private:
 
 private:
   /// Maps instructions to numbers and back.
-  SmallDenseMap<Value*, int> InstrIdx;
+  SmallDenseMap<Value *, int> InstrIdx;
   /// Maps integers to Instructions.
-  std::vector<Instruction*> InstrVec;
+  std::vector<Instruction *> InstrVec;
 
   // -- containers that are used during getTreeCost -- //
 
@@ -142,14 +150,14 @@ private:
   /// Contains values that have users outside of the vectorized graph.
   /// We need to generate extract instructions for these values.
   /// NOTICE: The vectorization methods also use this set.
-  SetVector<Value*> MustExtract;
+  SetVector<Value *> MustExtract;
 
   /// Contains a list of values that are used outside the current tree. This
   /// set must be reset between runs.
-  SetVector<Value*> MultiUserVals;
+  SetVector<Value *> MultiUserVals;
   /// Maps values in the tree to the vector lanes that uses them. This map must
   /// be reset between runs of getCost.
-  std::map<Value*, int> LaneMap;
+  std::map<Value *, int> LaneMap;
   /// A list of instructions to ignore while sinking
   /// memory instructions. This map must be reset between runs of getCost.
   ValueSet MemBarrierIgnoreList;
@@ -157,15 +165,17 @@ private:
   // -- Containers that are used during vectorizeTree -- //
 
   /// Maps between the first scalar to the vector. This map must be reset
-  ///between runs.
-  DenseMap<Value*, Value*> VectorizedValues;
+  /// between runs.
+  DenseMap<Value *, Value *> VectorizedValues;
 
   // -- Containers that are used after vectorization by the caller -- //
 
   /// A list of instructions that are used when gathering scalars into vectors.
   /// In many cases these instructions can be hoisted outside of the BB.
   /// Iterating over this list is faster than calling LICM.
-  ValueList GatherInstructions;
+  /// Notice: We insert NULL ptrs to separate between the different gather
+  /// sequences.
+  InstrList GatherInstructions;
 
   /// Instruction builder to construct the vectorized tree.
   IRBuilder<> Builder;

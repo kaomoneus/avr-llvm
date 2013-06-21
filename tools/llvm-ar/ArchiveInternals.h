@@ -11,11 +11,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LIB_ARCHIVE_ARCHIVEINTERNALS_H
-#define LIB_ARCHIVE_ARCHIVEINTERNALS_H
+#ifndef TOOLS_LLVM_AR_ARCHIVEINTERNALS_H
+#define TOOLS_LLVM_AR_ARCHIVEINTERNALS_H
 
+#include "Archive.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/Bitcode/Archive.h"
 #include "llvm/Support/TimeValue.h"
 #include <cstring>
 
@@ -68,18 +68,6 @@ namespace llvm {
       return 0 == memcmp(fmag, ARFILE_MEMBER_MAGIC,2);
     }
   };
-  
-  // Get just the externally visible defined symbols from the bitcode
-  bool GetBitcodeSymbols(const sys::Path& fName,
-                          LLVMContext& Context,
-                          std::vector<std::string>& symbols,
-                          std::string* ErrMsg);
-  
-  Module* GetBitcodeSymbols(const char *Buffer, unsigned Length,
-                            const std::string& ModuleID,
-                            LLVMContext& Context,
-                            std::vector<std::string>& symbols,
-                            std::string* ErrMsg);
 }
 
 #endif

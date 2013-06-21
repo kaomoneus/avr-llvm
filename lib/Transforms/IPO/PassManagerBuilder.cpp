@@ -32,12 +32,6 @@ static cl::opt<bool>
 RunLoopVectorization("vectorize-loops",
                      cl::desc("Run the Loop vectorization passes"));
 
-// This is a helper flag that we use for testing the profitability of
-// vectorization on -O2 and -Os. It should go away once we make a decision.
-static cl::opt<bool>
-VectorizeO2("vectorize-o2",
-            cl::desc("Enable vectorization on all O levels"));
-
 static cl::opt<bool>
 RunSLPVectorization("vectorize-slp",
                     cl::desc("Run the SLP vectorization passes"));
@@ -60,7 +54,6 @@ PassManagerBuilder::PassManagerBuilder() {
     SizeLevel = 0;
     LibraryInfo = 0;
     Inliner = 0;
-    DisableSimplifyLibCalls = false;
     DisableUnitAtATime = false;
     DisableUnrollLoops = false;
     BBVectorize = RunBBVectorization;
@@ -180,8 +173,6 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
   else
     MPM.add(createScalarReplAggregatesPass(-1, false));
   MPM.add(createEarlyCSEPass());              // Catch trivial redundancies
-  if (!DisableSimplifyLibCalls)
-    MPM.add(createSimplifyLibCallsPass());    // Library Call Optimizations
   MPM.add(createJumpThreadingPass());         // Thread jumps.
   MPM.add(createCorrelatedValuePropagationPass()); // Propagate conditionals
   MPM.add(createCFGSimplificationPass());     // Merge & remove BBs
@@ -198,7 +189,7 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
   MPM.add(createLoopIdiomPass());             // Recognize idioms like memset.
   MPM.add(createLoopDeletionPass());          // Delete dead loops
 
-  if (LoopVectorize && (OptLevel > 2 || VectorizeO2))
+  if (LoopVectorize && OptLevel > 1 && SizeLevel < 2)
     MPM.add(createLoopVectorizePass());
 
   if (!DisableUnrollLoops)
@@ -385,8 +376,7 @@ LLVMPassManagerBuilderSetDisableUnrollLoops(LLVMPassManagerBuilderRef PMB,
 void
 LLVMPassManagerBuilderSetDisableSimplifyLibCalls(LLVMPassManagerBuilderRef PMB,
                                                  LLVMBool Value) {
-  PassManagerBuilder *Builder = unwrap(PMB);
-  Builder->DisableSimplifyLibCalls = Value;
+  // NOTE: The simplify-libcalls pass has been removed.
 }
 
 void

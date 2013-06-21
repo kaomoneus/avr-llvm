@@ -33,6 +33,7 @@
 #include "llvm/ADT/Twine.h"
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/TimeValue.h"
 #include "llvm/Support/system_error.h"
 #include <ctime>
 #include <iterator>
@@ -151,6 +152,9 @@ class file_status
   #if defined(LLVM_ON_UNIX)
   dev_t fs_st_dev;
   ino_t fs_st_ino;
+  time_t fs_st_mtime;
+  uid_t fs_st_uid;
+  gid_t fs_st_gid;
   #elif defined (LLVM_ON_WIN32)
   uint32_t LastWriteTimeHigh;
   uint32_t LastWriteTimeLow;
@@ -162,6 +166,7 @@ class file_status
   #endif
   friend bool equivalent(file_status A, file_status B);
   friend error_code status(const Twine &path, file_status &result);
+  friend error_code getUniqueID(const Twine Path, uint64_t &Result);
   file_type Type;
   perms Perms;
 public:
@@ -172,7 +177,20 @@ public:
   // getters
   file_type type() const { return Type; }
   perms permissions() const { return Perms; }
-  
+  TimeValue getLastModificationTime() const;
+
+  #if defined(LLVM_ON_UNIX)
+  uint32_t getUser() const { return fs_st_uid; }
+  uint32_t getGroup() const { return fs_st_gid; }
+  #elif defined (LLVM_ON_WIN32)
+  uint32_t getUser() const {
+    return 9999; // Not applicable to Windows, so...
+  }
+  uint32_t getGroup() const {
+    return 9999; // Not applicable to Windows, so...
+  }
+  #endif
+
   // setters
   void type(file_type v) { Type = v; }
   void permissions(perms p) { Perms = p; }
@@ -199,6 +217,7 @@ struct file_magic {
     macho_bundle,             ///< Mach-O Bundle file
     macho_dynamically_linked_shared_lib_stub, ///< Mach-O Shared lib stub
     macho_dsym_companion,     ///< Mach-O dSYM companion file
+    macho_universal_binary,   ///< Mach-O universal binary
     coff_object,              ///< COFF object file
     pecoff_executable         ///< PECOFF executable file
   };
@@ -292,6 +311,13 @@ error_code current_path(SmallVectorImpl<char> &result);
 ///          successfully set, otherwise a platform specific error_code.
 error_code remove(const Twine &path, bool &existed);
 
+/// @brief Convenience function for clients that don't need to know if the file
+///        existed or not.
+inline error_code remove(const Twine &Path) {
+  bool Existed;
+  return remove(Path, Existed);
+}
+
 /// @brief Recursively remove all files below \a path, then \a path. Files are
 ///        removed as if by POSIX remove().
 ///
@@ -347,6 +373,12 @@ inline bool exists(const Twine &path) {
 /// @param Path Input path.
 /// @returns True if we can execute it, false otherwise.
 bool can_execute(const Twine &Path);
+
+/// @brief Can we write this file?
+///
+/// @param Path Input path.
+/// @returns True if we can write to it, false otherwise.
+bool can_write(const Twine &Path);
 
 /// @brief Do file_status's represent the same thing?
 ///
@@ -464,6 +496,8 @@ error_code status(const Twine &path, file_status &result);
 ///          platform specific error_code.
 error_code permissions(const Twine &path, perms prms);
 
+error_code setLastModificationAndAccessTime(int FD, TimeValue Time);
+
 /// @brief Is status available?
 ///
 /// @param s Input file status.
@@ -500,6 +534,10 @@ error_code status_known(const Twine &path, bool &result);
 error_code unique_file(const Twine &model, int &result_fd,
                        SmallVectorImpl<char> &result_path,
                        bool makeAbsolute = true, unsigned mode = 0600);
+
+/// @brief Simpler version for clients that don't want an open file.
+error_code unique_file(const Twine &Model, SmallVectorImpl<char> &ResultPath,
+                       bool MakeAbsolute = true, unsigned Mode = 0600);
 
 /// @brief Canonicalize path.
 ///
@@ -544,43 +582,7 @@ file_magic identify_magic(StringRef magic);
 ///          platform specific error_code.
 error_code identify_magic(const Twine &path, file_magic &result);
 
-/// @brief Get library paths the system linker uses.
-///
-/// @param result Set to the list of system library paths.
-/// @returns errc::success if result has been successfully set, otherwise a
-///          platform specific error_code.
-error_code GetSystemLibraryPaths(SmallVectorImpl<std::string> &result);
-
-/// @brief Get bitcode library paths the system linker uses
-///        + LLVM_LIB_SEARCH_PATH + LLVM_LIBDIR.
-///
-/// @param result Set to the list of bitcode library paths.
-/// @returns errc::success if result has been successfully set, otherwise a
-///          platform specific error_code.
-error_code GetBitcodeLibraryPaths(SmallVectorImpl<std::string> &result);
-
-/// @brief Find a library.
-///
-/// Find the path to a library using its short name. Use the system
-/// dependent library paths to locate the library.
-///
-/// c => /usr/lib/libc.so
-///
-/// @param short_name Library name one would give to the system linker.
-/// @param result Set to the absolute path \a short_name represents.
-/// @returns errc::success if result has been successfully set, otherwise a
-///          platform specific error_code.
-error_code FindLibrary(const Twine &short_name, SmallVectorImpl<char> &result);
-
-/// @brief Get absolute path of main executable.
-///
-/// @param argv0 The program name as it was spelled on the command line.
-/// @param MainAddr Address of some symbol in the executable (not in a library).
-/// @param result Set to the absolute path of the current executable.
-/// @returns errc::success if result has been successfully set, otherwise a
-///          platform specific error_code.
-error_code GetMainExecutable(const char *argv0, void *MainAddr,
-                             SmallVectorImpl<char> &result);
+error_code getUniqueID(const Twine Path, uint64_t &Result);
 
 /// This class represents a memory mapped file. It is based on
 /// boost::iostreams::mapped_file.

@@ -19,15 +19,16 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/LiveIntervalAnalysis.h"
 #include "llvm/CodeGen/LiveStackAnalysis.h"
+#include "llvm/CodeGen/MachineBlockFrequencyInfo.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineLoopInfo.h"
 #include "llvm/CodeGen/MachineMemOperand.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/PseudoSourceValue.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetInstrInfo.h"
 #include "llvm/Target/TargetMachine.h"
 #include <vector>
@@ -48,7 +49,7 @@ namespace {
     LiveStacks* LS;
     MachineFrameInfo *MFI;
     const TargetInstrInfo  *TII;
-    const MachineLoopInfo *loopInfo;
+    const MachineBlockFrequencyInfo *MBFI;
 
     // SSIntervals - Spill slot intervals.
     std::vector<LiveInterval*> SSIntervals;
@@ -89,8 +90,8 @@ namespace {
       AU.addRequired<SlotIndexes>();
       AU.addPreserved<SlotIndexes>();
       AU.addRequired<LiveStacks>();
-      AU.addRequired<MachineLoopInfo>();
-      AU.addPreserved<MachineLoopInfo>();
+      AU.addRequired<MachineBlockFrequencyInfo>();
+      AU.addPreserved<MachineBlockFrequencyInfo>();
       AU.addPreservedID(MachineDominatorsID);
       MachineFunctionPass::getAnalysisUsage(AU);
     }
@@ -139,7 +140,7 @@ void StackSlotColoring::ScanForSpillSlotRefs(MachineFunction &MF) {
   for (MachineFunction::iterator MBBI = MF.begin(), E = MF.end();
        MBBI != E; ++MBBI) {
     MachineBasicBlock *MBB = &*MBBI;
-    unsigned loopDepth = loopInfo->getLoopDepth(MBB);
+    BlockFrequency Freq = MBFI->getBlockFreq(MBB);
     for (MachineBasicBlock::iterator MII = MBB->begin(), EE = MBB->end();
          MII != EE; ++MII) {
       MachineInstr *MI = &*MII;
@@ -154,7 +155,7 @@ void StackSlotColoring::ScanForSpillSlotRefs(MachineFunction &MF) {
           continue;
         LiveInterval &li = LS->getInterval(FI);
         if (!MI->isDebugValue())
-          li.weight += LiveIntervals::getSpillWeight(false, true, loopDepth);
+          li.weight += LiveIntervals::getSpillWeight(false, true, Freq);
         SSRefs[FI].push_back(MI);
       }
     }
@@ -396,7 +397,7 @@ bool StackSlotColoring::runOnMachineFunction(MachineFunction &MF) {
   MFI = MF.getFrameInfo();
   TII = MF.getTarget().getInstrInfo();
   LS = &getAnalysis<LiveStacks>();
-  loopInfo = &getAnalysis<MachineLoopInfo>();
+  MBFI = &getAnalysis<MachineBlockFrequencyInfo>();
 
   bool Changed = false;
 

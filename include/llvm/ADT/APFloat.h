@@ -300,6 +300,8 @@ public:
   /// IEEE-754R 5.3.1: nextUp/nextDown.
   opStatus next(bool nextDown);
 
+  /// @}
+
   /// \name Sign operations.
   /// @{
 
@@ -362,7 +364,7 @@ public:
   ///
   /// The current implementation of isNormal() differs from this by treating
   /// subnormal values as normal values.
-  bool isIEEENormal() const { return !isDenormal() && isNormal(); }
+  bool isNormal() const { return !isDenormal() && isFiniteNonZero(); }
 
   /// Returns true if and only if the current value is zero, subnormal, or
   /// normal.
@@ -394,9 +396,17 @@ public:
   fltCategory getCategory() const { return category; }
   const fltSemantics &getSemantics() const { return *semantics; }
   bool isNonZero() const { return category != fcZero; }
-  bool isNormal() const { return category == fcNormal; }
+  bool isFiniteNonZero() const { return isFinite() && !isZero(); }
   bool isPosZero() const { return isZero() && !isNegative(); }
   bool isNegZero() const { return isZero() && isNegative(); }
+
+  /// Returns true if and only if the number has the smallest possible non-zero
+  /// magnitude in the current semantics.
+  bool isSmallest() const;
+
+  /// Returns true if and only if the number has the largest possible finite
+  /// magnitude in the current semantics.
+  bool isLargest() const;
 
   /// @}
 
@@ -491,18 +501,6 @@ private:
   void makeNaN(bool SNaN = false, bool Neg = false, const APInt *fill = 0);
   static APFloat makeNaN(const fltSemantics &Sem, bool SNaN, bool Negative,
                          const APInt *fill);
-
-  /// @}
-
-  /// \name Special value queries only useful internally to APFloat
-  /// @{
-
-  /// Returns true if and only if the number has the smallest possible non-zero
-  /// magnitude in the current semantics.
-  bool isSmallest() const;
-  /// Returns true if and only if the number has the largest possible finite
-  /// magnitude in the current semantics.
-  bool isLargest() const;
 
   /// @}
 

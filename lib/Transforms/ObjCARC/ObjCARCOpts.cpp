@@ -465,6 +465,10 @@ namespace {
 
     void clear();
 
+    /// Conservatively merge the two RRInfo. Returns true if a partial merge has
+    /// occured, false otherwise.
+    bool Merge(const RRInfo &Other);
+
     bool IsTrackingImpreciseReleases() {
       return ReleaseMetadata != 0;
     }
@@ -478,6 +482,29 @@ void RRInfo::clear() {
   Calls.clear();
   ReverseInsertPts.clear();
   CFGHazardAfflicted = false;
+}
+
+bool RRInfo::Merge(const RRInfo &Other) {
+    // Conservatively merge the ReleaseMetadata information.
+    if (ReleaseMetadata != Other.ReleaseMetadata)
+      ReleaseMetadata = 0;
+
+    // Conservatively merge the boolean state.
+    KnownSafe &= Other.KnownSafe;
+    IsTailCallRelease &= Other.IsTailCallRelease;
+    CFGHazardAfflicted |= Other.CFGHazardAfflicted;
+
+    // Merge the call sets.
+    Calls.insert(Other.Calls.begin(), Other.Calls.end());
+
+    // Merge the insert point sets. If there are any differences,
+    // that makes this a partial merge.
+    bool Partial = ReverseInsertPts.size() != Other.ReverseInsertPts.size();
+    for (SmallPtrSet<Instruction *, 2>::const_iterator
+         I = Other.ReverseInsertPts.begin(),
+         E = Other.ReverseInsertPts.end(); I != E; ++I)
+      Partial |= ReverseInsertPts.insert(*I);
+    return Partial;
 }
 
 namespace {
@@ -502,6 +529,31 @@ namespace {
 
     PtrState() : KnownPositiveRefCount(false), Partial(false),
                  Seq(S_None) {}
+
+
+    bool IsKnownSafe() const {
+      return RRI.KnownSafe;    
+    }
+
+    void SetKnownSafe(const bool NewValue) {
+      RRI.KnownSafe = NewValue;
+    }
+
+    bool IsTailCallRelease() const {
+      return RRI.IsTailCallRelease;
+    }
+
+    void SetTailCallRelease(const bool NewValue) {
+      RRI.IsTailCallRelease = NewValue;
+    }
+
+    const MDNode *GetReleaseMetadata() const {
+      return RRI.ReleaseMetadata;
+    }
+
+    void SetReleaseMetadata(MDNode *NewValue) {
+      RRI.ReleaseMetadata = NewValue;
+    }
 
     void SetKnownPositiveRefCount() {
       DEBUG(dbgs() << "Setting Known Positive.\n");
@@ -544,7 +596,7 @@ namespace {
 void
 PtrState::Merge(const PtrState &Other, bool TopDown) {
   Seq = MergeSeqs(Seq, Other.Seq, TopDown);
-  KnownPositiveRefCount = KnownPositiveRefCount && Other.KnownPositiveRefCount;
+  KnownPositiveRefCount &= Other.KnownPositiveRefCount;
 
   // If we're not in a sequence (anymore), drop all associated state.
   if (Seq == S_None) {
@@ -557,23 +609,11 @@ PtrState::Merge(const PtrState &Other, bool TopDown) {
     // mixing them is unsafe.
     ClearSequenceProgress();
   } else {
-    // Conservatively merge the ReleaseMetadata information.
-    if (RRI.ReleaseMetadata != Other.RRI.ReleaseMetadata)
-      RRI.ReleaseMetadata = 0;
-
-    RRI.KnownSafe = RRI.KnownSafe && Other.RRI.KnownSafe;
-    RRI.IsTailCallRelease = RRI.IsTailCallRelease &&
-                            Other.RRI.IsTailCallRelease;
-    RRI.Calls.insert(Other.RRI.Calls.begin(), Other.RRI.Calls.end());
-    RRI.CFGHazardAfflicted |= Other.RRI.CFGHazardAfflicted;
-
-    // Merge the insert point sets. If there are any differences,
-    // that makes this a partial merge.
-    Partial = RRI.ReverseInsertPts.size() != Other.RRI.ReverseInsertPts.size();
-    for (SmallPtrSet<Instruction *, 2>::const_iterator
-         I = Other.RRI.ReverseInsertPts.begin(),
-         E = Other.RRI.ReverseInsertPts.end(); I != E; ++I)
-      Partial |= RRI.ReverseInsertPts.insert(*I);
+    // Otherwise merge the other PtrState's RRInfo into our RRInfo. At this
+    // point, we know that currently we are not partial. Stash whether or not
+    // the merge operation caused us to undergo a partial merging of reverse
+    // insertion points.
+    Partial = RRI.Merge(Other.RRI);
   }
 }
 
@@ -1708,7 +1748,7 @@ static void CheckForUseCFGHazard(const Sequence SuccSSeq,
                                  bool &ShouldContinue) {
   switch (SuccSSeq) {
   case S_CanRelease: {
-    if (!S.RRI.KnownSafe && !SuccSRRIKnownSafe) {
+    if (!S.IsKnownSafe() && !SuccSRRIKnownSafe) {
       S.ClearSequenceProgress();
       break;
     }
@@ -1722,7 +1762,7 @@ static void CheckForUseCFGHazard(const Sequence SuccSSeq,
   case S_Stop:
   case S_Release:
   case S_MovableRelease:
-    if (!S.RRI.KnownSafe && !SuccSRRIKnownSafe)
+    if (!S.IsKnownSafe() && !SuccSRRIKnownSafe)
       AllSuccsHaveSame = false;
     else
       NotAllSeqEqualButKnownSafe = true;
@@ -1751,7 +1791,7 @@ static void CheckForCanReleaseCFGHazard(const Sequence SuccSSeq,
   case S_Release:
   case S_MovableRelease:
   case S_Use:
-    if (!S.RRI.KnownSafe && !SuccSRRIKnownSafe)
+    if (!S.IsKnownSafe() && !SuccSRRIKnownSafe)
       AllSuccsHaveSame = false;
     else
       NotAllSeqEqualButKnownSafe = true;
@@ -1815,7 +1855,7 @@ ObjCARCOpt::CheckForCFGHazards(const BasicBlock *BB,
 
       // If we have S_Use or S_CanRelease, perform our check for cfg hazard
       // checks.
-      const bool SuccSRRIKnownSafe = SuccS.RRI.KnownSafe;
+      const bool SuccSRRIKnownSafe = SuccS.IsKnownSafe();
 
       // *NOTE* We do not use Seq from above here since we are allowing for
       // S.GetSeq() to change while we are visiting basic blocks.
@@ -1892,9 +1932,9 @@ ObjCARCOpt::VisitInstructionBottomUp(Instruction *Inst,
     Sequence NewSeq = ReleaseMetadata ? S_MovableRelease : S_Release;
     ANNOTATE_BOTTOMUP(Inst, Arg, S.GetSeq(), NewSeq);
     S.ResetSequenceProgress(NewSeq);
-    S.RRI.ReleaseMetadata = ReleaseMetadata;
-    S.RRI.KnownSafe = S.HasKnownPositiveRefCount();
-    S.RRI.IsTailCallRelease = cast<CallInst>(Inst)->isTailCall();
+    S.SetReleaseMetadata(ReleaseMetadata);
+    S.SetKnownSafe(S.HasKnownPositiveRefCount());
+    S.SetTailCallRelease(cast<CallInst>(Inst)->isTailCall());
     S.RRI.Calls.insert(Inst);
     S.SetKnownPositiveRefCount();
     break;
@@ -2151,7 +2191,7 @@ ObjCARCOpt::VisitInstructionTopDown(Instruction *Inst,
 
       ANNOTATE_TOPDOWN(Inst, Arg, S.GetSeq(), S_Retain);
       S.ResetSequenceProgress(S_Retain);
-      S.RRI.KnownSafe = S.HasKnownPositiveRefCount();
+      S.SetKnownSafe(S.HasKnownPositiveRefCount());
       S.RRI.Calls.insert(Inst);
     }
 
@@ -2178,8 +2218,8 @@ ObjCARCOpt::VisitInstructionTopDown(Instruction *Inst,
         S.RRI.ReverseInsertPts.clear();
       // FALL THROUGH
     case S_Use:
-      S.RRI.ReleaseMetadata = ReleaseMetadata;
-      S.RRI.IsTailCallRelease = cast<CallInst>(Inst)->isTailCall();
+      S.SetReleaseMetadata(ReleaseMetadata);
+      S.SetTailCallRelease(cast<CallInst>(Inst)->isTailCall());
       Releases[Inst] = S.RRI;
       ANNOTATE_TOPDOWN(Inst, Arg, S.GetSeq(), S_None);
       S.ClearSequenceProgress();

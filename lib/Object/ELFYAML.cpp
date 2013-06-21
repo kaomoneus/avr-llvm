@@ -212,6 +212,33 @@ void ScalarEnumerationTraits<ELFYAML::ELF_ELFDATA>::enumeration(
 #undef ECase
 }
 
+void ScalarEnumerationTraits<ELFYAML::ELF_ELFOSABI>::enumeration(
+    IO &IO, ELFYAML::ELF_ELFOSABI &Value) {
+#define ECase(X) IO.enumCase(Value, #X, ELF::X);
+  ECase(ELFOSABI_NONE)
+  ECase(ELFOSABI_HPUX)
+  ECase(ELFOSABI_NETBSD)
+  ECase(ELFOSABI_GNU)
+  ECase(ELFOSABI_GNU)
+  ECase(ELFOSABI_HURD)
+  ECase(ELFOSABI_SOLARIS)
+  ECase(ELFOSABI_AIX)
+  ECase(ELFOSABI_IRIX)
+  ECase(ELFOSABI_FREEBSD)
+  ECase(ELFOSABI_TRU64)
+  ECase(ELFOSABI_MODESTO)
+  ECase(ELFOSABI_OPENBSD)
+  ECase(ELFOSABI_OPENVMS)
+  ECase(ELFOSABI_NSK)
+  ECase(ELFOSABI_AROS)
+  ECase(ELFOSABI_FENIXOS)
+  ECase(ELFOSABI_C6000_ELFABI)
+  ECase(ELFOSABI_C6000_LINUX)
+  ECase(ELFOSABI_ARM)
+  ECase(ELFOSABI_STANDALONE)
+#undef ECase
+}
+
 void ScalarEnumerationTraits<ELFYAML::ELF_SHT>::enumeration(
     IO &IO, ELFYAML::ELF_SHT &Value) {
 #define ECase(X) IO.enumCase(Value, #X, ELF::X);
@@ -251,13 +278,43 @@ void ScalarBitSetTraits<ELFYAML::ELF_SHF>::bitset(IO &IO,
 #undef BCase
 }
 
+void ScalarEnumerationTraits<ELFYAML::ELF_STT>::enumeration(
+    IO &IO, ELFYAML::ELF_STT &Value) {
+#define ECase(X) IO.enumCase(Value, #X, ELF::X);
+  ECase(STT_NOTYPE)
+  ECase(STT_OBJECT)
+  ECase(STT_FUNC)
+  ECase(STT_SECTION)
+  ECase(STT_FILE)
+  ECase(STT_COMMON)
+  ECase(STT_TLS)
+  ECase(STT_GNU_IFUNC)
+#undef ECase
+}
+
 void MappingTraits<ELFYAML::FileHeader>::mapping(IO &IO,
                                                  ELFYAML::FileHeader &FileHdr) {
   IO.mapRequired("Class", FileHdr.Class);
   IO.mapRequired("Data", FileHdr.Data);
+  IO.mapOptional("OSABI", FileHdr.OSABI, ELFYAML::ELF_ELFOSABI(0));
   IO.mapRequired("Type", FileHdr.Type);
   IO.mapRequired("Machine", FileHdr.Machine);
   IO.mapOptional("Entry", FileHdr.Entry, Hex64(0));
+}
+
+void MappingTraits<ELFYAML::Symbol>::mapping(IO &IO, ELFYAML::Symbol &Symbol) {
+  IO.mapOptional("Name", Symbol.Name, StringRef());
+  IO.mapOptional("Type", Symbol.Type, ELFYAML::ELF_STT(0));
+  IO.mapOptional("Section", Symbol.Section, StringRef());
+  IO.mapOptional("Value", Symbol.Value, Hex64(0));
+  IO.mapOptional("Size", Symbol.Size, Hex64(0));
+}
+
+void MappingTraits<ELFYAML::LocalGlobalWeakSymbols>::mapping(
+    IO &IO, ELFYAML::LocalGlobalWeakSymbols &Symbols) {
+  IO.mapOptional("Local", Symbols.Local);
+  IO.mapOptional("Global", Symbols.Global);
+  IO.mapOptional("Weak", Symbols.Weak);
 }
 
 void MappingTraits<ELFYAML::Section>::mapping(IO &IO,
@@ -269,6 +326,12 @@ void MappingTraits<ELFYAML::Section>::mapping(IO &IO,
   IO.mapOptional("Content", Section.Content);
   IO.mapOptional("Link", Section.Link);
   IO.mapOptional("AddressAlign", Section.AddressAlign, Hex64(0));
+  // TODO: Error if `Type` is SHT_SYMTAB and this is not present, or if
+  // `Type` is *not* SHT_SYMTAB and this *is* present. (By SHT_SYMTAB I
+  // also mean SHT_DYNSYM, but for simplicity right now we just do
+  // SHT_SYMTAB). Want to be able to share the predicate with consumers of
+  // this structure.
+  IO.mapOptional("Symbols", Section.Symbols);
 }
 
 void MappingTraits<ELFYAML::Object>::mapping(IO &IO, ELFYAML::Object &Object) {

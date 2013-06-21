@@ -277,7 +277,7 @@ public:
     MCAsmParserExtension::Initialize(_Parser);
 
     // Cache the MCRegisterInfo.
-    MRI = &getContext().getRegisterInfo();
+    MRI = getContext().getRegisterInfo();
 
     // Initialize the set of available features.
     setAvailableFeatures(ComputeAvailableFeatures(STI.getFeatureBits()));
@@ -5266,7 +5266,17 @@ bool ARMAsmParser::ParseInstruction(ParseInstructionInfo &Info, StringRef Name,
         doesIgnoreDataTypeSuffix(Mnemonic, ExtraToken))
       continue;
 
-    if (ExtraToken != ".n") {
+    // For for ARM mode generate an error if the .n qualifier is used.
+    if (ExtraToken == ".n" && !isThumb()) {
+      SMLoc Loc = SMLoc::getFromPointer(NameLoc.getPointer() + Start);
+      return Error(Loc, "instruction with .n (narrow) qualifier not allowed in "
+                   "arm mode");
+    }
+
+    // The .n qualifier is always discarded as that is what the tables
+    // and matcher expect.  In ARM mode the .w qualifier has no effect,
+    // so discard it to avoid errors that can be caused by the matcher.
+    if (ExtraToken != ".n" && (isThumb() || ExtraToken != ".w")) {
       SMLoc Loc = SMLoc::getFromPointer(NameLoc.getPointer() + Start);
       Operands.push_back(ARMOperand::CreateToken(ExtraToken, Loc));
     }
@@ -5862,7 +5872,9 @@ processInstruction(MCInst &Inst,
   case ARM::t2LDRpcrel:
     // Select the narrow version if the immediate will fit.
     if (Inst.getOperand(1).getImm() > 0 &&
-        Inst.getOperand(1).getImm() <= 0xff)
+        Inst.getOperand(1).getImm() <= 0xff &&
+        !(static_cast<ARMOperand*>(Operands[2])->isToken() &&
+         static_cast<ARMOperand*>(Operands[2])->getToken() == ".w"))
       Inst.setOpcode(ARM::tLDRpci);
     else
       Inst.setOpcode(ARM::t2LDRpci);
@@ -7851,8 +7863,8 @@ bool ARMAsmParser::parseDirectiveARM(SMLoc L) {
 /// parseDirectiveThumbFunc
 ///  ::= .thumbfunc symbol_name
 bool ARMAsmParser::parseDirectiveThumbFunc(SMLoc L) {
-  const MCAsmInfo &MAI = getParser().getStreamer().getContext().getAsmInfo();
-  bool isMachO = MAI.hasSubsectionsViaSymbols();
+  const MCAsmInfo *MAI = getParser().getStreamer().getContext().getAsmInfo();
+  bool isMachO = MAI->hasSubsectionsViaSymbols();
   StringRef Name;
   bool needFuncName = true;
 
