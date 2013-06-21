@@ -153,3 +153,4 @@ define void @float_0_0() {
   call void asm sideeffect "some_instr $0", "G" (float 0.0) nounwind
   ret void
 }
+

@@ -102,7 +102,6 @@ bool AVRAsmPrinter::PrintAsmOperand(const MachineInstr *MI, unsigned OpNum,
   return false;
 }
 
-
 //===----------------------------------------------------------------------===//
 void AVRAsmPrinter::EmitInstruction(const MachineInstr *MI)
 {

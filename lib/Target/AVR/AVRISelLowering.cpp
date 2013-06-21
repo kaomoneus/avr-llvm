@@ -1476,12 +1476,13 @@ AVRTargetLowering::getConstraintType(const std::string &Constraint) const
     case 'e':
     case 'q':
     case 'r':
-    case 't':
     case 'w':
+      return C_RegisterClass;
+    case 't':
     case 'x':
     case 'y':
     case 'z':
-      return C_RegisterClass;
+      return C_Register;
     case 'Q':
       return C_Memory;
     case 'G':
@@ -1515,8 +1516,6 @@ AVRTargetLowering::getSingleConstraintMatchWeight(
   {
     return CW_Default;
   }
-
-  Type *type = CallOperandVal->getType();
 
   // Look at the constraint type.
   switch (*constraint)
@@ -1553,7 +1552,7 @@ AVRTargetLowering::getSingleConstraintMatchWeight(
   case 'O':
   case 'P':
   case 'R':
-    weight = CW_Default;
+    weight = CW_Constant;
     break;
   }
   return weight;
@@ -1563,10 +1562,7 @@ std::pair<unsigned, const TargetRegisterClass*> AVRTargetLowering::
 getRegForInlineAsmConstraint(const std::string &Constraint, EVT VT) const
 {
   // We support i8 and i16 only.
-  if (VT != MVT::i16 && VT != MVT::i8)
-  {
-    return std::make_pair(0u, static_cast<TargetRegisterClass*>(0));
-  }
+  assert((VT == MVT::i16 || VT == MVT::i8) && "Wrong operand type.");
 
   if (Constraint.size() == 1)
   {
@@ -1576,7 +1572,7 @@ getRegForInlineAsmConstraint(const std::string &Constraint, EVT VT) const
       return std::make_pair(0U, &AVR::LD8loRegClass);
     case 'b': // Base pointer registers: y, z.
       return std::make_pair(0U, &AVR::PTRDISPREGSRegClass);
-    case 'd': // Upper register r16..r32.
+    case 'd': // Upper registers r16..r32.
       return std::make_pair(0U, &AVR::LD8RegClass);
     case 'l': // Lower registers r0..r15.
       return std::make_pair(0U, &AVR::GPR8loRegClass);
@@ -1704,7 +1700,3 @@ void AVRTargetLowering::LowerAsmOperandForConstraint(SDValue Op,
 
   return TargetLowering::LowerAsmOperandForConstraint(Op, Constraint, Ops, DAG);
 }
-
-
-
-
