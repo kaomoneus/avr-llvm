@@ -482,6 +482,13 @@ SDValue AVRTargetLowering::LowerBR_CC(SDValue Op, SelectionDAG &DAG) const
                      Cmp);
 }
 
+SDValue AVRTargetLowering::LowerINLINEASM(SDValue Op,
+                                          SelectionDAG &DAG) const {
+  // TODO: May be replace register class to PTRDISPREGS.
+  return Op;
+}
+
+
 SDValue AVRTargetLowering::LowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const
 {
   SDValue LHS = Op.getOperand(0);
@@ -1631,6 +1638,9 @@ AVRTargetLowering::getSingleConstraintMatchWeight(AsmOperandInfo &info,
         weight = CW_Constant;
       }
     }
+    break;
+  case 'Q':
+    weight = CW_Memory;
     break;
   }
 

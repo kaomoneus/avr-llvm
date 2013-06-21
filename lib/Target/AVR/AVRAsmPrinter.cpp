@@ -49,10 +49,10 @@ public:
   bool PrintAsmOperand(const MachineInstr *MI, unsigned OpNum,
                        unsigned AsmVariant, const char *ExtraCode,
                        raw_ostream &O) LLVM_OVERRIDE;
-// TODO
-//  virtual bool PrintAsmMemoryOperand(const MachineInstr *MI, unsigned OpNum,
-//                                     unsigned AsmVariant, const char *ExtraCode,
-//                                     raw_ostream &O) LLVM_OVERRIDE;
+
+  bool PrintAsmMemoryOperand(const MachineInstr *MI, unsigned OpNum,
+                                     unsigned AsmVariant, const char *ExtraCode,
+                                     raw_ostream &O) LLVM_OVERRIDE;
 
 public: // AsmPrinter
   void EmitInstruction(const MachineInstr *MI);
@@ -104,6 +104,31 @@ bool AVRAsmPrinter::PrintAsmOperand(const MachineInstr *MI, unsigned OpNum,
 
   printOperand(MI, OpNum, O);
 
+  return false;
+}
+
+bool AVRAsmPrinter::PrintAsmMemoryOperand(const MachineInstr *MI,
+                                          unsigned OpNum, unsigned AsmVariant,
+                                          const char *ExtraCode,
+                                          raw_ostream &O) {
+  // FIXME: Copy-pasted ARM yet.
+  // Does this asm operand have a single letter operand modifier?
+  if (ExtraCode && ExtraCode[0]) {
+    if (ExtraCode[1] != 0) return true; // Unknown modifier.
+
+    switch (ExtraCode[0]) {
+      default: return true;  // Unknown modifier.
+      case 'm': // The base register of a memory operand.
+        if (!MI->getOperand(OpNum).isReg())
+          return true;
+        O << AVRInstPrinter::getRegisterName(MI->getOperand(OpNum).getReg());
+        return false;
+    }
+  }
+
+  const MachineOperand &MO = MI->getOperand(OpNum);
+  assert(MO.isReg() && "unexpected inline asm memory operand");
+  O << "[" << AVRInstPrinter::getRegisterName(MO.getReg()) << "]";
   return false;
 }
 
