@@ -202,7 +202,7 @@ bool AVRDAGToDAGISel::SelectInlineAsmMemoryOperand(const SDValue &Op,
                                           char ConstraintCode,
                                           std::vector<SDValue> &OutOps) {
 
-  // Was token from ARM backend:
+  // Has been token from ARM backend:
 
   assert(ConstraintCode == 'm' && "unexpected asm memory constraint");
   // Require the address to be in a register.  That is safe for all ARM
