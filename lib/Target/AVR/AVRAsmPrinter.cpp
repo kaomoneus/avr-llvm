@@ -128,7 +128,24 @@ bool AVRAsmPrinter::PrintAsmMemoryOperand(const MachineInstr *MI,
 
   const MachineOperand &MO = MI->getOperand(OpNum);
   assert(MO.isReg() && "unexpected inline asm memory operand");
-  O << "[" << AVRInstPrinter::getRegisterName(MO.getReg()) << "]";
+
+  if (!MI->getOperand(OpNum).isReg())
+    return true;
+
+  // :FIXME: This fixme is related with another one in AVRInstPrinter, line 29:
+  // this should be done somewhere else
+  // check out the new feature about alternative reg names
+
+  if (MI->getOperand(OpNum).getReg() == AVR::R31R30)
+  {
+    O << "Z";
+    return false;
+  }
+
+  assert(MI->getOperand(OpNum).getReg() == AVR::R29R28 &&
+         "Wrong register class for memory operand.");
+
+  O << "Y";
   return false;
 }
 

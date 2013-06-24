@@ -154,3 +154,11 @@ define void @float_0_0() {
   ret void
 }
 
+; CHECK: mem:
+@a = internal global i16 0, align 4
+@b = internal global i16 0, align 4
+define void @mem() {
+  ;CHECK: some_instr Z, Y
+  call void asm "some_instr $0, $1", "=*Q,=*Q"(i16* @a, i16* @b)
+  ret void
+}

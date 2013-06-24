@@ -17,6 +17,7 @@
 #include "AVRMachineFunctionInfo.h"
 #include "AVRTargetMachine.h"
 #include "AVRTargetObjectFile.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/CallingConvLower.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
@@ -129,6 +130,8 @@ AVRTargetLowering::AVRTargetLowering(AVRTargetMachine &tm) :
   setOperationAction(ISD::MULHU, MVT::i16, Expand);
   setOperationAction(ISD::MULHS, MVT::i8, Expand);
   setOperationAction(ISD::MULHS, MVT::i16, Expand);
+
+  setOperationAction(ISD::INLINEASM, MVT::Other, Custom);
 
   setMinFunctionAlignment(1);
   setSupportJumpTables(false);
@@ -484,7 +487,76 @@ SDValue AVRTargetLowering::LowerBR_CC(SDValue Op, SelectionDAG &DAG) const
 
 SDValue AVRTargetLowering::LowerINLINEASM(SDValue Op,
                                           SelectionDAG &DAG) const {
-  // TODO: May be replace register class to PTRDISPREGS.
+
+  bool IsModified = false;
+  SDNode *Node = Op.getNode();
+  MachineFunction &MF = DAG.getMachineFunction();
+
+  assert(Node->getOpcode() == ISD::INLINEASM &&
+         "Only INLINEASM nodes are allowed here.");
+
+  // First just clone all the existing operands.
+  unsigned NumOps = Node->getNumOperands();
+  SmallVector<SDValue, 32> NewOps(NumOps, SDValue());
+  for (unsigned i = 0; i != NumOps; ++i)
+  {
+    NewOps[i] = Node->getOperand(i);
+  }
+
+  // Now scan for memory operands and replace it with PTRDISPREGS regs.
+
+  if (Node->getOperand(NumOps-1).getValueType() == MVT::Glue)
+  {
+    // Skip the flag operand.
+    NewOps.push_back(Node->getOperand(NumOps-1));
+    --NumOps;
+  }
+
+  for (unsigned i = InlineAsm::Op_FirstOperand; i != NumOps;) {
+    unsigned Flags =
+      cast<ConstantSDNode>(Node->getOperand(i))->getZExtValue();
+    unsigned NumVals = InlineAsm::getNumOperandRegisters(Flags);
+    ++i;  // Skip the ID value.
+
+    if (InlineAsm::getKind(Flags) == InlineAsm::Kind_Mem)
+    {
+      assert(NumVals == 1 && "Mem operand may have the only value.");
+      const SDValue& Addr = Node->getOperand(i);
+
+      // TODO: If Addr is based on FrameIndex, for memory operand we can use
+      // Reg+q expression then.
+
+      RegisterSDNode* RegNode = dyn_cast<RegisterSDNode>(Addr);
+
+      // We need to force usage of Y,Z registers as Addr containers.
+      // So we check may be we it is OK already.
+      if (!RegNode ||
+          MF.getRegInfo().getRegClass(RegNode->getReg()) !=
+          &AVR::PTRDISPREGSRegClass)
+      {
+        unsigned VReg =
+          MF.getRegInfo().createVirtualRegister(&AVR::PTRDISPREGSRegClass);
+
+        SDValue Chain = NewOps[0];
+        Chain = DAG.getCopyToReg(Chain, SDLoc(Addr), VReg, Addr);
+        NewOps[0] = Chain;
+        NewOps[i] = DAG.getRegister(VReg, getPointerTy());
+        IsModified = true;
+      }
+    }
+
+    for (; NumVals; --NumVals, ++i) {}
+  }
+
+  // if we have made some replacements then create new Op
+  if (IsModified) {
+
+    SDVTList VTs = Op.getNode()->getVTList();
+
+    return DAG.getNode(Op.getOpcode(), SDLoc(Op), VTs,
+                       &NewOps[0], NewOps.size());
+  }
+
   return Op;
 }
 
@@ -564,6 +636,8 @@ SDValue AVRTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const
     return LowerSETCC(Op, DAG);
   case ISD::VASTART:
     return LowerVASTART(Op, DAG);
+  case ISD::INLINEASM:
+    return LowerINLINEASM(Op, DAG);
   }
 
   return SDValue();
