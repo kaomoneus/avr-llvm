@@ -132,6 +132,9 @@ bool AVRAsmPrinter::PrintAsmMemoryOperand(const MachineInstr *MI,
   if (!MI->getOperand(OpNum).isReg())
     return true;
 
+  // TODO:
+  // Check, if operand is Reg+Q, then we print it as Y+q or Z+q.
+
   // :FIXME: This fixme is related with another one in AVRInstPrinter, line 29:
   // this should be done somewhere else
   // check out the new feature about alternative reg names
