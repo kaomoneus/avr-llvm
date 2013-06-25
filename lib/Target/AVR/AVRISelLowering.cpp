@@ -512,7 +512,8 @@ SDValue AVRTargetLowering::LowerINLINEASM(SDValue Op,
     --NumOps;
   }
 
-  for (unsigned i = InlineAsm::Op_FirstOperand; i != NumOps;) {
+  for (unsigned i = InlineAsm::Op_FirstOperand; i != NumOps;)
+  {
     unsigned Flags =
       cast<ConstantSDNode>(Node->getOperand(i))->getZExtValue();
     unsigned NumVals = InlineAsm::getNumOperandRegisters(Flags);
@@ -523,29 +524,35 @@ SDValue AVRTargetLowering::LowerINLINEASM(SDValue Op,
       assert(NumVals == 1 && "Mem operand may have the only value.");
       const SDValue& Addr = Node->getOperand(i);
 
-      // TODO: If Addr is based on FrameIndex, for memory operand we can use
-      // Reg+q expression then.
+      // Skip legal cases:
+      // 1. Addr is frame index.
+      // 2. It is already just Z or Y
 
       RegisterSDNode* RegNode = dyn_cast<RegisterSDNode>(Addr);
-
-      // We need to force usage of Y,Z registers as Addr containers.
-      // So we check may be we it is OK already.
-      if (!RegNode ||
-          MF.getRegInfo().getRegClass(RegNode->getReg()) !=
-          &AVR::PTRDISPREGSRegClass)
+      if (Addr->getOpcode() == ISD::FrameIndex ||
+          (RegNode &&
+          MF.getRegInfo().getRegClass(RegNode->getReg()) ==
+          &AVR::PTRDISPREGSRegClass))
       {
-        unsigned VReg =
-          MF.getRegInfo().createVirtualRegister(&AVR::PTRDISPREGSRegClass);
+        for (; NumVals; --NumVals, ++i) {}
 
-        SDValue Chain = NewOps[0];
-        Chain = DAG.getCopyToReg(Chain, SDLoc(Addr), VReg, Addr);
-        NewOps[0] = Chain;
-        NewOps[i] = DAG.getRegister(VReg, getPointerTy());
-        IsModified = true;
+        continue;
       }
-    }
 
-    for (; NumVals; --NumVals, ++i) {}
+      // Most general case, address is not based on SP+Offset,
+      // so we copy it to pointer reg and use it.
+
+      unsigned VReg =
+        MF.getRegInfo().createVirtualRegister(&AVR::PTRDISPREGSRegClass);
+
+      SDValue Chain = NewOps[0];
+      Chain = DAG.getCopyToReg(Chain, SDLoc(Addr), VReg, Addr);
+      NewOps[0] = Chain;
+      NewOps[i] = DAG.getRegister(VReg, getPointerTy());
+      IsModified = true;
+
+      for (; NumVals; --NumVals, ++i) {}
+    }
   }
 
   // if we have made some replacements then create new Op

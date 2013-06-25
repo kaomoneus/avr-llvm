@@ -111,19 +111,10 @@ bool AVRAsmPrinter::PrintAsmMemoryOperand(const MachineInstr *MI,
                                           unsigned OpNum, unsigned AsmVariant,
                                           const char *ExtraCode,
                                           raw_ostream &O) {
-  // FIXME: Copy-pasted ARM yet.
-  // Does this asm operand have a single letter operand modifier?
-  if (ExtraCode && ExtraCode[0]) {
-    if (ExtraCode[1] != 0) return true; // Unknown modifier.
 
-    switch (ExtraCode[0]) {
-      default: return true;  // Unknown modifier.
-      case 'm': // The base register of a memory operand.
-        if (!MI->getOperand(OpNum).isReg())
-          return true;
-        O << AVRInstPrinter::getRegisterName(MI->getOperand(OpNum).getReg());
-        return false;
-    }
+  if (ExtraCode && ExtraCode[0]) {
+    // TODO:
+    llvm_unreachable("This branch is not implemented yet.");
   }
 
   const MachineOperand &MO = MI->getOperand(OpNum);
@@ -132,9 +123,6 @@ bool AVRAsmPrinter::PrintAsmMemoryOperand(const MachineInstr *MI,
   if (!MI->getOperand(OpNum).isReg())
     return true;
 
-  // TODO:
-  // Check, if operand is Reg+Q, then we print it as Y+q or Z+q.
-
   // :FIXME: This fixme is related with another one in AVRInstPrinter, line 29:
   // this should be done somewhere else
   // check out the new feature about alternative reg names
@@ -142,13 +130,24 @@ bool AVRAsmPrinter::PrintAsmMemoryOperand(const MachineInstr *MI,
   if (MI->getOperand(OpNum).getReg() == AVR::R31R30)
   {
     O << "Z";
-    return false;
+  }
+  else
+  {
+    assert(MI->getOperand(OpNum).getReg() == AVR::R29R28 &&
+           "Wrong register class for memory operand.");
+    O << "Y";
   }
 
-  assert(MI->getOperand(OpNum).getReg() == AVR::R29R28 &&
-         "Wrong register class for memory operand.");
+  // If NumOpRegs == 2, then we assume it is product of FrameIndex expansion,
+  // and the second operand is Imm.
+  // Though it is weird that imm is counted as register too.
+  unsigned OpFlags = MI->getOperand(OpNum-1).getImm();
+  unsigned NumOpRegs = InlineAsm::getNumOperandRegisters(OpFlags);
+  if (NumOpRegs == 2)
+  {
+    O << '+' << MI->getOperand(OpNum+1).getImm();
+  }
 
-  O << "Y";
   return false;
 }
 

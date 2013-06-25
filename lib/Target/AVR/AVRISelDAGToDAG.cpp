@@ -15,6 +15,7 @@
 
 #include "AVR.h"
 #include "AVRTargetMachine.h"
+#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/SelectionDAGISel.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -202,12 +203,33 @@ bool AVRDAGToDAGISel::SelectInlineAsmMemoryOperand(const SDValue &Op,
                                           char ConstraintCode,
                                           std::vector<SDValue> &OutOps) {
 
-  // Has been token from ARM backend:
+  if (Op->getOpcode() == ISD::FrameIndex)
+  {
+    SDValue Base, Disp;
+    if (SelectAddr(Op.getNode(), Op, Base, Disp))
+    {
+      OutOps.push_back(Base);
+      OutOps.push_back(Disp);
+      return false;
+    }
+    else
+    {
+      return true;
+    }
+  }
 
+  // Yes hardcoded 'm' symbol. Just because it also has been hardcoded in
+  // SelectionDAGISel (callee for this method).
   assert(ConstraintCode == 'm' && "unexpected asm memory constraint");
-  // Require the address to be in a register.  That is safe for all ARM
-  // variants and it is hard to do anything much smarter without knowing
-  // how the operand is used.
+
+  RegisterSDNode* RegNode = dyn_cast<RegisterSDNode>(Op);
+  if (!RegNode || MF->getRegInfo().getRegClass(RegNode->getReg()) !=
+      &AVR::PTRDISPREGSRegClass)
+  {
+    llvm_unreachable(
+        "Unknown memory operand type. Should either X or Y, or FrameIndex");
+  }
+
   OutOps.push_back(Op);
   return false;
 }
