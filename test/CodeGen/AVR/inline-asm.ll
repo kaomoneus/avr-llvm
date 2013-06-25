@@ -154,11 +154,40 @@ define void @float_0_0() {
   ret void
 }
 
-; CHECK: mem:
+
+; Memory constraint
+
 @a = internal global i16 0, align 4
 @b = internal global i16 0, align 4
-define void @mem() {
+
+; CHECK: mem_global:
+define void @mem_global() {
   ;CHECK: some_instr Z, Y
   call void asm "some_instr $0, $1", "=*Q,=*Q"(i16* @a, i16* @b)
+  ret void
+}
+
+; CHECK: mem_params:
+define void @mem_params(i16* %a, i16* %b) {
+  ;CHECK: some_instr Y, Z
+  call void asm "some_instr $0, $1", "=*Q,=*Q"(i16* %a, i16* %b)
+  ret void
+}
+
+; CHECK: mem_local:
+define void @mem_local() {
+  %a = alloca i16
+  %b = alloca i16
+  ;CHECK: some_instr Y+3, Y+1
+  call void asm "some_instr $0, $1", "=*Q,=*Q"(i16* %a, i16* %b)
+  ret void
+}
+
+; CHECK: mem_mixed:
+define void @mem_mixed() {
+  %a = alloca i16
+  %b = alloca i16
+  ;CHECK: some_instr Z, Y+3, Y+1
+  call void asm "some_instr $0, $1, $2", "=*Q,=*Q,=*Q"(i16* @a, i16* %a, i16* %b)
   ret void
 }
