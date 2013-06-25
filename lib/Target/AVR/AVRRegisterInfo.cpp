@@ -70,12 +70,6 @@ BitVector AVRRegisterInfo::getReservedRegs(const MachineFunction &MF) const
 const TargetRegisterClass *
 AVRRegisterInfo::getLargestLegalSuperClass(const TargetRegisterClass *RC) const
 {
-  // Don't allow to inflate X,Y regs.
-  if (RC == &AVR::PTRDISPREGSRegClass)
-  {
-    return RC;
-  }
-
   if (RC->hasType(MVT::i16))
   {
     return &AVR::DREGSRegClass;

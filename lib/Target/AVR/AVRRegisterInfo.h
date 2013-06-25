@@ -42,6 +42,16 @@ public: // TargetRegisterInfo
 
   /// Debug information queries.
   unsigned getFrameRegister(const MachineFunction &MF) const;
+
+  const TargetRegisterClass *
+  getPointerRegClass(const MachineFunction &MF, unsigned Kind=0) const
+  LLVM_OVERRIDE
+  {
+    // FIXME: Currently we're using avr-gcc as reference, so we restrict
+    // ptrs to Y and Z regs. Though avr-gcc has buggy implementation
+    // of memory constraint, so we can fix it and bit avr-gcc here ;-)
+    return &AVR::PTRDISPREGSRegClass;
+  }
 };
 
 } // end namespace llvm
