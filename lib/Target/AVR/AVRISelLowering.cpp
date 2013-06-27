@@ -550,9 +550,9 @@ SDValue AVRTargetLowering::LowerINLINEASM(SDValue Op,
       NewOps[0] = Chain;
       NewOps[i] = DAG.getRegister(VReg, getPointerTy());
       IsModified = true;
-
-      for (; NumVals; --NumVals, ++i) {}
     }
+
+    for (; NumVals; --NumVals, ++i) {}
   }
 
   // if we have made some replacements then create new Op
