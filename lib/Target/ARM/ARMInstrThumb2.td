@@ -1024,17 +1024,19 @@ multiclass T2I_ld<bit signed, bits<2> opcod, string opc,
   def pci : T2Ipc <(outs target:$Rt), (ins t2ldrlabel:$addr), iii,
                    opc, ".w\t$Rt, $addr",
                    [(set target:$Rt, (opnode (ARMWrapper tconstpool:$addr)))]> {
-    bits<4> Rt;
-    bits<13> addr;
     let isReMaterializable = 1;
     let Inst{31-27} = 0b11111;
     let Inst{26-25} = 0b00;
     let Inst{24} = signed;
-    let Inst{23} = addr{12}; // add = (U == '1')
     let Inst{22-21} = opcod;
     let Inst{20} = 1; // load
     let Inst{19-16} = 0b1111; // Rn
+
+    bits<4> Rt;
     let Inst{15-12} = Rt{3-0};
+
+    bits<13> addr;
+    let Inst{23} = addr{12}; // add = (U == '1')
     let Inst{11-0}  = addr{11-0};
 
     let DecoderMethod = "DecodeT2LoadLabel";
@@ -1564,16 +1566,17 @@ multiclass T2Ipl<bits<1> write, bits<1> instr, string opc> {
               Sched<[WritePreLd]> {
     let Inst{31-25} = 0b1111100;
     let Inst{24} = instr;
+    let Inst{23} = 1;
     let Inst{22} = 0;
     let Inst{21} = write;
     let Inst{20} = 1;
     let Inst{15-12} = 0b1111;
 
     bits<17> addr;
-    let addr{12}    = 1;           // add = TRUE
     let Inst{19-16} = addr{16-13}; // Rn
-    let Inst{23}    = addr{12};    // U
     let Inst{11-0}  = addr{11-0};  // imm12
+
+    let DecoderMethod = "DecodeT2LoadImm12";
   }
 
   def i8 : T2Ii8<(outs), (ins t2addrmode_negimm8:$addr), IIC_Preload, opc,
@@ -1592,6 +1595,8 @@ multiclass T2Ipl<bits<1> write, bits<1> instr, string opc> {
     bits<13> addr;
     let Inst{19-16} = addr{12-9}; // Rn
     let Inst{7-0}   = addr{7-0};  // imm8
+
+    let DecoderMethod = "DecodeT2LoadImm8";
   }
 
   def s : T2Iso<(outs), (ins t2addrmode_so_reg:$addr), IIC_Preload, opc,
@@ -1605,7 +1610,7 @@ multiclass T2Ipl<bits<1> write, bits<1> instr, string opc> {
     let Inst{21} = write;
     let Inst{20} = 1;
     let Inst{15-12} = 0b1111;
-    let Inst{11-6} = 0000000;
+    let Inst{11-6} = 0b000000;
 
     bits<10> addr;
     let Inst{19-16} = addr{9-6}; // Rn
@@ -1614,10 +1619,28 @@ multiclass T2Ipl<bits<1> write, bits<1> instr, string opc> {
 
     let DecoderMethod = "DecodeT2LoadShift";
   }
-  // FIXME: We should have a separate 'pci' variant here. As-is we represent
-  // it via the i12 variant, which it's related to, but that means we can
-  // represent negative immediates, which aren't legal for anything except
-  // the 'pci' case (Rn == 15).
+
+  // pci variant is very similar to i12, but supports negative offsets
+  // from the PC.
+  def pci : T2Iso<(outs), (ins t2ldrlabel:$addr), IIC_Preload, opc,
+                 "\t$addr",
+                 [(ARMPreload (ARMWrapper tconstpool:$addr),
+                              (i32 write), (i32 instr))]>,
+                 Sched<[WritePreLd]> {
+    let Inst{31-25} = 0b1111100;
+    let Inst{24} = instr;
+    let Inst{22} = 0;
+    let Inst{21} = write;
+    let Inst{20} = 1;
+    let Inst{19-16} = 0b1111;
+    let Inst{15-12} = 0b1111;
+
+    bits<13> addr;
+    let Inst{23}   = addr{12};   // add = (U == '1')
+    let Inst{11-0} = addr{11-0}; // imm12
+
+    let DecoderMethod = "DecodeT2LoadLabel";
+  }
 }
 
 defm t2PLD  : T2Ipl<0, 0, "pld">,  Requires<[IsThumb2]>;
@@ -3113,26 +3136,24 @@ def t2MOVCCror : T2I_movcc_sh<0b11, (outs rGPR:$Rd),
 
 // memory barriers protect the atomic sequences
 let hasSideEffects = 1 in {
-def t2DMB : AInoP<(outs), (ins memb_opt:$opt), ThumbFrm, NoItinerary,
-                  "dmb", "\t$opt", [(ARMMemBarrier (i32 imm:$opt))]>,
-                  Requires<[IsThumb, HasDB]> {
+def t2DMB : T2I<(outs), (ins memb_opt:$opt), NoItinerary,
+                "dmb", "\t$opt", [(ARMMemBarrier (i32 imm:$opt))]>,
+                Requires<[HasDB]> {
   bits<4> opt;
   let Inst{31-4} = 0xf3bf8f5;
   let Inst{3-0} = opt;
 }
 }
 
-def t2DSB : AInoP<(outs), (ins memb_opt:$opt), ThumbFrm, NoItinerary,
-                  "dsb", "\t$opt", []>,
-                  Requires<[IsThumb, HasDB]> {
+def t2DSB : T2I<(outs), (ins memb_opt:$opt), NoItinerary,
+                "dsb", "\t$opt", []>, Requires<[HasDB]> {
   bits<4> opt;
   let Inst{31-4} = 0xf3bf8f4;
   let Inst{3-0} = opt;
 }
 
-def t2ISB : AInoP<(outs), (ins instsyncb_opt:$opt), ThumbFrm, NoItinerary,
-                  "isb", "\t$opt",
-                  []>, Requires<[IsThumb, HasDB]> {
+def t2ISB : T2I<(outs), (ins instsyncb_opt:$opt), NoItinerary,
+                "isb", "\t$opt", []>, Requires<[HasDB]> {
   bits<4> opt;
   let Inst{31-4} = 0xf3bf8f6;
   let Inst{3-0} = opt;
@@ -3804,8 +3825,7 @@ def t2MSR_M : T2I<(outs), (ins msr_mask:$SYSm, rGPR:$Rn),
 
 class t2MovRCopro<bits<4> Op, string opc, bit direction, dag oops, dag iops,
                   list<dag> pattern>
-  : T2Cop<Op, oops, iops,
-          !strconcat(opc, "\t$cop, $opc1, $Rt, $CRn, $CRm, $opc2"),
+  : T2Cop<Op, oops, iops, opc, "\t$cop, $opc1, $Rt, $CRn, $CRm, $opc2",
           pattern> {
   let Inst{27-24} = 0b1110;
   let Inst{20} = direction;
@@ -3830,7 +3850,7 @@ class t2MovRRCopro<bits<4> Op, string opc, bit direction,
                    list<dag> pattern = []>
   : T2Cop<Op, (outs),
           (ins p_imm:$cop, imm0_15:$opc1, GPR:$Rt, GPR:$Rt2, c_imm:$CRm),
-          !strconcat(opc, "\t$cop, $opc1, $Rt, $Rt2, $CRm"), pattern> {
+          opc, "\t$cop, $opc1, $Rt, $Rt2, $CRm", pattern> {
   let Inst{27-24} = 0b1100;
   let Inst{23-21} = 0b010;
   let Inst{20} = direction;
@@ -3855,32 +3875,32 @@ def t2MCR : t2MovRCopro<0b1110, "mcr", 0,
                 c_imm:$CRm, imm0_7:$opc2),
            [(int_arm_mcr imm:$cop, imm:$opc1, GPR:$Rt, imm:$CRn,
                          imm:$CRm, imm:$opc2)]>;
-def : t2InstAlias<"mcr $cop, $opc1, $Rt, $CRn, $CRm",
+def : t2InstAlias<"mcr${p} $cop, $opc1, $Rt, $CRn, $CRm",
                   (t2MCR p_imm:$cop, imm0_7:$opc1, GPR:$Rt, c_imm:$CRn,
-                         c_imm:$CRm, 0)>;
+                         c_imm:$CRm, 0, pred:$p)>;
 def t2MCR2 : t2MovRCopro<0b1111, "mcr2", 0,
              (outs), (ins p_imm:$cop, imm0_7:$opc1, GPR:$Rt, c_imm:$CRn,
                           c_imm:$CRm, imm0_7:$opc2),
              [(int_arm_mcr2 imm:$cop, imm:$opc1, GPR:$Rt, imm:$CRn,
                             imm:$CRm, imm:$opc2)]>;
-def : t2InstAlias<"mcr2 $cop, $opc1, $Rt, $CRn, $CRm",
+def : t2InstAlias<"mcr2${p} $cop, $opc1, $Rt, $CRn, $CRm",
                   (t2MCR2 p_imm:$cop, imm0_7:$opc1, GPR:$Rt, c_imm:$CRn,
-                          c_imm:$CRm, 0)>;
+                          c_imm:$CRm, 0, pred:$p)>;
 
 /* from coprocessor to ARM core register */
 def t2MRC : t2MovRCopro<0b1110, "mrc", 1,
              (outs GPR:$Rt), (ins p_imm:$cop, imm0_7:$opc1, c_imm:$CRn,
                                   c_imm:$CRm, imm0_7:$opc2), []>;
-def : t2InstAlias<"mrc $cop, $opc1, $Rt, $CRn, $CRm",
+def : t2InstAlias<"mrc${p} $cop, $opc1, $Rt, $CRn, $CRm",
                   (t2MRC GPR:$Rt, p_imm:$cop, imm0_7:$opc1, c_imm:$CRn,
-                         c_imm:$CRm, 0)>;
+                         c_imm:$CRm, 0, pred:$p)>;
 
 def t2MRC2 : t2MovRCopro<0b1111, "mrc2", 1,
              (outs GPR:$Rt), (ins p_imm:$cop, imm0_7:$opc1, c_imm:$CRn,
                                   c_imm:$CRm, imm0_7:$opc2), []>;
-def : t2InstAlias<"mrc2 $cop, $opc1, $Rt, $CRn, $CRm",
+def : t2InstAlias<"mrc2${p} $cop, $opc1, $Rt, $CRn, $CRm",
                   (t2MRC2 GPR:$Rt, p_imm:$cop, imm0_7:$opc1, c_imm:$CRn,
-                          c_imm:$CRm, 0)>;
+                          c_imm:$CRm, 0, pred:$p)>;
 
 def : T2v6Pat<(int_arm_mrc  imm:$cop, imm:$opc1, imm:$CRn, imm:$CRm, imm:$opc2),
               (t2MRC imm:$cop, imm:$opc1, imm:$CRn, imm:$CRm, imm:$opc2)>;
@@ -3907,7 +3927,7 @@ def t2MRRC2 : t2MovRRCopro<0b1111, "mrrc2", 1>;
 
 def tCDP : T2Cop<0b1110, (outs), (ins p_imm:$cop, imm0_15:$opc1,
                  c_imm:$CRd, c_imm:$CRn, c_imm:$CRm, imm0_7:$opc2),
-                 "cdp\t$cop, $opc1, $CRd, $CRn, $CRm, $opc2",
+                 "cdp", "\t$cop, $opc1, $CRd, $CRn, $CRm, $opc2",
                  [(int_arm_cdp imm:$cop, imm:$opc1, imm:$CRd, imm:$CRn,
                                imm:$CRm, imm:$opc2)]> {
   let Inst{27-24} = 0b1110;
@@ -3930,7 +3950,7 @@ def tCDP : T2Cop<0b1110, (outs), (ins p_imm:$cop, imm0_15:$opc1,
 
 def t2CDP2 : T2Cop<0b1111, (outs), (ins p_imm:$cop, imm0_15:$opc1,
                    c_imm:$CRd, c_imm:$CRn, c_imm:$CRm, imm0_7:$opc2),
-                   "cdp2\t$cop, $opc1, $CRd, $CRn, $CRm, $opc2",
+                   "cdp2", "\t$cop, $opc1, $CRd, $CRn, $CRm, $opc2",
                    [(int_arm_cdp2 imm:$cop, imm:$opc1, imm:$CRd, imm:$CRn,
                                   imm:$CRm, imm:$opc2)]> {
   let Inst{27-24} = 0b1110;
@@ -4118,9 +4138,9 @@ def : t2InstAlias<"tst${p} $Rn, $Rm",
                   (t2TSTrr GPRnopc:$Rn, rGPR:$Rm, pred:$p)>;
 
 // Memory barriers
-def : InstAlias<"dmb", (t2DMB 0xf)>, Requires<[IsThumb, HasDB]>;
-def : InstAlias<"dsb", (t2DSB 0xf)>, Requires<[IsThumb, HasDB]>;
-def : InstAlias<"isb", (t2ISB 0xf)>, Requires<[IsThumb, HasDB]>;
+def : InstAlias<"dmb${p}", (t2DMB 0xf, pred:$p)>, Requires<[IsThumb2, HasDB]>;
+def : InstAlias<"dsb${p}", (t2DSB 0xf, pred:$p)>, Requires<[IsThumb2, HasDB]>;
+def : InstAlias<"isb${p}", (t2ISB 0xf, pred:$p)>, Requires<[IsThumb2, HasDB]>;
 
 // Alias for LDR, LDRB, LDRH, LDRSB, and LDRSH without the ".w" optional
 // width specifier.

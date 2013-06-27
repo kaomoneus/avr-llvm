@@ -33,6 +33,18 @@ addi 1, 1, 2f-1b@l
 addis 1, 1, 1b-2f@ha
 2:
 
+addi 1, 1, target6@h
+addis 1, 1, target6@h
+
+.set target6, 0x4321fedc
+
+addi 1, 1, target7@higher
+addis 1, 1, target7@highest
+addi 1, 1, target7@highera
+addis 1, 1, target7@highesta
+
+.set target7, 0x1234ffffffff8000
+
 .data
 
 .quad v1
@@ -54,7 +66,7 @@ addis 1, 1, 1b-2f@ha
 # CHECK-NEXT:    ]
 # CHECK-NEXT:    Address: 0x0
 # CHECK-NEXT:    Offset:
-# CHECK-NEXT:    Size: 40
+# CHECK-NEXT:    Size: 64
 # CHECK-NEXT:    Link: 0
 # CHECK-NEXT:    Info: 0
 # CHECK-NEXT:    AddressAlignment: 4
@@ -62,7 +74,8 @@ addis 1, 1, 1b-2f@ha
 # CHECK-NEXT:    SectionData (
 # CHECK-NEXT:      0000: 38211234 3C211234 38215678 3C211234
 # CHECK-NEXT:      0010: 38214444 3C211111 38218001 3C211001
-# CHECK-NEXT:      0020: 38210008 3C210000
+# CHECK-NEXT:      0020: 38210008 3C210000 38214321 3C214321
+# CHECK-NEXT:      0030: 3821FFFF 3C211234 38210000 3C211235
 # CHECK-NEXT:    )
 # CHECK-NEXT:  }
 

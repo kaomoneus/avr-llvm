@@ -20,8 +20,13 @@ class PPCMCExpr : public MCTargetExpr {
 public:
   enum VariantKind {
     VK_PPC_None,
-    VK_PPC_HA16,
-    VK_PPC_LO16
+    VK_PPC_LO,
+    VK_PPC_HI,
+    VK_PPC_HA,
+    VK_PPC_HIGHER,
+    VK_PPC_HIGHERA,
+    VK_PPC_HIGHEST,
+    VK_PPC_HIGHESTA
   };
 
 private:
@@ -40,12 +45,16 @@ public:
   static const PPCMCExpr *Create(VariantKind Kind, const MCExpr *Expr,
                                       MCContext &Ctx);
 
-  static const PPCMCExpr *CreateHa16(const MCExpr *Expr, MCContext &Ctx) {
-    return Create(VK_PPC_HA16, Expr, Ctx);
+  static const PPCMCExpr *CreateLo(const MCExpr *Expr, MCContext &Ctx) {
+    return Create(VK_PPC_LO, Expr, Ctx);
   }
 
-  static const PPCMCExpr *CreateLo16(const MCExpr *Expr, MCContext &Ctx) {
-    return Create(VK_PPC_LO16, Expr, Ctx);
+  static const PPCMCExpr *CreateHi(const MCExpr *Expr, MCContext &Ctx) {
+    return Create(VK_PPC_HI, Expr, Ctx);
+  }
+
+  static const PPCMCExpr *CreateHa(const MCExpr *Expr, MCContext &Ctx) {
+    return Create(VK_PPC_HA, Expr, Ctx);
   }
 
   /// @}

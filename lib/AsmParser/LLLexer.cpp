@@ -565,6 +565,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(attributes);
 
   KEYWORD(alwaysinline);
+  KEYWORD(builtin);
   KEYWORD(byval);
   KEYWORD(cold);
   KEYWORD(inlinehint);

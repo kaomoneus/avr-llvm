@@ -1,5 +1,4 @@
 # RUN: yaml2obj -format=elf %s | llvm-readobj -symbols - | FileCheck %s
-# RUN: yaml2obj -format=elf %s | llvm-objdump -d -no-show-raw-insn - | FileCheck %s --check-prefix=DISASSEMBLY
 !ELF
 FileHeader:
   Class: ELFCLASS64
@@ -17,16 +16,14 @@ Sections:
                       # This YAML file is a valid relocatable object that,
                       # when linked and run on x86_64, will go into an
                       # infloop.
-  - Name: .symtab
-    Type: SHT_SYMTAB
-    Symbols:
-      Global:
-        - Name: main
-          Type: STT_FUNC
-          Section: .text
-          Value: 0x1
-          Size: 2
-        - Name: undefined_symbol
+Symbols:
+  Global:
+    - Name: main
+      Type: STT_FUNC
+      Section: .text
+      Value: 0x1
+      Size: 2
+    - Name: undefined_symbol
 
 # CHECK:      Symbols [
 # CHECK-NEXT:   Symbol {
@@ -41,7 +38,3 @@ Sections:
 # CHECK:        Symbol {
 # CHECK:          Name: undefined_symbol
 # CHECK:          Section:  (0x0)
-
-# DISASSEMBLY:      Disassembly of section .text:
-# DISASSEMBLY-NEXT: main:
-# DISASSEMBLY-NEXT:        1:       jmp     -2

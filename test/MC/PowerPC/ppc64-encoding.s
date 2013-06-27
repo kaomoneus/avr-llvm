@@ -8,21 +8,45 @@
 # CHECK: b target                        # encoding: [0b010010AA,A,A,0bAAAAAA00]
 # CHECK-NEXT:                            #   fixup A - offset: 0, value: target, kind: fixup_ppc_br24
          b target
-# FIXME: ba target
+# CHECK: ba target                       # encoding: [0b010010AA,A,A,0bAAAAAA10]
+# CHECK-NEXT:                            #   fixup A - offset: 0, value: target, kind: fixup_ppc_br24abs
+         ba target
 # CHECK: bl target                       # encoding: [0b010010AA,A,A,0bAAAAAA01]
 # CHECK-NEXT:                            #   fixup A - offset: 0, value: target, kind: fixup_ppc_br24
          bl target
-# FIXME: bla target
+# CHECK: bla target                      # encoding: [0b010010AA,A,A,0bAAAAAA11]
+# CHECK-NEXT:                            #   fixup A - offset: 0, value: target, kind: fixup_ppc_br24abs
+         bla target
 
-# FIXME: bc 4, 10, target
-# FIXME: bca 4, 10, target
-# FIXME: bcl 4, 10, target
-# FIXME: bcla 4, 10, target
+# CHECK: bc 4, 10, target                # encoding: [0x40,0x8a,A,0bAAAAAA00]
+# CHECK-NEXT:                            #   fixup A - offset: 0, value: target, kind: fixup_ppc_brcond14
+         bc 4, 10, target
+# CHECK: bca 4, 10, target               # encoding: [0x40,0x8a,A,0bAAAAAA10]
+# CHECK-NEXT:                            #   fixup A - offset: 0, value: target, kind: fixup_ppc_brcond14abs
+         bca 4, 10, target
+# CHECK: bcl 4, 10, target               # encoding: [0x40,0x8a,A,0bAAAAAA01]
+# CHECK-NEXT:                            #   fixup A - offset: 0, value: target, kind: fixup_ppc_brcond14
+         bcl 4, 10, target
+# CHECK: bcla 4, 10, target              # encoding: [0x40,0x8a,A,0bAAAAAA11]
+# CHECK-NEXT:                            #   fixup A - offset: 0, value: target, kind: fixup_ppc_brcond14abs
+         bcla 4, 10, target
 
-# FIXME: bclr 4, 10, 3
-# FIXME: bclrl 4, 10, 3
-# FIXME: bcctr 4, 10, 3
-# FIXME: bcctrl 4, 10, 3
+# CHECK: bclr 4, 10, 3                   # encoding: [0x4c,0x8a,0x18,0x20]
+         bclr 4, 10, 3
+# CHECK: bclr 4, 10, 0                   # encoding: [0x4c,0x8a,0x00,0x20]
+         bclr 4, 10
+# CHECK: bclrl 4, 10, 3                  # encoding: [0x4c,0x8a,0x18,0x21]
+         bclrl 4, 10, 3
+# CHECK: bclrl 4, 10, 0                  # encoding: [0x4c,0x8a,0x00,0x21]
+         bclrl 4, 10
+# CHECK: bcctr 4, 10, 3                  # encoding: [0x4c,0x8a,0x1c,0x20]
+         bcctr 4, 10, 3
+# CHECK: bcctr 4, 10, 0                  # encoding: [0x4c,0x8a,0x04,0x20]
+         bcctr 4, 10
+# CHECK: bcctrl 4, 10, 3                 # encoding: [0x4c,0x8a,0x1c,0x21]
+         bcctrl 4, 10, 3
+# CHECK: bcctrl 4, 10, 0                 # encoding: [0x4c,0x8a,0x04,0x21]
+         bcctrl 4, 10
 
 # Condition register instructions
 
@@ -420,14 +444,18 @@
          rldicr 2, 3, 4, 5
 # CHECK: rldicr. 2, 3, 4, 5              # encoding: [0x78,0x62,0x21,0x45]
          rldicr. 2, 3, 4, 5
-# FIXME: rldic 2, 3, 4, 5
-# FIXME: rldic. 2, 3, 4, 5
+# CHECK: rldic 2, 3, 4, 5                # encoding: [0x78,0x62,0x21,0x48]
+         rldic 2, 3, 4, 5
+# CHECK: rldic. 2, 3, 4, 5               # encoding: [0x78,0x62,0x21,0x49]
+         rldic. 2, 3, 4, 5
 # CHECK: rldcl 2, 3, 4, 5                # encoding: [0x78,0x62,0x21,0x50]
          rldcl 2, 3, 4, 5
 # CHECK: rldcl. 2, 3, 4, 5               # encoding: [0x78,0x62,0x21,0x51]
          rldcl. 2, 3, 4, 5
-# FIXME: rldcr 2, 3, 4, 5
-# FIXME: rldcr. 2, 3, 4, 5
+# CHECK: rldcr 2, 3, 4, 5                # encoding: [0x78,0x62,0x21,0x52]
+         rldcr 2, 3, 4, 5
+# CHECK: rldcr. 2, 3, 4, 5               # encoding: [0x78,0x62,0x21,0x53]
+         rldcr. 2, 3, 4, 5
 # CHECK: rldimi 2, 3, 4, 5               # encoding: [0x78,0x62,0x21,0x4c]
          rldimi 2, 3, 4, 5
 # CHECK: rldimi. 2, 3, 4, 5              # encoding: [0x78,0x62,0x21,0x4d]

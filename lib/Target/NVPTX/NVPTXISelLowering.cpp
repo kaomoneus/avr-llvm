@@ -1135,7 +1135,7 @@ SDValue NVPTXTargetLowering::LowerFormalArguments(
       // A plain scalar.
       if (isABI || isKernel) {
         // If ABI, load from the param symbol
-        SDValue Arg = getParamSymbol(DAG, idx);
+        SDValue Arg = getParamSymbol(DAG, idx, getPointerTy());
         // Conjure up a value that we can get the address space from.
         // FIXME: Using a constant here is a hack.
         Value *srcValue = Constant::getNullValue(
@@ -1421,7 +1421,7 @@ NVPTXTargetLowering::getConstraintType(const std::string &Constraint) const {
 
 std::pair<unsigned, const TargetRegisterClass *>
 NVPTXTargetLowering::getRegForInlineAsmConstraint(const std::string &Constraint,
-                                                  EVT VT) const {
+                                                  MVT VT) const {
   if (Constraint.size() == 1) {
     switch (Constraint[0]) {
     case 'c':

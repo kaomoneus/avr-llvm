@@ -469,9 +469,6 @@ namespace {
     /// occured, false otherwise.
     bool Merge(const RRInfo &Other);
 
-    bool IsTrackingImpreciseReleases() {
-      return ReleaseMetadata != 0;
-    }
   };
 }
 
@@ -521,12 +518,10 @@ namespace {
     /// The current position in the sequence.
     Sequence Seq : 8;
 
-  public:
     /// Unidirectional information about the current sequence.
-    ///
-    /// TODO: Encapsulate this better.
     RRInfo RRI;
 
+  public:
     PtrState() : KnownPositiveRefCount(false), Partial(false),
                  Seq(S_None) {}
 
@@ -547,12 +542,24 @@ namespace {
       RRI.IsTailCallRelease = NewValue;
     }
 
+    bool IsTrackingImpreciseReleases() const {
+      return RRI.ReleaseMetadata != 0;
+    }
+
     const MDNode *GetReleaseMetadata() const {
       return RRI.ReleaseMetadata;
     }
 
     void SetReleaseMetadata(MDNode *NewValue) {
       RRI.ReleaseMetadata = NewValue;
+    }
+
+    bool IsCFGHazardAfflicted() const {
+      return RRI.CFGHazardAfflicted;
+    }
+
+    void SetCFGHazardAfflicted(const bool NewValue) {
+      RRI.CFGHazardAfflicted = NewValue;
     }
 
     void SetKnownPositiveRefCount() {
@@ -590,6 +597,26 @@ namespace {
     }
 
     void Merge(const PtrState &Other, bool TopDown);
+
+    void InsertCall(Instruction *I) {
+      RRI.Calls.insert(I);
+    }
+
+    void InsertReverseInsertPt(Instruction *I) {
+      RRI.ReverseInsertPts.insert(I);
+    }
+
+    void ClearReverseInsertPts() {
+      RRI.ReverseInsertPts.clear();
+    }
+
+    bool HasReverseInsertPts() const {
+      return !RRI.ReverseInsertPts.empty();
+    }
+
+    const RRInfo &GetRRInfo() const {
+      return RRI;
+    }
   };
 }
 
@@ -1752,7 +1779,7 @@ static void CheckForUseCFGHazard(const Sequence SuccSSeq,
       S.ClearSequenceProgress();
       break;
     }
-    S.RRI.CFGHazardAfflicted = true;
+    S.SetCFGHazardAfflicted(true);
     ShouldContinue = true;
     break;
   }
@@ -1894,7 +1921,7 @@ ObjCARCOpt::CheckForCFGHazards(const BasicBlock *BB,
       // safe, stop code motion. This is because whether or not it is safe to
       // remove RR pairs via KnownSafe is an orthogonal concept to whether we
       // are allowed to perform code motion.
-      S.RRI.CFGHazardAfflicted = true;
+      S.SetCFGHazardAfflicted(true);
     }
   }
 }
@@ -1935,7 +1962,7 @@ ObjCARCOpt::VisitInstructionBottomUp(Instruction *Inst,
     S.SetReleaseMetadata(ReleaseMetadata);
     S.SetKnownSafe(S.HasKnownPositiveRefCount());
     S.SetTailCallRelease(cast<CallInst>(Inst)->isTailCall());
-    S.RRI.Calls.insert(Inst);
+    S.InsertCall(Inst);
     S.SetKnownPositiveRefCount();
     break;
   }
@@ -1959,14 +1986,14 @@ ObjCARCOpt::VisitInstructionBottomUp(Instruction *Inst,
     case S_Use:
       // If OldSeq is not S_Use or OldSeq is S_Use and we are tracking an
       // imprecise release, clear our reverse insertion points.
-      if (OldSeq != S_Use || S.RRI.IsTrackingImpreciseReleases())
-        S.RRI.ReverseInsertPts.clear();
+      if (OldSeq != S_Use || S.IsTrackingImpreciseReleases())
+        S.ClearReverseInsertPts();
       // FALL THROUGH
     case S_CanRelease:
       // Don't do retain+release tracking for IC_RetainRV, because it's
       // better to let it remain as the first instruction after a call.
       if (Class != IC_RetainRV)
-        Retains[Inst] = S.RRI;
+        Retains[Inst] = S.GetRRInfo();
       S.ClearSequenceProgress();
       break;
     case S_None:
@@ -2050,14 +2077,14 @@ ObjCARCOpt::VisitInstructionBottomUp(Instruction *Inst,
       if (CanUse(Inst, Ptr, PA, Class)) {
         DEBUG(dbgs() << "CanUse: Seq: " << Seq << "; " << *Ptr
               << "\n");
-        assert(S.RRI.ReverseInsertPts.empty());
+        assert(!S.HasReverseInsertPts());
         // If this is an invoke instruction, we're scanning it as part of
         // one of its successor blocks, since we can't insert code after it
         // in its own block, and we don't want to split critical edges.
         if (isa<InvokeInst>(Inst))
-          S.RRI.ReverseInsertPts.insert(BB->getFirstInsertionPt());
+          S.InsertReverseInsertPt(BB->getFirstInsertionPt());
         else
-          S.RRI.ReverseInsertPts.insert(llvm::next(BasicBlock::iterator(Inst)));
+          S.InsertReverseInsertPt(llvm::next(BasicBlock::iterator(Inst)));
         S.SetSeq(S_Use);
         ANNOTATE_BOTTOMUP(Inst, Ptr, Seq, S_Use);
       } else if (Seq == S_Release && IsUser(Class)) {
@@ -2066,12 +2093,12 @@ ObjCARCOpt::VisitInstructionBottomUp(Instruction *Inst,
         // Non-movable releases depend on any possible objc pointer use.
         S.SetSeq(S_Stop);
         ANNOTATE_BOTTOMUP(Inst, Ptr, S_Release, S_Stop);
-        assert(S.RRI.ReverseInsertPts.empty());
+        assert(!S.HasReverseInsertPts());
         // As above; handle invoke specially.
         if (isa<InvokeInst>(Inst))
-          S.RRI.ReverseInsertPts.insert(BB->getFirstInsertionPt());
+          S.InsertReverseInsertPt(BB->getFirstInsertionPt());
         else
-          S.RRI.ReverseInsertPts.insert(llvm::next(BasicBlock::iterator(Inst)));
+          S.InsertReverseInsertPt(llvm::next(BasicBlock::iterator(Inst)));
       }
       break;
     case S_Stop:
@@ -2192,7 +2219,7 @@ ObjCARCOpt::VisitInstructionTopDown(Instruction *Inst,
       ANNOTATE_TOPDOWN(Inst, Arg, S.GetSeq(), S_Retain);
       S.ResetSequenceProgress(S_Retain);
       S.SetKnownSafe(S.HasKnownPositiveRefCount());
-      S.RRI.Calls.insert(Inst);
+      S.InsertCall(Inst);
     }
 
     S.SetKnownPositiveRefCount();
@@ -2215,12 +2242,12 @@ ObjCARCOpt::VisitInstructionTopDown(Instruction *Inst,
     case S_Retain:
     case S_CanRelease:
       if (OldSeq == S_Retain || ReleaseMetadata != 0)
-        S.RRI.ReverseInsertPts.clear();
+        S.ClearReverseInsertPts();
       // FALL THROUGH
     case S_Use:
       S.SetReleaseMetadata(ReleaseMetadata);
       S.SetTailCallRelease(cast<CallInst>(Inst)->isTailCall());
-      Releases[Inst] = S.RRI;
+      Releases[Inst] = S.GetRRInfo();
       ANNOTATE_TOPDOWN(Inst, Arg, S.GetSeq(), S_None);
       S.ClearSequenceProgress();
       break;
@@ -2264,8 +2291,8 @@ ObjCARCOpt::VisitInstructionTopDown(Instruction *Inst,
       case S_Retain:
         S.SetSeq(S_CanRelease);
         ANNOTATE_TOPDOWN(Inst, Ptr, Seq, S_CanRelease);
-        assert(S.RRI.ReverseInsertPts.empty());
-        S.RRI.ReverseInsertPts.insert(Inst);
+        assert(!S.HasReverseInsertPts());
+        S.InsertReverseInsertPt(Inst);
 
         // One call can't cause a transition from S_Retain to S_CanRelease
         // and S_CanRelease to S_Use. If we've made the first transition,

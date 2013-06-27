@@ -243,15 +243,6 @@ void ARMInstPrinter::printInst(const MCInst *MI, raw_ostream &O,
     return;
   }
 
-  // Thumb1 NOP
-  if (Opcode == ARM::tMOVr && MI->getOperand(0).getReg() == ARM::R8 &&
-      MI->getOperand(1).getReg() == ARM::R8) {
-    O << "\tnop";
-    printPredicateOperand(MI, 2, O);
-    printAnnotation(O, Annot);
-    return;
-  }
-
   // Combine 2 GPRs from disassember into a GPRPair to match with instr def.
   // ldrexd/strexd require even/odd GPR pair. To enforce this constraint,
   // a single GPRPair reg operand is used in the .td file to replace the two
@@ -1185,19 +1176,14 @@ void ARMInstPrinter::printT2AddrModeImm8s4OffsetOperand(const MCInst *MI,
 
   assert(((OffImm & 0x3) == 0) && "Not a valid immediate!");
 
-  // Don't print +0.
-  if (OffImm != 0)
-    O << ", ";
-  if (OffImm != 0 && UseMarkup)
-    O << "<imm:";
+  O << ", " << markup("<imm:");
   if (OffImm == INT32_MIN)
     O << "#-0";
   else if (OffImm < 0)
     O << "#-" << -OffImm;
-  else if (OffImm > 0)
+  else
     O << "#" << OffImm;
-  if (OffImm != 0 && UseMarkup)
-    O << ">";
+  O << markup(">");
 }
 
 void ARMInstPrinter::printT2AddrModeSoRegOperand(const MCInst *MI,

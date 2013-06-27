@@ -198,7 +198,7 @@ DIFile DIBuilder::createFile(StringRef Filename, StringRef Directory) {
 }
 
 /// createEnumerator - Create a single enumerator value.
-DIEnumerator DIBuilder::createEnumerator(StringRef Name, uint64_t Val) {
+DIEnumerator DIBuilder::createEnumerator(StringRef Name, int64_t Val) {
   assert(!Name.empty() && "Unable to create enumerator without name");
   Value *Elts[] = {
     GetTagConstant(VMContext, dwarf::DW_TAG_enumerator),
@@ -208,7 +208,7 @@ DIEnumerator DIBuilder::createEnumerator(StringRef Name, uint64_t Val) {
   return DIEnumerator(MDNode::get(VMContext, Elts));
 }
 
-/// createNullPtrType - Create C++0x nullptr type.
+/// createNullPtrType - Create C++11 nullptr type.
 DIBasicType DIBuilder::createNullPtrType(StringRef Name) {
   assert(!Name.empty() && "Unable to create type without name");
   // nullptr is encoded in DIBasicType format. Line number, filename,
@@ -530,15 +530,14 @@ DIBuilder::createTemplateTypeParameter(DIDescriptor Context, StringRef Name,
   return DITemplateTypeParameter(MDNode::get(VMContext, Elts));
 }
 
-/// createTemplateValueParameter - Create debugging information for template
-/// value parameter.
 DITemplateValueParameter
-DIBuilder::createTemplateValueParameter(DIDescriptor Context, StringRef Name,
-                                        DIType Ty, Value *Val,
-                                        MDNode *File, unsigned LineNo,
+DIBuilder::createTemplateValueParameter(unsigned Tag, DIDescriptor Context,
+                                        StringRef Name, DIType Ty,
+                                        Value *Val, MDNode *File,
+                                        unsigned LineNo,
                                         unsigned ColumnNo) {
   Value *Elts[] = {
-    GetTagConstant(VMContext, dwarf::DW_TAG_template_value_parameter),
+    GetTagConstant(VMContext, Tag),
     getNonCompileUnitScope(Context),
     MDString::get(VMContext, Name),
     Ty,
@@ -548,6 +547,38 @@ DIBuilder::createTemplateValueParameter(DIDescriptor Context, StringRef Name,
     ConstantInt::get(Type::getInt32Ty(VMContext), ColumnNo)
   };
   return DITemplateValueParameter(MDNode::get(VMContext, Elts));
+}
+
+/// createTemplateValueParameter - Create debugging information for template
+/// value parameter.
+DITemplateValueParameter
+DIBuilder::createTemplateValueParameter(DIDescriptor Context, StringRef Name,
+                                        DIType Ty, Value *Val,
+                                        MDNode *File, unsigned LineNo,
+                                        unsigned ColumnNo) {
+  return createTemplateValueParameter(dwarf::DW_TAG_template_value_parameter,
+                                      Context, Name, Ty, Val, File, LineNo,
+                                      ColumnNo);
+}
+
+DITemplateValueParameter
+DIBuilder::createTemplateTemplateParameter(DIDescriptor Context, StringRef Name,
+                                           DIType Ty, StringRef Val,
+                                           MDNode *File, unsigned LineNo,
+                                           unsigned ColumnNo) {
+  return createTemplateValueParameter(
+      dwarf::DW_TAG_GNU_template_template_param, Context, Name, Ty,
+      MDString::get(VMContext, Val), File, LineNo, ColumnNo);
+}
+
+DITemplateValueParameter
+DIBuilder::createTemplateParameterPack(DIDescriptor Context, StringRef Name,
+                                       DIType Ty, DIArray Val,
+                                       MDNode *File, unsigned LineNo,
+                                       unsigned ColumnNo) {
+  return createTemplateValueParameter(dwarf::DW_TAG_GNU_template_parameter_pack,
+                                      Context, Name, Ty, Val, File, LineNo,
+                                      ColumnNo);
 }
 
 /// createClassType - Create debugging information entry for a class.
@@ -1097,7 +1128,7 @@ DILexicalBlockFile DIBuilder::createLexicalBlockFile(DIDescriptor Scope,
 
 DILexicalBlock DIBuilder::createLexicalBlock(DIDescriptor Scope, DIFile File,
                                              unsigned Line, unsigned Col) {
-  // Defeat MDNode uniqing for lexical blocks by using unique id.
+  // Defeat MDNode uniquing for lexical blocks by using unique id.
   static unsigned int unique_id = 0;
   Value *Elts[] = {
     GetTagConstant(VMContext, dwarf::DW_TAG_lexical_block),

@@ -25,17 +25,24 @@ class BranchProbability;
 class BlockFrequency {
 
   uint64_t Frequency;
-  static const int64_t ENTRY_FREQ = 1024;
+  static const int64_t ENTRY_FREQ = 1 << 14;
 
 public:
   BlockFrequency(uint64_t Freq = 0) : Frequency(Freq) { }
 
+  /// \brief Returns the frequency of the entry block of the function.
   static uint64_t getEntryFrequency() { return ENTRY_FREQ; }
+
+  /// \brief Returns the frequency as a fixpoint number scaled by the entry
+  /// frequency.
   uint64_t getFrequency() const { return Frequency; }
 
+  /// \brief Multiplies with a branch probability. The computation will never
+  /// overflow.
   BlockFrequency &operator*=(const BranchProbability &Prob);
   const BlockFrequency operator*(const BranchProbability &Prob) const;
 
+  /// \brief Adds another block frequency using saturating arithmetic.
   BlockFrequency &operator+=(const BlockFrequency &Freq);
   const BlockFrequency operator+(const BlockFrequency &Freq) const;
 
