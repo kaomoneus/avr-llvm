@@ -1730,7 +1730,7 @@ AVRTargetLowering::getSingleConstraintMatchWeight(AsmOperandInfo &info,
 
 std::pair<unsigned, const TargetRegisterClass *>
 AVRTargetLowering::getRegForInlineAsmConstraint(const std::string &Constraint,
-                                                EVT VT) const
+                                                MVT VT) const
 {
   // We only support i8 and i16.
   //:FIXME: remove this assert for now since it gets sometimes executed

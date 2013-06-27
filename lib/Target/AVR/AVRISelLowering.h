@@ -122,7 +122,7 @@ public: // TargetLowering
                                  const char *constraint) const;
 
   std::pair<unsigned, const TargetRegisterClass *>
-  getRegForInlineAsmConstraint(const std::string &Constraint, EVT VT) const;
+  getRegForInlineAsmConstraint(const std::string &Constraint, MVT VT) const;
 
   void LowerAsmOperandForConstraint(SDValue Op, std::string &Constraint,
                                     std::vector<SDValue> &Ops,
