@@ -166,13 +166,15 @@ bool AVRAsmPrinter::PrintAsmMemoryOperand(const MachineInstr *MI,
   // this should be done somewhere else
   // check out the new feature about alternative reg names
 
-  if (MI->getOperand(OpNum).getReg() == AVR::R31R30)
+  unsigned Reg = MI->getOperand(OpNum).getReg();
+
+  if (Reg == AVR::R31R30)
   {
     O << "Z";
   }
   else
   {
-    assert(MI->getOperand(OpNum).getReg() == AVR::R29R28 &&
+    assert(Reg == AVR::R29R28 &&
            "Wrong register class for memory operand.");
     O << "Y";
   }

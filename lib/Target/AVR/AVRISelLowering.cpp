@@ -539,6 +539,76 @@ SDValue AVRTargetLowering::LowerINLINEASM(SDValue Op,
         continue;
       }
 
+      // Optimize "add Z, imm" case
+      // if we detect it, we just skip it
+      // and handle in SelectInlineAsmMemoryOperand
+      if (Addr->getOpcode() == ISD::ADD)
+      {
+        SDValue CopyFromRegOp = Addr->getOperand(0);
+        SDValue ImmOp = Addr->getOperand(1);
+        ConstantSDNode* ImmNode = dyn_cast<ConstantSDNode>(ImmOp);
+
+        if (CopyFromRegOp->getOpcode() == ISD::CopyFromReg && ImmNode)
+        {
+          SDValue CopyFromRegChain = CopyFromRegOp->getOperand(0);
+          SDValue RegOp = CopyFromRegOp->getOperand(1);
+          RegisterSDNode* RegNode = cast<RegisterSDNode>(RegOp);
+
+          uint64_t Imm = ImmNode->getAPIntValue().getZExtValue();
+          if (Imm < 64)
+          {
+            unsigned Reg = RegNode->getReg();
+            const TargetRegisterClass* RegClass =
+                MF.getRegInfo().getRegClass(Reg);
+
+            // Do correct register class if possible:
+            // If register is virtual, just recreate it with a proper class,
+            // if register is physical, check that PTRDISPREGS constains it.
+
+            if (TargetRegisterInfo::isVirtualRegister(Reg) ||
+                AVR::PTRDISPREGSRegClass.contains(Reg))
+            {
+              // If we detect proper case - just skip it.
+
+              if (MF.getRegInfo().getRegClass(Reg)
+                  != &AVR::PTRDISPREGSRegClass) {
+
+                unsigned VReg = MF.getRegInfo().createVirtualRegister(
+                    &AVR::PTRDISPREGSRegClass);
+
+                SDValue NewCopyFromRegOp =
+                    DAG.getCopyFromReg(CopyFromRegChain, SDLoc(CopyFromRegOp),
+                                       VReg,
+                                       getPointerTy());
+
+                RegOp = DAG.getRegister(VReg, getPointerTy());
+
+                SDValue Add = DAG.getNode(ISD::ADD, SDLoc(Addr),
+                                          Addr->getValueType(0),
+                                          NewCopyFromRegOp,
+                                          ImmOp);
+
+                // If old Addr chain was also used as inlineasm chain,
+                // replace it with new one.
+                if (NewOps[0] == CopyFromRegOp)
+                {
+                  NewOps[0] = NewCopyFromRegOp;
+                }
+
+                NewOps[i] = Add;
+
+                IsModified = true;
+              }
+
+
+              for (; NumVals; --NumVals, ++i) {
+              }
+              continue;
+            }
+          }
+        }
+      }
+
       // Most general case, address is not based on SP+Offset,
       // so we copy it to pointer reg and use it.
 

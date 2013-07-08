@@ -105,13 +105,17 @@ AVRDAGToDAGISel::SelectAddr(SDNode *Op, SDValue N, SDValue &Base, SDValue &Disp)
 
     // The value type of the memory instruction determines what is the maximum
     // offset allowed.
-    MVT VT = cast<MemSDNode>(Op)->getMemoryVT().getSimpleVT();
+    EVT VT = RHS->getValueType(0);
 
     // We only accept offsets that fit in 6 bits (unsigned).
     if ((VT == MVT::i8 && isUInt<6>(RHSC))
         || (VT == MVT::i16 && RHSC >= 0 && RHSC < 63))
     {
       Base = N.getOperand(0);
+      if (Base->getOpcode() == ISD::CopyFromReg)
+      {
+        Base = Base->getOperand(1);
+      }
       Disp = CurDAG->getTargetConstant(RHSC, MVT::i8);
 
       return true;
@@ -204,6 +208,21 @@ bool AVRDAGToDAGISel::SelectInlineAsmMemoryOperand(const SDValue &Op,
                                           std::vector<SDValue> &OutOps) {
 
   if (Op->getOpcode() == ISD::FrameIndex)
+  {
+    SDValue Base, Disp;
+    if (SelectAddr(Op.getNode(), Op, Base, Disp))
+    {
+      OutOps.push_back(Base);
+      OutOps.push_back(Disp);
+      return false;
+    }
+    else
+    {
+      return true;
+    }
+  }
+
+  if (Op->getOpcode() == ISD::ADD)
   {
     SDValue Base, Disp;
     if (SelectAddr(Op.getNode(), Op, Base, Disp))
