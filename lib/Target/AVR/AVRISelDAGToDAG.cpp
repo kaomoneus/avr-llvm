@@ -105,7 +105,20 @@ AVRDAGToDAGISel::SelectAddr(SDNode *Op, SDValue N, SDValue &Base, SDValue &Disp)
 
     // The value type of the memory instruction determines what is the maximum
     // offset allowed.
-    EVT VT = RHS->getValueType(0);
+    MVT VT;
+    if (MemSDNode* MemNode = dyn_cast<MemSDNode>(Op))
+    {
+      VT = MemNode->getMemoryVT().getSimpleVT();
+    }
+    // Special support for INLINEASM memory operand.
+    else if (N.getOperand(0)->getOpcode() == ISD::CopyFromReg)
+    {
+      VT = RHS->getValueType(0).getSimpleVT();
+    }
+    else
+    {
+      llvm_unreachable("Unexpected operand type.");
+    }
 
     // We only accept offsets that fit in 6 bits (unsigned).
     if ((VT == MVT::i8 && isUInt<6>(RHSC))
