@@ -540,7 +540,8 @@ SDValue AVRTargetLowering::LowerINLINEASM(SDValue Op,
       }
 
       // Optimize "add vreg, imm" case
-      if (Addr->getOpcode() == ISD::ADD)
+      if (Addr->getOpcode() == ISD::ADD ||
+          Addr->getOpcode() == ISD::SUB)
       {
         SDValue CopyFromRegOp = Addr->getOperand(0);
         SDValue ImmOp = Addr->getOperand(1);
@@ -579,7 +580,8 @@ SDValue AVRTargetLowering::LowerINLINEASM(SDValue Op,
                                        VReg,
                                        getPointerTy());
 
-                SDValue Add = DAG.getNode(ISD::ADD, SDLoc(Addr),
+                SDValue Add = DAG.getNode(Addr->getOpcode() /*ADD or SUB*/,
+                                          SDLoc(Addr),
                                           Addr->getValueType(0),
                                           NewCopyFromRegOp,
                                           ImmOp);
