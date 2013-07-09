@@ -539,9 +539,7 @@ SDValue AVRTargetLowering::LowerINLINEASM(SDValue Op,
         continue;
       }
 
-      // Optimize "add Z, imm" case
-      // if we detect it, we just skip it
-      // and handle in SelectInlineAsmMemoryOperand
+      // Optimize "add vreg, imm" case
       if (Addr->getOpcode() == ISD::ADD)
       {
         SDValue CopyFromRegOp = Addr->getOperand(0);
@@ -550,16 +548,13 @@ SDValue AVRTargetLowering::LowerINLINEASM(SDValue Op,
 
         if (CopyFromRegOp->getOpcode() == ISD::CopyFromReg && ImmNode)
         {
-          SDValue CopyFromRegChain = CopyFromRegOp->getOperand(0);
-          SDValue RegOp = CopyFromRegOp->getOperand(1);
-          RegisterSDNode* RegNode = cast<RegisterSDNode>(RegOp);
+          RegisterSDNode* RegNode =
+              cast<RegisterSDNode>(CopyFromRegOp->getOperand(1));
 
           uint64_t Imm = ImmNode->getAPIntValue().getZExtValue();
           if (Imm < 64)
           {
             unsigned Reg = RegNode->getReg();
-            const TargetRegisterClass* RegClass =
-                MF.getRegInfo().getRegClass(Reg);
 
             // Do correct register class if possible:
             // If register is virtual, just recreate it with a proper class,
@@ -576,12 +571,13 @@ SDValue AVRTargetLowering::LowerINLINEASM(SDValue Op,
                 unsigned VReg = MF.getRegInfo().createVirtualRegister(
                     &AVR::PTRDISPREGSRegClass);
 
+                SDValue CopyToReg = DAG.getCopyToReg(CopyFromRegOp,
+                    SDLoc(CopyFromRegOp), VReg, CopyFromRegOp);
+
                 SDValue NewCopyFromRegOp =
-                    DAG.getCopyFromReg(CopyFromRegChain, SDLoc(CopyFromRegOp),
+                    DAG.getCopyFromReg(CopyToReg, SDLoc(CopyToReg),
                                        VReg,
                                        getPointerTy());
-
-                RegOp = DAG.getRegister(VReg, getPointerTy());
 
                 SDValue Add = DAG.getNode(ISD::ADD, SDLoc(Addr),
                                           Addr->getValueType(0),
