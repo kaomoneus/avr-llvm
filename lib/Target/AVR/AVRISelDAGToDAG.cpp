@@ -228,7 +228,7 @@ bool AVRDAGToDAGISel::SelectInlineAsmMemoryOperand(const SDValue &Op,
     return true;
   }
 
-  if (Op->getOpcode() == ISD::ADD)
+  if (Op->getOpcode() == ISD::ADD || Op->getOpcode() == ISD::SUB)
   {
     SDValue Base, Disp;
     if (SelectAddr(Op.getNode(), Op, Base, Disp))
