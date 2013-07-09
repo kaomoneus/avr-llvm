@@ -17,7 +17,6 @@
 #include "AVRMachineFunctionInfo.h"
 #include "AVRTargetMachine.h"
 #include "AVRTargetObjectFile.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/CallingConvLower.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
@@ -485,88 +484,82 @@ SDValue AVRTargetLowering::LowerBR_CC(SDValue Op, SelectionDAG &DAG) const
                      Cmp);
 }
 
-SDValue AVRTargetLowering::LowerINLINEASM(SDValue Op,
-                                          SelectionDAG &DAG) const {
-
+SDValue AVRTargetLowering::LowerINLINEASM(SDValue Op, SelectionDAG &DAG) const
+{
   bool IsModified = false;
-  SDNode *Node = Op.getNode();
+  const SDNode *Node = Op.getNode();
   MachineFunction &MF = DAG.getMachineFunction();
 
   assert(Node->getOpcode() == ISD::INLINEASM &&
-         "Only INLINEASM nodes are allowed here.");
+         "Only INLINEASM nodes are allowed here");
 
   // First just clone all the existing operands.
   unsigned NumOps = Node->getNumOperands();
-  SmallVector<SDValue, 32> NewOps(NumOps, SDValue());
+  SmallVector<SDValue, 16> NewOps(NumOps, SDValue());
   for (unsigned i = 0; i != NumOps; ++i)
   {
     NewOps[i] = Node->getOperand(i);
   }
 
-  // Now scan for memory operands and replace it with PTRDISPREGS regs.
-
-  if (Node->getOperand(NumOps-1).getValueType() == MVT::Glue)
+  // Skip the flag operand.
+  if (Node->getOperand(NumOps - 1).getValueType() == MVT::Glue)
   {
-    // Skip the flag operand.
-    NewOps.push_back(Node->getOperand(NumOps-1));
+    NewOps.push_back(Node->getOperand(NumOps - 1));
     --NumOps;
   }
 
-  for (unsigned i = InlineAsm::Op_FirstOperand; i != NumOps;)
+  // Now scan for memory operands and replace them with PTRDISPREGS regs.
+  for (unsigned i = InlineAsm::Op_FirstOperand; i != NumOps; )
   {
-    unsigned Flags =
-      cast<ConstantSDNode>(Node->getOperand(i))->getZExtValue();
+    unsigned Flags = cast<ConstantSDNode>(Node->getOperand(i))->getZExtValue();
     unsigned NumVals = InlineAsm::getNumOperandRegisters(Flags);
-    ++i;  // Skip the ID value.
+
+    // Skip the ID value.
+    ++i;
 
     if (InlineAsm::getKind(Flags) == InlineAsm::Kind_Mem)
     {
-      assert(NumVals == 1 && "Mem operand may have the only value.");
-      const SDValue& Addr = Node->getOperand(i);
+      assert(NumVals == 1 && "Memory operands can only have one value");
+      const SDValue &Addr = Node->getOperand(i);
+      MachineRegisterInfo &RI = MF.getRegInfo();
 
       // Skip legal cases:
-      // 1. Addr is frame index.
-      // 2. It is already just Z or Y
-
-      RegisterSDNode* RegNode = dyn_cast<RegisterSDNode>(Addr);
-      if (Addr->getOpcode() == ISD::FrameIndex ||
-          (RegNode &&
-          MF.getRegInfo().getRegClass(RegNode->getReg()) ==
-          &AVR::PTRDISPREGSRegClass))
+      // 1. Addr is a frame index.
+      // 2. It is already Z or Y.
+      const RegisterSDNode *RegNode = dyn_cast<RegisterSDNode>(Addr);
+      if ((Addr->getOpcode() == ISD::FrameIndex)
+          || (RegNode && RI.getRegClass(RegNode->getReg())
+              == &AVR::PTRDISPREGSRegClass))
       {
-        for (; NumVals; --NumVals, ++i) {}
-
+        for (; NumVals; --NumVals, ++i);
         continue;
       }
 
-      // Most general case, address is not based on SP+Offset,
-      // so we copy it to pointer reg and use it.
-
-      unsigned VReg =
-        MF.getRegInfo().createVirtualRegister(&AVR::PTRDISPREGSRegClass);
+      // Most general case: address is not based on SP+Offset, copy it to
+      // a pointer register and use it.
+      unsigned VReg = RI.createVirtualRegister(&AVR::PTRDISPREGSRegClass);
 
       SDValue Chain = NewOps[0];
       Chain = DAG.getCopyToReg(Chain, SDLoc(Addr), VReg, Addr);
       NewOps[0] = Chain;
       NewOps[i] = DAG.getRegister(VReg, getPointerTy());
-      IsModified = true;
+      IsModified |= true;
     }
 
-    for (; NumVals; --NumVals, ++i) {}
+    for (; NumVals; --NumVals, ++i);
   }
 
-  // if we have made some replacements then create new Op
-  if (IsModified) {
-
+  // If we made any replacements create a new Op.
+  if (IsModified)
+  {
     SDVTList VTs = Op.getNode()->getVTList();
 
-    return DAG.getNode(Op.getOpcode(), SDLoc(Op), VTs,
-                       &NewOps[0], NewOps.size());
+    return DAG.getNode(Op.getOpcode(), SDLoc(Op), VTs, &NewOps[0],
+                       NewOps.size());
   }
 
   return Op;
 }
-
 
 SDValue AVRTargetLowering::LowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const
 {

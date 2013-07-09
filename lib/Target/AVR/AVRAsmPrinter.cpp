@@ -51,8 +51,8 @@ public:
                        raw_ostream &O) LLVM_OVERRIDE;
 
   bool PrintAsmMemoryOperand(const MachineInstr *MI, unsigned OpNum,
-                                     unsigned AsmVariant, const char *ExtraCode,
-                                     raw_ostream &O) LLVM_OVERRIDE;
+                             unsigned AsmVariant, const char *ExtraCode,
+                             raw_ostream &O) LLVM_OVERRIDE;
 
 public: // AsmPrinter
   void EmitInstruction(const MachineInstr *MI);
@@ -109,43 +109,44 @@ bool AVRAsmPrinter::PrintAsmOperand(const MachineInstr *MI, unsigned OpNum,
 
 bool AVRAsmPrinter::PrintAsmMemoryOperand(const MachineInstr *MI,
                                           unsigned OpNum, unsigned AsmVariant,
-                                          const char *ExtraCode,
-                                          raw_ostream &O) {
-
-  if (ExtraCode && ExtraCode[0]) {
+                                          const char *ExtraCode, raw_ostream &O)
+{
+  if (ExtraCode && ExtraCode[0])
+  {
     // TODO:
-    llvm_unreachable("This branch is not implemented yet.");
+    llvm_unreachable("This branch is not implemented yet");
   }
 
   const MachineOperand &MO = MI->getOperand(OpNum);
-  assert(MO.isReg() && "unexpected inline asm memory operand");
+  assert(MO.isReg() && "Unexpected inline asm memory operand");
 
   if (!MI->getOperand(OpNum).isReg())
+  {
     return true;
+  }
 
   // :FIXME: This fixme is related with another one in AVRInstPrinter, line 29:
   // this should be done somewhere else
   // check out the new feature about alternative reg names
-
   if (MI->getOperand(OpNum).getReg() == AVR::R31R30)
   {
     O << "Z";
   }
   else
   {
-    assert(MI->getOperand(OpNum).getReg() == AVR::R29R28 &&
-           "Wrong register class for memory operand.");
+    assert(MI->getOperand(OpNum).getReg() == AVR::R29R28
+           && "Wrong register class for memory operand.");
     O << "Y";
   }
 
-  // If NumOpRegs == 2, then we assume it is product of FrameIndex expansion,
-  // and the second operand is Imm.
+  // If NumOpRegs == 2, then we assume it is product of a FrameIndex expansion
+  // and the second operand is an Imm.
   // Though it is weird that imm is counted as register too.
-  unsigned OpFlags = MI->getOperand(OpNum-1).getImm();
+  unsigned OpFlags = MI->getOperand(OpNum - 1).getImm();
   unsigned NumOpRegs = InlineAsm::getNumOperandRegisters(OpFlags);
   if (NumOpRegs == 2)
   {
-    O << '+' << MI->getOperand(OpNum+1).getImm();
+    O << '+' << MI->getOperand(OpNum + 1).getImm();
   }
 
   return false;
