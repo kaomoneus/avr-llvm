@@ -112,12 +112,7 @@ AVRDAGToDAGISel::SelectAddr(SDNode *Op, SDValue N, SDValue &Base, SDValue &Disp)
         || (VT == MVT::i16 && RHSC >= 0 && RHSC < 63))
     {
       Base = N.getOperand(0);
-      if (Base->getOpcode() == ISD::CopyFromReg)
-      {
-        Base = Base->getOperand(1);
-      }
       Disp = CurDAG->getTargetConstant(RHSC, MVT::i8);
-
       return true;
     }
   }
