@@ -191,3 +191,13 @@ define void @mem_mixed() {
   call void asm "some_instr $0, $1, $2", "=*Q,=*Q,=*Q"(i16* @a, i16* %a, i16* %b)
   ret void
 }
+
+; CHECK: mem_gep:
+define i8 @mem_gep(i8* %p) {
+entry:
+; CHECK: movw r30, r24
+  %arrayidx = getelementptr inbounds i8* %p, i16 1
+; CHECK: ld r24, Z+1
+  %0 = tail call i8 asm sideeffect "ld $0, $1\0A\09", "=r,*Q"(i8* %arrayidx)
+  ret i8 %0
+}
