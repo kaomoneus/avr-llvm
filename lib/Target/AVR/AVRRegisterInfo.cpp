@@ -248,3 +248,13 @@ unsigned AVRRegisterInfo::getFrameRegister(const MachineFunction &MF) const
 
   return 28;
 }
+
+const TargetRegisterClass *
+AVRRegisterInfo::getPointerRegClass(const MachineFunction &MF,
+                                    unsigned Kind) const
+{
+  // FIXME: Currently we're using avr-gcc as reference, so we restrict
+  // ptrs to Y and Z regs. Though avr-gcc has buggy implementation
+  // of memory constraint, so we can fix it and bit avr-gcc here ;-)
+  return &AVR::PTRDISPREGSRegClass;
+}
