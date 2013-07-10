@@ -99,10 +99,7 @@ bool AVRAsmPrinter::PrintAsmOperand(const MachineInstr *MI, unsigned OpNum,
   bool Error = AsmPrinter::PrintAsmOperand(MI, OpNum, AsmVariant, ExtraCode, O);
   if (Error && ExtraCode && ExtraCode[0])
   {
-    if (ExtraCode[1] != 0)
-    {
-      return true; // Unknown modifier.
-    }
+    if (ExtraCode[1] != 0) return true; // Unknown modifier.
   }
 
   printOperand(MI, OpNum, O);
@@ -131,14 +128,13 @@ bool AVRAsmPrinter::PrintAsmMemoryOperand(const MachineInstr *MI,
   // :FIXME: This fixme is related with another one in AVRInstPrinter, line 29:
   // this should be done somewhere else
   // check out the new feature about alternative reg names
-  unsigned Reg = MI->getOperand(OpNum).getReg();
-  if (Reg == AVR::R31R30)
+  if (MI->getOperand(OpNum).getReg() == AVR::R31R30)
   {
     O << "Z";
   }
   else
   {
-    assert(Reg == AVR::R29R28
+    assert(MI->getOperand(OpNum).getReg() == AVR::R29R28
            && "Wrong register class for memory operand.");
     O << "Y";
   }

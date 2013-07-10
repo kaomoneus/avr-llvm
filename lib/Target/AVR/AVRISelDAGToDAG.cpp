@@ -126,6 +126,7 @@ AVRDAGToDAGISel::SelectAddr(SDNode *Op, SDValue N, SDValue &Base, SDValue &Disp)
     {
       Base = N.getOperand(0);
       Disp = CurDAG->getTargetConstant(RHSC, MVT::i8);
+
       return true;
     }
   }
