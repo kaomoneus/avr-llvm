@@ -19,7 +19,6 @@
 #include "InstPrinter/AVRInstPrinter.h"
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSymbol.h"
@@ -27,7 +26,6 @@
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/Mangler.h"
-#include "llvm/Target/TargetRegisterInfo.h"
 
 using namespace llvm;
 
@@ -104,40 +102,6 @@ bool AVRAsmPrinter::PrintAsmOperand(const MachineInstr *MI, unsigned OpNum,
     if (ExtraCode[1] != 0)
     {
       return true; // Unknown modifier.
-    }
-
-    if  (ExtraCode[0] >= 'A' && ExtraCode[0] <= 'Z')
-    {
-      const MachineOperand& RegOp = MI->getOperand(OpNum);
-
-      assert(RegOp.isReg() && "Operand must be a register when you're"
-                              "using 'A'..'Z' operand extracodes.");
-      unsigned Reg = RegOp.getReg();
-
-      unsigned ByteNumber = ExtraCode[0] -'A';
-
-      unsigned OpFlags = MI->getOperand(OpNum-1).getImm();
-      unsigned NumOpRegs = InlineAsm::getNumOperandRegisters(OpFlags);
-
-      const TargetRegisterInfo *TRI = MF->getTarget().getRegisterInfo();
-
-      unsigned BytesPerReg = TRI->getMinimalPhysRegClass(Reg)->getSize();
-
-      assert(BytesPerReg <= 2 && "Only 8 and 16 bit regs are supported.");
-
-      unsigned RegIdx = ByteNumber / BytesPerReg;
-      assert(RegIdx < NumOpRegs && "Multibyte index out of range.");
-
-      Reg = MI->getOperand(OpNum + RegIdx).getReg();
-
-      if (BytesPerReg == 2)
-      {
-        Reg = TRI->getSubReg(Reg, ByteNumber % BytesPerReg ?
-                                  AVR::sub_hi : AVR::sub_lo);
-      }
-
-      O << AVRInstPrinter::getRegisterName(Reg);
-      return false;
     }
   }
 
