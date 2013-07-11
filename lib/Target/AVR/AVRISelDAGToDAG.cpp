@@ -106,7 +106,7 @@ AVRDAGToDAGISel::SelectAddr(SDNode *Op, SDValue N, SDValue &Base, SDValue &Disp)
     // The value type of the memory instruction determines what is the maximum
     // offset allowed.
     MVT VT;
-    if (MemSDNode* MemNode = dyn_cast<MemSDNode>(Op))
+    if (MemSDNode *MemNode = dyn_cast<MemSDNode>(Op))
     {
       VT = MemNode->getMemoryVT().getSimpleVT();
     }
@@ -476,7 +476,7 @@ SDNode *AVRDAGToDAGISel::SelectInlineAsm(SDNode *Node)
 {
   bool IsModified = false;
   MachineFunction &MF = CurDAG->getMachineFunction();
-  const TargetLowering* TL = MF.getTarget().getTargetLowering();
+  const TargetLowering *TL = MF.getTarget().getTargetLowering();
 
   assert(Node->getOpcode() == ISD::INLINEASM &&
          "Only INLINEASM nodes are allowed here");
@@ -533,8 +533,8 @@ SDNode *AVRDAGToDAGISel::SelectInlineAsm(SDNode *Node)
       {
         SDValue CopyFromRegOp = Addr->getOperand(0);
         SDValue ImmOp = Addr->getOperand(1);
-        ConstantSDNode* ImmNode = dyn_cast<ConstantSDNode>(ImmOp);
-        RegisterSDNode* RegNode;
+        ConstantSDNode *ImmNode = dyn_cast<ConstantSDNode>(ImmOp);
+        RegisterSDNode *RegNode;
         unsigned Reg;
 
         if (CopyFromRegOp->getOpcode() == ISD::CopyFromReg && ImmNode &&
@@ -575,7 +575,7 @@ SDNode *AVRDAGToDAGISel::SelectInlineAsm(SDNode *Node)
       SDValue Chain = NewOps[0];
       Chain = CurDAG->getCopyToReg(Chain, SDLoc(Addr), VReg, Addr);
       NewOps[0] = Chain;
-      NewOps[i] = CurDAG->getRegister(VReg,  TL->getPointerTy());
+      NewOps[i] = CurDAG->getRegister(VReg, TL->getPointerTy());
       IsModified |= true;
     }
   }
