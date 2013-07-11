@@ -525,55 +525,46 @@ SDNode *AVRDAGToDAGISel::SelectInlineAsm(SDNode *Node)
         continue;
       }
 
-      // Optimize "add vreg, imm" case
+      // Optimize "add reg, imm" case
+      // reg should be either virtual register or register of
+      // PTRDISPREGSRegClass
       if (Addr->getOpcode() == ISD::ADD ||
           Addr->getOpcode() == ISD::SUB)
       {
         SDValue CopyFromRegOp = Addr->getOperand(0);
         SDValue ImmOp = Addr->getOperand(1);
         ConstantSDNode* ImmNode = dyn_cast<ConstantSDNode>(ImmOp);
+        RegisterSDNode* RegNode;
+        unsigned Reg;
 
-        if (CopyFromRegOp->getOpcode() == ISD::CopyFromReg && ImmNode)
+        if (CopyFromRegOp->getOpcode() == ISD::CopyFromReg && ImmNode &&
+            (RegNode = cast<RegisterSDNode>(CopyFromRegOp->getOperand(1))) &&
+            (ImmNode->getAPIntValue().getZExtValue() < 64) &&
+            (Reg = RegNode->getReg()) &&
+            (TargetRegisterInfo::isVirtualRegister(Reg) ||
+                AVR::PTRDISPREGSRegClass.contains(Reg)))
         {
-          RegisterSDNode* RegNode =
-              cast<RegisterSDNode>(CopyFromRegOp->getOperand(1));
+          // If we detect proper case - correct virtual register class
+          // if needed and go to another inlineasm operand.
 
-          uint64_t Imm = ImmNode->getAPIntValue().getZExtValue();
-          if (Imm < 64)
-          {
-            unsigned Reg = RegNode->getReg();
+          if (RI.getRegClass(Reg)
+              != &AVR::PTRDISPREGSRegClass) {
 
-            // Do correct register class if possible:
-            // If register is virtual, just recreate it with a proper class,
-            // if register is physical, check that PTRDISPREGS constains it.
+            unsigned VReg = RI.createVirtualRegister(
+                &AVR::PTRDISPREGSRegClass);
 
-            if (TargetRegisterInfo::isVirtualRegister(Reg) ||
-                AVR::PTRDISPREGSRegClass.contains(Reg))
-            {
-              // If we detect proper case - just skip it.
+            SDValue CopyToReg = CurDAG->getCopyToReg(CopyFromRegOp,
+                SDLoc(CopyFromRegOp), VReg, CopyFromRegOp);
 
-              if (RI.getRegClass(Reg)
-                  != &AVR::PTRDISPREGSRegClass) {
+            SDValue NewCopyFromRegOp =
+                CurDAG->getCopyFromReg(CopyToReg, SDLoc(CopyToReg),
+                                   VReg,
+                                   TL->getPointerTy());
 
-                unsigned VReg = RI.createVirtualRegister(
-                    &AVR::PTRDISPREGSRegClass);
+            CurDAG->UpdateNodeOperands(Addr.getNode(),
+                                       NewCopyFromRegOp, ImmOp);
 
-                SDValue CopyToReg = CurDAG->getCopyToReg(CopyFromRegOp,
-                    SDLoc(CopyFromRegOp), VReg, CopyFromRegOp);
-
-                SDValue NewCopyFromRegOp =
-                    CurDAG->getCopyFromReg(CopyToReg, SDLoc(CopyToReg),
-                                       VReg,
-                                       TL->getPointerTy());
-
-                CurDAG->UpdateNodeOperands(Addr.getNode(),
-                                           NewCopyFromRegOp, ImmOp);
-
-              }
-
-              continue;
-            }
-          }
+          continue;
         }
       }
 
