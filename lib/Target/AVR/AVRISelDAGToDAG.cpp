@@ -497,13 +497,16 @@ SDNode *AVRDAGToDAGISel::SelectInlineAsm(SDNode *Node)
   }
 
   // Now scan for memory operands and replace them with PTRDISPREGS regs.
-  for (unsigned i = InlineAsm::Op_FirstOperand; i != NumOps; )
-  {
-    unsigned Flags = cast<ConstantSDNode>(Node->getOperand(i))->getZExtValue();
-    unsigned NumVals = InlineAsm::getNumOperandRegisters(Flags);
+  for (unsigned i = InlineAsm::Op_FirstOperand, Flags, NumVals;
 
-    // Skip the ID value.
-    ++i;
+       (i != NumOps) &&
+       (Flags = cast<ConstantSDNode>(Node->getOperand(i))->getZExtValue()) &&
+       (NumVals = InlineAsm::getNumOperandRegisters(Flags)) &&
+       (++i) /*Skip the ID value.*/;
+
+       i += NumVals
+      )
+  {
 
     if (InlineAsm::getKind(Flags) == InlineAsm::Kind_Mem)
     {
@@ -519,7 +522,6 @@ SDNode *AVRDAGToDAGISel::SelectInlineAsm(SDNode *Node)
           || (RegNode && RI.getRegClass(RegNode->getReg())
               == &AVR::PTRDISPREGSRegClass))
       {
-        for (; NumVals; --NumVals, ++i);
         continue;
       }
 
@@ -569,9 +571,6 @@ SDNode *AVRDAGToDAGISel::SelectInlineAsm(SDNode *Node)
 
               }
 
-
-              for (; NumVals; --NumVals, ++i) {
-              }
               continue;
             }
           }
@@ -588,8 +587,6 @@ SDNode *AVRDAGToDAGISel::SelectInlineAsm(SDNode *Node)
       NewOps[i] = CurDAG->getRegister(VReg,  TL->getPointerTy());
       IsModified |= true;
     }
-
-    for (; NumVals; --NumVals, ++i);
   }
 
   // If we made any replacements create a new Op.
