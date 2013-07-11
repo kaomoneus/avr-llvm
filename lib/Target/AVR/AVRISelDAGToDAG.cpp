@@ -451,7 +451,11 @@ SDNode *AVRDAGToDAGISel::Select(SDNode *N)
     }
   case ISD::INLINEASM:
     // Don't return from function. Just proceed to SelectCode below.
-    N = SelectInlineAsm(N);
+    // We also need to process inlineasm operands, and it hidden somewhere
+    // in default implementation.
+    SDNode* NewInlineAsmNode = SelectInlineAsm(N);
+    if (NewInlineAsmNode)
+        N = NewInlineAsmNode;
     break;
   }
 
@@ -548,21 +552,22 @@ SDNode *AVRDAGToDAGISel::SelectInlineAsm(SDNode *Node)
           // if needed and go to another inlineasm operand.
 
           if (RI.getRegClass(Reg)
-              != &AVR::PTRDISPREGSRegClass) {
+              != &AVR::PTRDISPREGSRegClass)
+          {
+            SDLoc dl(CopyFromRegOp);
 
             unsigned VReg = RI.createVirtualRegister(
                 &AVR::PTRDISPREGSRegClass);
 
-            SDValue CopyToReg = CurDAG->getCopyToReg(CopyFromRegOp,
-                SDLoc(CopyFromRegOp), VReg, CopyFromRegOp);
+            SDValue CopyToReg = CurDAG->getCopyToReg(CopyFromRegOp, dl,
+                                                     VReg, CopyFromRegOp);
 
             SDValue NewCopyFromRegOp =
-                CurDAG->getCopyFromReg(CopyToReg, SDLoc(CopyToReg),
-                                   VReg,
-                                   TL->getPointerTy());
+                CurDAG->getCopyFromReg(CopyToReg, dl, VReg, TL->getPointerTy());
 
-            CurDAG->UpdateNodeOperands(Addr.getNode(),
-                                       NewCopyFromRegOp, ImmOp);
+            CurDAG->UpdateNodeOperands(Addr.getNode(), NewCopyFromRegOp, ImmOp);
+            IsModified = true;
+          }
 
           continue;
         }
@@ -580,14 +585,15 @@ SDNode *AVRDAGToDAGISel::SelectInlineAsm(SDNode *Node)
     }
   }
 
-  // If we made any replacements create a new Op.
-  if (IsModified)
-  {
-    SDVTList VTs = Node->getVTList();
-    CurDAG->UpdateNodeOperands(Node, &NewOps[0], NewOps.size());
-  }
+  if (!IsModified)
+    return NULL;
 
-  return Node;
+  SDVTList VTs = Node->getVTList();
+  SDValue New = CurDAG->getNode(ISD::INLINEASM, SDLoc(Node),
+                                VTs, &NewOps[0],
+                                NewOps.size());
+  New.getNode()->setNodeId(-1);
+  return New.getNode();
 }
 
 /// createAVRISelDag - This pass converts a legalized DAG into a
