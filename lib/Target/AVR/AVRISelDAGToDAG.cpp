@@ -487,101 +487,98 @@ SDNode *AVRDAGToDAGISel::SelectInlineAsm(SDNode *Node)
 
   // First just clone all the existing operands.
   unsigned NumOps = Node->getNumOperands();
-  SmallVector<SDValue, 16> NewOps(NumOps, SDValue());
-  for (unsigned i = 0; i != NumOps; ++i)
+  SmallVector<SDValue, 16> NewOps;
+
+  int LastFlagsIdx = -1;
+  unsigned NumVals = 0;
+  for(unsigned i = 0; i < NumOps; ++i)
   {
-    NewOps[i] = Node->getOperand(i);
-  }
+    SDValue op = Node->getOperand(i);
+    NewOps.push_back(op);
+    if (i < InlineAsm::Op_FirstOperand) continue;
 
-  // Skip the flag operand.
-  if (Node->getOperand(NumOps - 1).getValueType() == MVT::Glue)
-  {
-    NewOps.push_back(Node->getOperand(NumOps - 1));
-    --NumOps;
-  }
-
-  // Now scan for memory operands and replace them with PTRDISPREGS regs.
-  for (unsigned i = InlineAsm::Op_FirstOperand, Flags, NumVals;
-
-       (i != NumOps) &&
-       (Flags = cast<ConstantSDNode>(Node->getOperand(i))->getZExtValue()) &&
-       (NumVals = InlineAsm::getNumOperandRegisters(Flags)) &&
-       (++i) /*Skip the ID value.*/;
-
-       i += NumVals
-      )
-  {
-
-    if (InlineAsm::getKind(Flags) == InlineAsm::Kind_Mem)
+    // Handle only beginnings of values bundle: catch Flags operators.
+    if (LastFlagsIdx == -1 || i == LastFlagsIdx + NumVals + 1)
     {
-      assert(NumVals == 1 && "Memory operands can only have one value");
-      const SDValue &Addr = Node->getOperand(i);
-      MachineRegisterInfo &RI = MF.getRegInfo();
+      unsigned Flags = cast<ConstantSDNode>(Node->getOperand(i))->getZExtValue();
+      NumVals = InlineAsm::getNumOperandRegisters(Flags);
+      LastFlagsIdx = i;
 
-      // Skip legal cases:
-      // 1. Addr is a frame index.
-      // 2. It is already Z or Y.
-      const RegisterSDNode *RegNode = dyn_cast<RegisterSDNode>(Addr);
-      if ((Addr->getOpcode() == ISD::FrameIndex)
-          || (RegNode && RI.getRegClass(RegNode->getReg())
-              == &AVR::PTRDISPREGSRegClass))
+      // Proceed to the first value of operand.
+      ++i;
+      NewOps.push_back(Node->getOperand(i));
+
+      if (InlineAsm::getKind(Flags) == InlineAsm::Kind_Mem)
       {
-        continue;
-      }
+        assert(NumVals == 1 && "Memory operands can only have one value");
+        const SDValue &Addr = Node->getOperand(i);
+        MachineRegisterInfo &RI = MF.getRegInfo();
 
-      // Optimize "add reg, imm" case
-      // reg should be either virtual register or register of
-      // PTRDISPREGSRegClass
-      if (Addr->getOpcode() == ISD::ADD ||
-          Addr->getOpcode() == ISD::SUB)
-      {
-        SDValue CopyFromRegOp = Addr->getOperand(0);
-        SDValue ImmOp = Addr->getOperand(1);
-        ConstantSDNode *ImmNode = dyn_cast<ConstantSDNode>(ImmOp);
-        RegisterSDNode *RegNode;
-        unsigned Reg;
-
-        if (CopyFromRegOp->getOpcode() == ISD::CopyFromReg && ImmNode &&
-            (RegNode = cast<RegisterSDNode>(CopyFromRegOp->getOperand(1))) &&
-            (ImmNode->getAPIntValue().getZExtValue() < 64) &&
-            (Reg = RegNode->getReg()) &&
-            (TargetRegisterInfo::isVirtualRegister(Reg) ||
-                AVR::PTRDISPREGSRegClass.contains(Reg)))
+        // Skip legal cases:
+        // 1. Addr is a frame index.
+        // 2. It is already Z or Y.
+        const RegisterSDNode *RegNode = dyn_cast<RegisterSDNode>(Addr);
+        if ((Addr->getOpcode() == ISD::FrameIndex)
+            || (RegNode && RI.getRegClass(RegNode->getReg())
+                == &AVR::PTRDISPREGSRegClass))
         {
-          // If we detect proper case - correct virtual register class
-          // if needed and go to another inlineasm operand.
-
-          if (RI.getRegClass(Reg)
-              != &AVR::PTRDISPREGSRegClass)
-          {
-            SDLoc dl(CopyFromRegOp);
-
-            unsigned VReg = RI.createVirtualRegister(
-                &AVR::PTRDISPREGSRegClass);
-
-            SDValue CopyToReg = CurDAG->getCopyToReg(CopyFromRegOp, dl,
-                                                     VReg, CopyFromRegOp);
-
-            SDValue NewCopyFromRegOp =
-                CurDAG->getCopyFromReg(CopyToReg, dl, VReg, TL->getPointerTy());
-
-            CurDAG->UpdateNodeOperands(Addr.getNode(), NewCopyFromRegOp, ImmOp);
-            IsModified = true;
-          }
-
           continue;
         }
+
+        // Optimize "add reg, imm" case
+        // reg should be either virtual register or register of
+        // PTRDISPREGSRegClass
+        if (Addr->getOpcode() == ISD::ADD ||
+            Addr->getOpcode() == ISD::SUB)
+        {
+          SDValue CopyFromRegOp = Addr->getOperand(0);
+          SDValue ImmOp = Addr->getOperand(1);
+          ConstantSDNode *ImmNode = dyn_cast<ConstantSDNode>(ImmOp);
+          RegisterSDNode *RegNode;
+          unsigned Reg;
+
+          if (CopyFromRegOp->getOpcode() == ISD::CopyFromReg && ImmNode &&
+              (RegNode = cast<RegisterSDNode>(CopyFromRegOp->getOperand(1))) &&
+              (ImmNode->getAPIntValue().getZExtValue() < 64) &&
+              (Reg = RegNode->getReg()) &&
+              (TargetRegisterInfo::isVirtualRegister(Reg) ||
+                  AVR::PTRDISPREGSRegClass.contains(Reg)))
+          {
+            // If we detect proper case - correct virtual register class
+            // if needed and go to another inlineasm operand.
+
+            if (RI.getRegClass(Reg)
+                != &AVR::PTRDISPREGSRegClass)
+            {
+              SDLoc dl(CopyFromRegOp);
+
+              unsigned VReg = RI.createVirtualRegister(
+                  &AVR::PTRDISPREGSRegClass);
+
+              SDValue CopyToReg = CurDAG->getCopyToReg(CopyFromRegOp, dl,
+                                                       VReg, CopyFromRegOp);
+
+              SDValue NewCopyFromRegOp =
+                  CurDAG->getCopyFromReg(CopyToReg, dl, VReg, TL->getPointerTy());
+
+              CurDAG->UpdateNodeOperands(Addr.getNode(), NewCopyFromRegOp, ImmOp);
+              IsModified = true;
+            }
+
+            continue;
+          }
+        }
+
+        // Most general case: address is not based on SP+Offset, copy it to
+        // a pointer register and use it.
+        unsigned VReg = RI.createVirtualRegister(&AVR::PTRDISPREGSRegClass);
+
+        SDValue Chain = NewOps[0];
+        Chain = CurDAG->getCopyToReg(Chain, SDLoc(Addr), VReg, Addr);
+        NewOps[0] = Chain;
+        NewOps[i] = CurDAG->getRegister(VReg, TL->getPointerTy());
+        IsModified |= true;
       }
-
-      // Most general case: address is not based on SP+Offset, copy it to
-      // a pointer register and use it.
-      unsigned VReg = RI.createVirtualRegister(&AVR::PTRDISPREGSRegClass);
-
-      SDValue Chain = NewOps[0];
-      Chain = CurDAG->getCopyToReg(Chain, SDLoc(Addr), VReg, Addr);
-      NewOps[0] = Chain;
-      NewOps[i] = CurDAG->getRegister(VReg, TL->getPointerTy());
-      IsModified |= true;
     }
   }
 
