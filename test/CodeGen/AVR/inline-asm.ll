@@ -162,7 +162,7 @@ define void @float_0_0() {
 
 ; CHECK: mem_global:
 define void @mem_global() {
-  ;CHECK: some_instr Z, Y
+  ;CHECK: some_instr Y, Z
   call void asm "some_instr $0, $1", "=*Q,=*Q"(i16* @a, i16* @b)
   ret void
 }

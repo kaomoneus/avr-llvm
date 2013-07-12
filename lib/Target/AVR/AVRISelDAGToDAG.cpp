@@ -55,7 +55,6 @@ public:
 
 private:
   SDNode *Select(SDNode *N);
-  SDNode *SelectInlineAsm(SDNode *N);
 };
 
 } // end of anonymous namespace
@@ -105,20 +104,7 @@ AVRDAGToDAGISel::SelectAddr(SDNode *Op, SDValue N, SDValue &Base, SDValue &Disp)
 
     // The value type of the memory instruction determines what is the maximum
     // offset allowed.
-    MVT VT;
-    if (MemSDNode *MemNode = dyn_cast<MemSDNode>(Op))
-    {
-      VT = MemNode->getMemoryVT().getSimpleVT();
-    }
-    // Special support for INLINEASM memory operand.
-    else if (N.getOperand(0)->getOpcode() == ISD::CopyFromReg)
-    {
-      VT = RHS->getValueType(0).getSimpleVT();
-    }
-    else
-    {
-      llvm_unreachable("Unexpected operand type.");
-    }
+    MVT VT = cast<MemSDNode>(Op)->getMemoryVT().getSimpleVT();
 
     // We only accept offsets that fit in 6 bits (unsigned).
     if ((VT == MVT::i8 && isUInt<6>(RHSC))
@@ -216,6 +202,25 @@ bool AVRDAGToDAGISel::SelectInlineAsmMemoryOperand(const SDValue &Op,
                                                    char ConstraintCode,
                                                    std::vector<SDValue> &OutOps)
 {
+  // Yes hardcoded 'm' symbol. Just because it also has been hardcoded in
+  // SelectionDAGISel (callee for this method).
+  assert(ConstraintCode == 'm' && "Unexpected asm memory constraint");
+
+  //MachineFunction& MF = CurDAG->getMachineFunction();
+  MachineRegisterInfo &RI = MF->getRegInfo();
+  const TargetLowering* TL = MF->getTarget().getTargetLowering();
+
+  const RegisterSDNode *RegNode = dyn_cast<RegisterSDNode>(Op);
+
+  // If address operand is of PTRDISPREGS class, all is OK, then.
+
+  if (RegNode && RI.getRegClass(RegNode->getReg()) ==
+      &AVR::PTRDISPREGSRegClass)
+  {
+    OutOps.push_back(Op);
+    return false;
+  }
+
   if (Op->getOpcode() == ISD::FrameIndex)
   {
     SDValue Base, Disp;
@@ -230,34 +235,93 @@ bool AVRDAGToDAGISel::SelectInlineAsmMemoryOperand(const SDValue &Op,
     return true;
   }
 
-  if (Op->getOpcode() == ISD::ADD || Op->getOpcode() == ISD::SUB)
+  // If Op is add reg, imm and
+  // reg is either virtual register or register of PTRDISPREGSRegClass
+  if (Op->getOpcode() == ISD::ADD ||
+      Op->getOpcode() == ISD::SUB)
   {
-    SDValue Base, Disp;
-    if (SelectAddr(Op.getNode(), Op, Base, Disp))
+    SDValue CopyFromRegOp = Op->getOperand(0);
+    SDValue ImmOp = Op->getOperand(1);
+    ConstantSDNode *ImmNode = dyn_cast<ConstantSDNode>(ImmOp);
+
+    unsigned Reg;
+
+    bool CanHandleRegImmOpt = true;
+
+    CanHandleRegImmOpt &= ImmNode != 0;
+    CanHandleRegImmOpt &= ImmNode->getAPIntValue().getZExtValue() < 64;
+
+    if (CopyFromRegOp->getOpcode() == ISD::CopyFromReg)
     {
-      OutOps.push_back(Base);
-      OutOps.push_back(Disp);
-      return false;
+      RegisterSDNode *RegNode =
+          cast<RegisterSDNode>(CopyFromRegOp->getOperand(1));
+      Reg = RegNode->getReg();
+      CanHandleRegImmOpt &= (TargetRegisterInfo::isVirtualRegister(Reg) ||
+                             AVR::PTRDISPREGSRegClass.contains(Reg));
     }
     else
     {
-      return true;
+      CanHandleRegImmOpt = false;
+    }
+
+    if (CanHandleRegImmOpt)
+    {
+      // If we detect proper case - correct virtual register class
+      // if needed and go to another inlineasm operand.
+
+      SDValue Base, Disp;
+
+      if (RI.getRegClass(Reg)
+          != &AVR::PTRDISPREGSRegClass)
+      {
+        SDLoc dl(CopyFromRegOp);
+
+        unsigned VReg = RI.createVirtualRegister(
+            &AVR::PTRDISPREGSRegClass);
+
+        SDValue CopyToReg = CurDAG->getCopyToReg(CopyFromRegOp, dl,
+                                                 VReg, CopyFromRegOp);
+
+        SDValue NewCopyFromRegOp =
+            CurDAG->getCopyFromReg(CopyToReg, dl, VReg, TL->getPointerTy());
+
+        Base = NewCopyFromRegOp;
+      }
+      else
+      {
+        Base = CopyFromRegOp;
+      }
+
+      if (ImmNode->getValueType(0) != MVT::i8)
+      {
+        Disp = CurDAG->getTargetConstant(
+            ImmNode->getAPIntValue().getZExtValue(), MVT::i8);
+      }
+      else
+      {
+        Disp = ImmOp;
+      }
+
+      OutOps.push_back(Base);
+      OutOps.push_back(Disp);
+
+      return false;
     }
   }
 
-  // Yes hardcoded 'm' symbol. Just because it also has been hardcoded in
-  // SelectionDAGISel (callee for this method).
-  assert(ConstraintCode == 'm' && "Unexpected asm memory constraint");
+  // More generic case.
+  // Create chain that puts Op into pointer register
+  // and return that register.
 
-  const RegisterSDNode *RegNode = dyn_cast<RegisterSDNode>(Op);
-  if (!RegNode || MF->getRegInfo().getRegClass(RegNode->getReg()) !=
-      &AVR::PTRDISPREGSRegClass)
-  {
-    llvm_unreachable(
-      "Unknown memory operand type. Should be either X, Y or a FrameIndex");
-  }
+  SDLoc dl(Op);
 
-  OutOps.push_back(Op);
+  unsigned VReg = RI.createVirtualRegister(&AVR::PTRDISPREGSRegClass);
+
+  SDValue CopyToReg = CurDAG->getCopyToReg(Op, dl, VReg, Op);
+  SDValue CopyFromReg =
+      CurDAG->getCopyFromReg(CopyToReg, dl, VReg, TL->getPointerTy());
+
+  OutOps.push_back(CopyFromReg);
 
   return false;
 }
@@ -449,14 +513,6 @@ SDNode *AVRDAGToDAGISel::Select(SDNode *N)
 
       return ResNode;
     }
-  case ISD::INLINEASM:
-    // Don't return from function. Just proceed to SelectCode below.
-    // We also need to process inlineasm operands, and it hidden somewhere
-    // in default implementation.
-    SDNode* NewInlineAsmNode = SelectInlineAsm(N);
-    if (NewInlineAsmNode)
-        N = NewInlineAsmNode;
-    break;
   }
 
   SDNode *ResNode = SelectCode(N);
@@ -474,123 +530,6 @@ SDNode *AVRDAGToDAGISel::Select(SDNode *N)
        );
 
   return ResNode;
-}
-
-SDNode *AVRDAGToDAGISel::SelectInlineAsm(SDNode *Node)
-{
-  bool IsModified = false;
-  MachineFunction &MF = CurDAG->getMachineFunction();
-  const TargetLowering *TL = MF.getTarget().getTargetLowering();
-
-  assert(Node->getOpcode() == ISD::INLINEASM &&
-         "Only INLINEASM nodes are allowed here");
-
-  // First just clone all the existing operands.
-  unsigned NumOps = Node->getNumOperands();
-  SmallVector<SDValue, 16> NewOps;
-
-  int LastFlagsIdx = -1;
-  unsigned NumVals = 0;
-  for(unsigned i = 0; i < NumOps; ++i)
-  {
-    SDValue op = Node->getOperand(i);
-    NewOps.push_back(op);
-    if (i < InlineAsm::Op_FirstOperand) continue;
-
-    // Handle only beginnings of values bundle: catch Flags operators.
-    if (LastFlagsIdx == -1 || i == LastFlagsIdx + NumVals + 1)
-    {
-      unsigned Flags = cast<ConstantSDNode>(Node->getOperand(i))->getZExtValue();
-      NumVals = InlineAsm::getNumOperandRegisters(Flags);
-      LastFlagsIdx = i;
-
-      // Proceed to the first value of operand.
-      ++i;
-      NewOps.push_back(Node->getOperand(i));
-
-      if (InlineAsm::getKind(Flags) == InlineAsm::Kind_Mem)
-      {
-        assert(NumVals == 1 && "Memory operands can only have one value");
-        const SDValue &Addr = Node->getOperand(i);
-        MachineRegisterInfo &RI = MF.getRegInfo();
-
-        // Skip legal cases:
-        // 1. Addr is a frame index.
-        // 2. It is already Z or Y.
-        const RegisterSDNode *RegNode = dyn_cast<RegisterSDNode>(Addr);
-        if ((Addr->getOpcode() == ISD::FrameIndex)
-            || (RegNode && RI.getRegClass(RegNode->getReg())
-                == &AVR::PTRDISPREGSRegClass))
-        {
-          continue;
-        }
-
-        // Optimize "add reg, imm" case
-        // reg should be either virtual register or register of
-        // PTRDISPREGSRegClass
-        if (Addr->getOpcode() == ISD::ADD ||
-            Addr->getOpcode() == ISD::SUB)
-        {
-          SDValue CopyFromRegOp = Addr->getOperand(0);
-          SDValue ImmOp = Addr->getOperand(1);
-          ConstantSDNode *ImmNode = dyn_cast<ConstantSDNode>(ImmOp);
-          RegisterSDNode *RegNode;
-          unsigned Reg;
-
-          if (CopyFromRegOp->getOpcode() == ISD::CopyFromReg && ImmNode &&
-              (RegNode = cast<RegisterSDNode>(CopyFromRegOp->getOperand(1))) &&
-              (ImmNode->getAPIntValue().getZExtValue() < 64) &&
-              (Reg = RegNode->getReg()) &&
-              (TargetRegisterInfo::isVirtualRegister(Reg) ||
-                  AVR::PTRDISPREGSRegClass.contains(Reg)))
-          {
-            // If we detect proper case - correct virtual register class
-            // if needed and go to another inlineasm operand.
-
-            if (RI.getRegClass(Reg)
-                != &AVR::PTRDISPREGSRegClass)
-            {
-              SDLoc dl(CopyFromRegOp);
-
-              unsigned VReg = RI.createVirtualRegister(
-                  &AVR::PTRDISPREGSRegClass);
-
-              SDValue CopyToReg = CurDAG->getCopyToReg(CopyFromRegOp, dl,
-                                                       VReg, CopyFromRegOp);
-
-              SDValue NewCopyFromRegOp =
-                  CurDAG->getCopyFromReg(CopyToReg, dl, VReg, TL->getPointerTy());
-
-              CurDAG->UpdateNodeOperands(Addr.getNode(), NewCopyFromRegOp, ImmOp);
-              IsModified = true;
-            }
-
-            continue;
-          }
-        }
-
-        // Most general case: address is not based on SP+Offset, copy it to
-        // a pointer register and use it.
-        unsigned VReg = RI.createVirtualRegister(&AVR::PTRDISPREGSRegClass);
-
-        SDValue Chain = NewOps[0];
-        Chain = CurDAG->getCopyToReg(Chain, SDLoc(Addr), VReg, Addr);
-        NewOps[0] = Chain;
-        NewOps[i] = CurDAG->getRegister(VReg, TL->getPointerTy());
-        IsModified |= true;
-      }
-    }
-  }
-
-  if (!IsModified)
-    return NULL;
-
-  SDVTList VTs = Node->getVTList();
-  SDValue New = CurDAG->getNode(ISD::INLINEASM, SDLoc(Node),
-                                VTs, &NewOps[0],
-                                NewOps.size());
-  New.getNode()->setNodeId(-1);
-  return New.getNode();
 }
 
 /// createAVRISelDag - This pass converts a legalized DAG into a
