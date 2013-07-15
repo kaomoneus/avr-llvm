@@ -5,7 +5,7 @@ declare i16 @vsprintf(i8* nocapture, i8* nocapture, i8*)
 declare void @llvm.va_end(i8*)
 
 define i16 @varargs1(i8* nocapture %x, ...) {
-; CHECK: varargs1:
+; CHECK-LABEL: varargs1:
 ; CHECK: movw r20, r28
 ; CHECK: subi r20, 215
 ; CHECK: sbci r21, 255
@@ -26,7 +26,7 @@ define i16 @varargs1(i8* nocapture %x, ...) {
 }
 
 define i16 @varargs2(i8* nocapture %x, ...) {
-; CHECK: varargs2:
+; CHECK-LABEL: varargs2:
 ; CHECK: ldd r24, Y+9
 ; CHECK: ldd r25, Y+10
   %ap = alloca i8*
@@ -39,7 +39,7 @@ define i16 @varargs2(i8* nocapture %x, ...) {
 
 declare void @var1223(i16, ...)
 define void @varargcall() {
-; CHECK: varargcall:
+; CHECK-LABEL: varargcall:
 ; CHECK: ldi [[REG1:r[0-9]+]], 191
 ; CHECK: ldi [[REG2:r[0-9]+]], 223
 ; CHECK: push [[REG2]]

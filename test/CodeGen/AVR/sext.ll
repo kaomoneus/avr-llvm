@@ -6,7 +6,7 @@
 ; lsl r17
 ; sbc r17, r17
 define i16 @sext1(i8 %x, i8 %y) {
-; CHECK: sext1:
+; CHECK-LABEL: sext1:
 ; CHECK: mov r24, r22
 ; CHECK: mov r25, r22
 ; CHECK: lsl r25
@@ -20,7 +20,7 @@ define i16 @sext1(i8 %x, i8 %y) {
 ; lsl r17
 ; sbc r17, r17
 define i16 @sext2(i8 %x) {
-; CHECK: sext2:
+; CHECK-LABEL: sext2:
 ; CHECK: mov r25, r24
 ; CHECK: lsl r25
 ; CHECK: sbc r25, r25

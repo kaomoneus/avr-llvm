@@ -1712,7 +1712,7 @@ unsigned RAGreedy::trySplit(LiveInterval &VirtReg, AllocationOrder &Order,
 // register has been spilled.
 // :NOTE: KEEP THIS CONSTANT UPDATED with the backend!
 //   This has to be a define because of linkage problems between libraries.
-#define REG_Y   (45U)
+#define REG_Y   (51U)
 bool RA_ReserveREG_Y = false;
 bool RA_InSpillerCode = false;
 

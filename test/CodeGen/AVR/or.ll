@@ -1,21 +1,21 @@
 ; RUN: llc < %s -march=avr | FileCheck %s
 
 define i8 @or8_reg_reg(i8 %a, i8 %b) {
-; CHECK: or8_reg_reg:
+; CHECK-LABEL: or8_reg_reg:
 ; CHECK: or r24, r22
     %result = or i8 %a, %b
     ret i8 %result
 }
 
 define i8 @or8_reg_imm(i8 %a) {
-; CHECK: or8_reg_imm:
+; CHECK-LABEL: or8_reg_imm:
 ; CHECK: ori r24, 5
     %result = or i8 %a, 5
     ret i8 %result
 }
 
 define i16 @or16_reg_reg(i16 %a, i16 %b) {
-; CHECK: or16_reg_reg:
+; CHECK-LABEL: or16_reg_reg:
 ; CHECK: or r24, r22
 ; CHECK: or r25, r23
     %result = or i16 %a, %b
@@ -23,7 +23,7 @@ define i16 @or16_reg_reg(i16 %a, i16 %b) {
 }
 
 define i16 @or16_reg_imm(i16 %a) {
-; CHECK: or16_reg_imm:
+; CHECK-LABEL: or16_reg_imm:
 ; CHECK: ori r24, 210
 ; CHECK: ori r25, 4
     %result = or i16 %a, 1234
@@ -31,7 +31,7 @@ define i16 @or16_reg_imm(i16 %a) {
 }
 
 define i32 @or32_reg_reg(i32 %a, i32 %b) {
-; CHECK: or32_reg_reg:
+; CHECK-LABEL: or32_reg_reg:
 ; CHECK: or r22, r18
 ; CHECK: or r23, r19
 ; CHECK: or r24, r20
@@ -41,7 +41,7 @@ define i32 @or32_reg_reg(i32 %a, i32 %b) {
 }
 
 define i32 @or32_reg_imm(i32 %a) {
-; CHECK: or32_reg_imm:
+; CHECK-LABEL: or32_reg_imm:
 ; CHECK: ori r22, 21
 ; CHECK: ori r23, 205
 ; CHECK: ori r24, 91
@@ -51,7 +51,7 @@ define i32 @or32_reg_imm(i32 %a) {
 }
 
 define i64 @or64_reg_reg(i64 %a, i64 %b) {
-; CHECK: or64_reg_reg:
+; CHECK-LABEL: or64_reg_reg:
 ; CHECK: or r18, r10
 ; CHECK: or r19, r11
 ; CHECK: or r20, r12
@@ -65,7 +65,7 @@ define i64 @or64_reg_reg(i64 %a, i64 %b) {
 }
 
 define i64 @or64_reg_imm(i64 %a) {
-; CHECK: or64_reg_imm:
+; CHECK-LABEL: or64_reg_imm:
 ; CHECK: ori r18, 204
 ; CHECK: ori r19, 204
 ; CHECK: ori r20, 204

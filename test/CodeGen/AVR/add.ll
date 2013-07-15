@@ -1,21 +1,21 @@
 ; RUN: llc < %s -march=avr | FileCheck %s
 
 define i8 @add8_reg_reg(i8 %a, i8 %b) {
-; CHECK: add8_reg_reg:
+; CHECK-LABEL: add8_reg_reg:
 ; CHECK: add r24, r22
     %result = add i8 %a, %b
     ret i8 %result
 }
 
 define i8 @add8_reg_imm(i8 %a) {
-; CHECK: add8_reg_imm:
+; CHECK-LABEL: add8_reg_imm:
 ; CHECK: subi r24, -5
     %result = add i8 %a, 5
     ret i8 %result
 }
 
 define i8 @add8_reg_increment(i8 %a) {
-; CHECK: add8_reg_increment:
+; CHECK-LABEL: add8_reg_increment:
 ; CHECK: inc r24
     %result = add i8 %a, 1
     ret i8 %result
@@ -23,7 +23,7 @@ define i8 @add8_reg_increment(i8 %a) {
 
 
 define i16 @add16_reg_reg(i16 %a, i16 %b) {
-; CHECK: add16_reg_reg:
+; CHECK-LABEL: add16_reg_reg:
 ; CHECK: add r24, r22
 ; CHECK: adc r25, r23
     %result = add i16 %a, %b
@@ -31,14 +31,14 @@ define i16 @add16_reg_reg(i16 %a, i16 %b) {
 }
 
 define i16 @add16_reg_imm(i16 %a) {
-; CHECK: add16_reg_imm:
+; CHECK-LABEL: add16_reg_imm:
 ; CHECK: adiw r24, 63
     %result = add i16 %a, 63
     ret i16 %result
 }
 
 define i16 @add16_reg_imm_subi(i16 %a) {
-; CHECK: add16_reg_imm_subi:
+; CHECK-LABEL: add16_reg_imm_subi:
 ; CHECK: subi r24, 133
 ; CHECK: sbci r25, 255
     %result = add i16 %a, 123
@@ -46,7 +46,7 @@ define i16 @add16_reg_imm_subi(i16 %a) {
 }
 
 define i32 @add32_reg_reg(i32 %a, i32 %b) {
-; CHECK: add32_reg_reg:
+; CHECK-LABEL: add32_reg_reg:
 ; CHECK: add r22, r18
 ; CHECK: adc r23, r19
 ; CHECK: adc r24, r20
@@ -56,7 +56,7 @@ define i32 @add32_reg_reg(i32 %a, i32 %b) {
 }
 
 define i32 @add32_reg_imm(i32 %a) {
-; CHECK: add32_reg_imm:
+; CHECK-LABEL: add32_reg_imm:
 ; CHECK: subi r22, 251
 ; CHECK: sbci r23, 255
 ; CHECK: sbci r24, 255
@@ -66,7 +66,7 @@ define i32 @add32_reg_imm(i32 %a) {
 }
 
 define i64 @add64_reg_reg(i64 %a, i64 %b) {
-; CHECK: add64_reg_reg:
+; CHECK-LABEL: add64_reg_reg:
 ; CHECK: add r18, r10
 ; CHECK: adc r20, r12
 ; CHECK: adc r21, r13
@@ -79,7 +79,7 @@ define i64 @add64_reg_reg(i64 %a, i64 %b) {
 }
 
 define i64 @add64_reg_imm(i64 %a) {
-; CHECK: add64_reg_imm:
+; CHECK-LABEL: add64_reg_imm:
 ; CHECK: subi r18, 251
 ; CHECK: sbci r19, 255
 ; CHECK: sbci r20, 255
