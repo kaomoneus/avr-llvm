@@ -86,6 +86,8 @@ static void PrintCallingConv(unsigned cc, raw_ostream &Out) {
   case CallingConv::AVR_SIGNAL:    Out << "avr_signalcc "; break;
   case CallingConv::PTX_Kernel:    Out << "ptx_kernel"; break;
   case CallingConv::PTX_Device:    Out << "ptx_device"; break;
+  case CallingConv::X86_64_SysV:   Out << "x86_64_sysvcc"; break;
+  case CallingConv::X86_64_Win64:  Out << "x86_64_win64cc"; break;
   }
 }
 

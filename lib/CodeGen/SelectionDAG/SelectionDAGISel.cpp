@@ -421,12 +421,13 @@ bool SelectionDAGISel::runOnMachineFunction(MachineFunction &mf) {
       MachineBasicBlock::iterator InsertPos = Def;
       const MDNode *Variable =
         MI->getOperand(MI->getNumOperands()-1).getMetadata();
-      unsigned Offset = MI->getOperand(1).getImm();
+      bool IsIndirect = MI->getOperand(1).isImm();
+      unsigned Offset = IsIndirect ? MI->getOperand(1).getImm() : 0;
       // Def is never a terminator here, so it is ok to increment InsertPos.
       BuildMI(*EntryMBB, ++InsertPos, MI->getDebugLoc(),
-              TII.get(TargetOpcode::DBG_VALUE))
-        .addReg(LDI->second, RegState::Debug)
-        .addImm(Offset).addMetadata(Variable);
+              TII.get(TargetOpcode::DBG_VALUE),
+              IsIndirect,
+              LDI->second, Offset, Variable);
 
       // If this vreg is directly copied into an exported register then
       // that COPY instructions also need DBG_VALUE, if it is the only
@@ -445,9 +446,10 @@ bool SelectionDAGISel::runOnMachineFunction(MachineFunction &mf) {
       if (CopyUseMI) {
         MachineInstr *NewMI =
           BuildMI(*MF, CopyUseMI->getDebugLoc(),
-                  TII.get(TargetOpcode::DBG_VALUE))
-          .addReg(CopyUseMI->getOperand(0).getReg(), RegState::Debug)
-          .addImm(Offset).addMetadata(Variable);
+                  TII.get(TargetOpcode::DBG_VALUE),
+                  IsIndirect,
+                  CopyUseMI->getOperand(0).getReg(),
+                  Offset, Variable);
         MachineBasicBlock::iterator Pos = CopyUseMI;
         EntryMBB->insertAfter(Pos, NewMI);
       }
@@ -829,12 +831,13 @@ void SelectionDAGISel::PrepareEHLandingPad() {
 
   // Mark exception register as live in.
   const TargetLowering *TLI = getTargetLowering();
-  unsigned Reg = TLI->getExceptionPointerRegister();
-  if (Reg) MBB->addLiveIn(Reg);
+  const TargetRegisterClass *PtrRC = TLI->getRegClassFor(TLI->getPointerTy());
+  if (unsigned Reg = TLI->getExceptionPointerRegister())
+    FuncInfo->ExceptionPointerVirtReg = MBB->addLiveIn(Reg, PtrRC);
 
   // Mark exception selector register as live in.
-  Reg = TLI->getExceptionSelectorRegister();
-  if (Reg) MBB->addLiveIn(Reg);
+  if (unsigned Reg = TLI->getExceptionSelectorRegister())
+    FuncInfo->ExceptionSelectorVirtReg = MBB->addLiveIn(Reg, PtrRC);
 }
 
 /// isFoldedOrDeadInstruction - Return true if the specified instruction is
@@ -972,6 +975,8 @@ void SelectionDAGISel::SelectAllBasicBlocks(const Function &Fn) {
     FuncInfo->InsertPt = FuncInfo->MBB->getFirstNonPHI();
 
     // Setup an EH landing-pad block.
+    FuncInfo->ExceptionPointerVirtReg = 0;
+    FuncInfo->ExceptionSelectorVirtReg = 0;
     if (FuncInfo->MBB->isLandingPad())
       PrepareEHLandingPad();
 
@@ -2763,8 +2768,8 @@ SelectCodeCommon(SDNode *NodeToMatch, const unsigned char *MatcherTable,
         bool mayStore = MCID.mayStore();
 
         unsigned NumMemRefs = 0;
-        for (SmallVector<MachineMemOperand*, 2>::const_iterator I =
-             MatchedMemRefs.begin(), E = MatchedMemRefs.end(); I != E; ++I) {
+        for (SmallVectorImpl<MachineMemOperand *>::const_iterator I =
+               MatchedMemRefs.begin(), E = MatchedMemRefs.end(); I != E; ++I) {
           if ((*I)->isLoad()) {
             if (mayLoad)
               ++NumMemRefs;
@@ -2780,8 +2785,8 @@ SelectCodeCommon(SDNode *NodeToMatch, const unsigned char *MatcherTable,
           MF->allocateMemRefsArray(NumMemRefs);
 
         MachineSDNode::mmo_iterator MemRefsPos = MemRefs;
-        for (SmallVector<MachineMemOperand*, 2>::const_iterator I =
-             MatchedMemRefs.begin(), E = MatchedMemRefs.end(); I != E; ++I) {
+        for (SmallVectorImpl<MachineMemOperand *>::const_iterator I =
+               MatchedMemRefs.begin(), E = MatchedMemRefs.end(); I != E; ++I) {
           if ((*I)->isLoad()) {
             if (mayLoad)
               *MemRefsPos++ = *I;

@@ -116,11 +116,10 @@ namespace llvm {
       /// Return with a flag operand, matched by 'blr'
       RET_FLAG,
 
-      /// R32 = MFCR(CRREG, INFLAG) - Represents the MFCRpseud/MFOCRF
-      /// instructions.  This copies the bits corresponding to the specified
-      /// CRREG into the resultant GPR.  Bits corresponding to other CR regs
-      /// are undefined.
-      MFCR,
+      /// R32 = MFOCRF(CRREG, INFLAG) - Represents the MFOCRF instruction.
+      /// This copies the bits corresponding to the specified CRREG into the
+      /// resultant GPR.  Bits corresponding to other CR regs are undefined.
+      MFOCRF,
 
       // EH_SJLJ_SETJMP - SjLj exception handling setjmp.
       EH_SJLJ_SETJMP,
@@ -460,11 +459,11 @@ namespace llvm {
     /// relative to software emulation.
     virtual bool allowsUnalignedMemoryAccesses(EVT VT, bool *Fast = 0) const;
 
-    /// isFMAFasterThanMulAndAdd - Return true if an FMA operation is faster than
-    /// a pair of mul and add instructions. fmuladd intrinsics will be expanded to
-    /// FMAs when this method returns true (and FMAs are legal), otherwise fmuladd
-    /// is expanded to mul + add.
-    virtual bool isFMAFasterThanMulAndAdd(EVT VT) const;
+    /// isFMAFasterThanFMulAndFAdd - Return true if an FMA operation is faster
+    /// than a pair of fmul and fadd instructions. fmuladd intrinsics will be
+    /// expanded to FMAs when this method returns true, otherwise fmuladd is
+    /// expanded to fmul + fadd.
+    virtual bool isFMAFasterThanFMulAndFAdd(EVT VT) const;
 
   private:
     SDValue getFramePointerFrameIndex(SelectionDAG & DAG) const;

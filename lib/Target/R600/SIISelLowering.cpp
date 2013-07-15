@@ -45,6 +45,7 @@ SITargetLowering::SITargetLowering(TargetMachine &TM) :
 
   addRegisterClass(MVT::v2i32, &AMDGPU::VReg_64RegClass);
   addRegisterClass(MVT::v2f32, &AMDGPU::VReg_64RegClass);
+  addRegisterClass(MVT::f64, &AMDGPU::VReg_64RegClass);
 
   addRegisterClass(MVT::v4i32, &AMDGPU::VReg_128RegClass);
   addRegisterClass(MVT::v4f32, &AMDGPU::VReg_128RegClass);
@@ -74,6 +75,8 @@ SITargetLowering::SITargetLowering(TargetMachine &TM) :
   setOperationAction(ISD::SIGN_EXTEND, MVT::i64, Custom);
 
   setOperationAction(ISD::INTRINSIC_WO_CHAIN, MVT::Other, Custom);
+
+  setOperationAction(ISD::GlobalAddress, MVT::i64, Custom);
 
   setTargetDAGCombine(ISD::SELECT_CC);
 
@@ -293,6 +296,21 @@ MachineBasicBlock * SITargetLowering::EmitInstrWithCustomInserter(
     MI->eraseFromParent();
     break;
   }
+  case AMDGPU::V_SUB_F64: {
+    const SIInstrInfo *TII =
+      static_cast<const SIInstrInfo*>(getTargetMachine().getInstrInfo());
+    BuildMI(*BB, I, MI->getDebugLoc(), TII->get(AMDGPU::V_ADD_F64),
+            MI->getOperand(0).getReg())
+            .addReg(MI->getOperand(1).getReg())
+            .addReg(MI->getOperand(2).getReg())
+            .addImm(0)  /* src2 */
+            .addImm(0)  /* ABS */
+            .addImm(0)  /* CLAMP */
+            .addImm(0)  /* OMOD */
+            .addImm(2); /* NEG */
+    MI->eraseFromParent();
+    break;
+  }
   }
   return BB;
 }
@@ -310,11 +328,14 @@ MVT SITargetLowering::getScalarShiftAmountTy(EVT VT) const {
 //===----------------------------------------------------------------------===//
 
 SDValue SITargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
+  MachineFunction &MF = DAG.getMachineFunction();
+  SIMachineFunctionInfo *MFI = MF.getInfo<SIMachineFunctionInfo>();
   switch (Op.getOpcode()) {
   default: return AMDGPUTargetLowering::LowerOperation(Op, DAG);
   case ISD::BRCOND: return LowerBRCOND(Op, DAG);
   case ISD::SELECT_CC: return LowerSELECT_CC(Op, DAG);
   case ISD::SIGN_EXTEND: return LowerSIGN_EXTEND(Op, DAG);
+  case ISD::GlobalAddress: return LowerGlobalAddress(MFI, Op, DAG);
   case ISD::INTRINSIC_WO_CHAIN: {
     unsigned IntrinsicID =
                          cast<ConstantSDNode>(Op.getOperand(0))->getZExtValue();

@@ -514,9 +514,6 @@ bool DIGlobalVariable::Verify() const {
   if (!Ty.Verify())
     return false;
 
-  if (!getGlobal() && !getConstant())
-    return false;
-
   return DbgNode->getNumOperands() == 13;
 }
 
@@ -1213,11 +1210,10 @@ static void printDebugLoc(DebugLoc DL, raw_ostream &CommentOS,
                           const LLVMContext &Ctx) {
   if (!DL.isUnknown()) {          // Print source line info.
     DIScope Scope(DL.getScope(Ctx));
+    assert(Scope.isScope() &&
+      "Scope of a DebugLoc should be a DIScope.");
     // Omit the directory, because it's likely to be long and uninteresting.
-    if (Scope.Verify())
-      CommentOS << Scope.getFilename();
-    else
-      CommentOS << "<unknown>";
+    CommentOS << Scope.getFilename();
     CommentOS << ':' << DL.getLine();
     if (DL.getCol() != 0)
       CommentOS << ':' << DL.getCol();

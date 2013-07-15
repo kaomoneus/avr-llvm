@@ -153,6 +153,18 @@ namespace {
   }
 } // end unnamed namespace
 
+enum FSEntity {
+  FS_Dir,
+  FS_File,
+  FS_Name
+};
+
+// Implemented in Unix/Path.inc and Windows/Path.inc.
+static llvm::error_code
+createUniqueEntity(const llvm::Twine &Model, int &ResultFD,
+                   llvm::SmallVectorImpl<char> &ResultPath,
+                   bool MakeAbsolute, unsigned Mode, FSEntity Type);
+
 namespace llvm {
 namespace sys  {
 namespace path {
@@ -625,32 +637,58 @@ bool is_relative(const Twine &path) {
 
 namespace fs {
 
-error_code unique_file(const Twine &Model, SmallVectorImpl<char> &ResultPath,
-                       bool MakeAbsolute, unsigned Mode) {
-  // FIXME: This is really inefficient. unique_path creates a path an tries to
-  // open it. We should factor the code so that we just don't create/open the
-  // file when we don't need it.
-  int FD;
-  error_code Ret = unique_file(Model, FD, ResultPath, MakeAbsolute, Mode);
-  if (Ret)
-    return Ret;
-
-  if (close(FD))
-    return error_code(errno, system_category());
-
-  StringRef P(ResultPath.begin(), ResultPath.size());
-  return fs::remove(P);
+error_code createUniqueFile(const Twine &Model, int &ResultFd,
+                            SmallVectorImpl<char> &ResultPath, unsigned Mode) {
+  return createUniqueEntity(Model, ResultFd, ResultPath, false, Mode, FS_File);
 }
 
+error_code createUniqueFile(const Twine &Model,
+                            SmallVectorImpl<char> &ResultPath) {
+  int Dummy;
+  return createUniqueEntity(Model, Dummy, ResultPath, false, 0, FS_Name);
+}
+
+static error_code createTemporaryFile(const Twine &Model, int &ResultFD,
+                                      llvm::SmallVectorImpl<char> &ResultPath,
+                                      FSEntity Type) {
+  SmallString<128> Storage;
+  StringRef P = Model.toNullTerminatedStringRef(Storage);
+  assert(P.find_first_of(separators) == StringRef::npos &&
+         "Model must be a simple filename.");
+  // Use P.begin() so that createUniqueEntity doesn't need to recreate Storage.
+  return createUniqueEntity(P.begin(), ResultFD, ResultPath,
+                            true, owner_read | owner_write, Type);
+}
+
+static error_code
+createTemporaryFile(const Twine &Prefix, StringRef Suffix, int &ResultFD,
+                    llvm::SmallVectorImpl<char> &ResultPath,
+                    FSEntity Type) {
+  return createTemporaryFile(Prefix + "-%%%%%%." + Suffix, ResultFD, ResultPath,
+                             Type);
+}
+
+
+error_code createTemporaryFile(const Twine &Prefix, StringRef Suffix,
+                               int &ResultFD,
+                               SmallVectorImpl<char> &ResultPath) {
+  return createTemporaryFile(Prefix, Suffix, ResultFD, ResultPath, FS_File);
+}
+
+error_code createTemporaryFile(const Twine &Prefix, StringRef Suffix,
+                               SmallVectorImpl<char> &ResultPath) {
+  int Dummy;
+  return createTemporaryFile(Prefix, Suffix, Dummy, ResultPath, FS_Name);
+}
+
+
+// This is a mkdtemp with a different pattern. We use createUniqueEntity mostly
+// for consistency. We should try using mkdtemp.
 error_code createUniqueDirectory(const Twine &Prefix,
                                  SmallVectorImpl<char> &ResultPath) {
-  // FIXME: This is double inefficient. We compute a unique file name, created
-  // it, delete it and keep only the directory.
-  error_code EC = unique_file(Prefix + "-%%%%%%/dummy", ResultPath);
-  if (EC)
-    return EC;
-  path::remove_filename(ResultPath);
-  return error_code::success();
+  int Dummy;
+  return createUniqueEntity(Prefix + "-%%%%%%", Dummy, ResultPath,
+                            true, 0, FS_Dir);
 }
 
 error_code make_absolute(SmallVectorImpl<char> &path) {

@@ -169,6 +169,7 @@ MSP430TargetLowering::MSP430TargetLowering(MSP430TargetMachine &tm) :
   setOperationAction(ISD::VAARG,            MVT::Other, Expand);
   setOperationAction(ISD::VAEND,            MVT::Other, Expand);
   setOperationAction(ISD::VACOPY,           MVT::Other, Expand);
+  setOperationAction(ISD::JumpTable,        MVT::i16,   Custom);
 
   // Libcalls names.
   if (HWMultMode == HWMultIntr) {
@@ -199,6 +200,7 @@ SDValue MSP430TargetLowering::LowerOperation(SDValue Op,
   case ISD::RETURNADDR:       return LowerRETURNADDR(Op, DAG);
   case ISD::FRAMEADDR:        return LowerFRAMEADDR(Op, DAG);
   case ISD::VASTART:          return LowerVASTART(Op, DAG);
+  case ISD::JumpTable:        return LowerJumpTable(Op, DAG);
   default:
     llvm_unreachable("unimplemented operand");
   }
@@ -277,9 +279,9 @@ MSP430TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
                                 SmallVectorImpl<SDValue> &InVals) const {
   SelectionDAG &DAG                     = CLI.DAG;
   SDLoc &dl                             = CLI.DL;
-  SmallVector<ISD::OutputArg, 32> &Outs = CLI.Outs;
-  SmallVector<SDValue, 32> &OutVals     = CLI.OutVals;
-  SmallVector<ISD::InputArg, 32> &Ins   = CLI.Ins;
+  SmallVectorImpl<ISD::OutputArg> &Outs = CLI.Outs;
+  SmallVectorImpl<SDValue> &OutVals     = CLI.OutVals;
+  SmallVectorImpl<ISD::InputArg> &Ins   = CLI.Ins;
   SDValue Chain                         = CLI.Chain;
   SDValue Callee                        = CLI.Callee;
   bool &isTailCall                      = CLI.IsTailCall;
@@ -979,6 +981,14 @@ SDValue MSP430TargetLowering::LowerVASTART(SDValue Op,
   return DAG.getStore(Op.getOperand(0), SDLoc(Op), FrameIndex,
                       Op.getOperand(1), MachinePointerInfo(SV),
                       false, false, 0);
+}
+
+SDValue MSP430TargetLowering::LowerJumpTable(SDValue Op,
+                                             SelectionDAG &DAG) const {
+    JumpTableSDNode *JT = cast<JumpTableSDNode>(Op);
+    SDValue Result = DAG.getTargetJumpTable(JT->getIndex(), getPointerTy());
+    return DAG.getNode(MSP430ISD::Wrapper, SDLoc(JT),
+                       getPointerTy(), Result);
 }
 
 /// getPostIndexedAddressParts - returns true by value, base pointer and

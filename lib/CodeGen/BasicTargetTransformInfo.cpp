@@ -108,7 +108,7 @@ public:
   virtual unsigned getIntrinsicInstrCost(Intrinsic::ID, Type *RetTy,
                                          ArrayRef<Type*> Tys) const;
   virtual unsigned getNumberOfParts(Type *Tp) const;
-  virtual unsigned getAddressComputationCost(Type *Ty) const;
+  virtual unsigned getAddressComputationCost(Type *Ty, bool IsComplex) const;
 
   /// @}
 };
@@ -443,6 +443,8 @@ unsigned BasicTTI::getIntrinsicInstrCost(Intrinsic::ID IID, Type *RetTy,
   case Intrinsic::floor:   ISD = ISD::FFLOOR; break;
   case Intrinsic::ceil:    ISD = ISD::FCEIL;  break;
   case Intrinsic::trunc:   ISD = ISD::FTRUNC; break;
+  case Intrinsic::nearbyint:
+                           ISD = ISD::FNEARBYINT; break;
   case Intrinsic::rint:    ISD = ISD::FRINT;  break;
   case Intrinsic::pow:     ISD = ISD::FPOW;   break;
   case Intrinsic::fma:     ISD = ISD::FMA;    break;
@@ -487,6 +489,6 @@ unsigned BasicTTI::getNumberOfParts(Type *Tp) const {
   return LT.first;
 }
 
-unsigned BasicTTI::getAddressComputationCost(Type *Ty) const {
+unsigned BasicTTI::getAddressComputationCost(Type *Ty, bool IsComplex) const {
   return 0;
 }

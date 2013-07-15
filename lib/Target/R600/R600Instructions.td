@@ -114,6 +114,7 @@ class R600_1OP <bits<11> inst, string opName, list<dag> pattern,
   let update_pred = 0;
   let HasNativeOperands = 1;
   let Op1 = 1;
+  let ALUInst = 1;
   let DisableEncoding = "$literal";
   let UseNamedOperandTable = 1;
 
@@ -151,6 +152,7 @@ class R600_2OP <bits<11> inst, string opName, list<dag> pattern,
 
   let HasNativeOperands = 1;
   let Op2 = 1;
+  let ALUInst = 1;
   let DisableEncoding = "$literal";
   let UseNamedOperandTable = 1;
 
@@ -193,6 +195,7 @@ class R600_3OP <bits<5> inst, string opName, list<dag> pattern,
   let DisableEncoding = "$literal";
   let Op3 = 1;
   let UseNamedOperandTable = 1;
+  let ALUInst = 1;
 
   let Inst{31-0}  = Word0;
   let Inst{63-32} = Word1;
@@ -361,6 +364,14 @@ def DOT4 : SDNode<"AMDGPUISD::DOT4",
   []
 >;
 
+def COS_HW : SDNode<"AMDGPUISD::COS_HW",
+  SDTypeProfile<1, 1, [SDTCisFP<0>, SDTCisFP<1>]>
+>;
+
+def SIN_HW : SDNode<"AMDGPUISD::SIN_HW",
+  SDTypeProfile<1, 1, [SDTCisFP<0>, SDTCisFP<1>]>
+>;
+
 def TEXTURE_FETCH_Type : SDTypeProfile<1, 19, [SDTCisFP<0>]>;
 
 def TEXTURE_FETCH: SDNode<"AMDGPUISD::TEXTURE_FETCH", TEXTURE_FETCH_Type, []>;
@@ -519,9 +530,9 @@ let usesCustomInserter = 1, isNotDuplicable = 1 in {
 class ExportSwzInst : InstR600ISA<(
     outs),
     (ins R600_Reg128:$gpr, i32imm:$type, i32imm:$arraybase,
-    i32imm:$sw_x, i32imm:$sw_y, i32imm:$sw_z, i32imm:$sw_w, i32imm:$inst,
+    RSel:$sw_x, RSel:$sw_y, RSel:$sw_z, RSel:$sw_w, i32imm:$inst,
     i32imm:$eop),
-    !strconcat("EXPORT", " $gpr"),
+    !strconcat("EXPORT", " $gpr.$sw_x$sw_y$sw_z$sw_w"),
     []>, ExportWord0, ExportSwzWord1 {
   let elem_size = 3;
   let Inst{31-0} = Word0;
@@ -552,7 +563,7 @@ class ALU_CLAUSE<bits<4> inst, string OpName> : AMDGPUInst <(outs),
 (ins i32imm:$ADDR, i32imm:$KCACHE_BANK0, i32imm:$KCACHE_BANK1,
 KCACHE:$KCACHE_MODE0, KCACHE:$KCACHE_MODE1,
 i32imm:$KCACHE_ADDR0, i32imm:$KCACHE_ADDR1,
-i32imm:$COUNT),
+i32imm:$COUNT, i32imm:$Enabled),
 !strconcat(OpName, " $COUNT, @$ADDR, "
 "KC0[$KCACHE_MODE0], KC1[$KCACHE_MODE1]"),
 [] >, CF_ALU_WORD0, CF_ALU_WORD1 {
@@ -1077,14 +1088,14 @@ class RECIPSQRT_IEEE_Common <bits<11> inst> : R600_1OP <
 }
 
 class SIN_Common <bits<11> inst> : R600_1OP <
-  inst, "SIN", []>{
+  inst, "SIN", [(set f32:$dst, (SIN_HW f32:$src0))]>{
   let Trig = 1;
   let TransOnly = 1;
   let Itinerary = TransALU;
 }
 
 class COS_Common <bits<11> inst> : R600_1OP <
-  inst, "COS", []> {
+  inst, "COS", [(set f32:$dst, (COS_HW f32:$src0))]> {
   let Trig = 1;
   let TransOnly = 1;
   let Itinerary = TransALU;
@@ -1225,18 +1236,6 @@ let Predicates = [isR600] in {
 
 }
 
-// Helper pattern for normalizing inputs to triginomic instructions for R700+
-// cards.
-class COS_PAT <InstR600 trig> : Pat<
-  (fcos f32:$src),
-  (trig (MUL_IEEE (MOV_IMM_I32 CONST.TWO_PI_INV), $src))
->;
-
-class SIN_PAT <InstR600 trig> : Pat<
-  (fsin f32:$src),
-  (trig (MUL_IEEE (MOV_IMM_I32 CONST.TWO_PI_INV), $src))
->;
-
 //===----------------------------------------------------------------------===//
 // R700 Only instructions
 //===----------------------------------------------------------------------===//
@@ -1244,10 +1243,6 @@ class SIN_PAT <InstR600 trig> : Pat<
 let Predicates = [isR700] in {
   def SIN_r700 : SIN_Common<0x6E>;
   def COS_r700 : COS_Common<0x6F>;
-
-  // R700 normalizes inputs to SIN/COS the same as EG
-  def : SIN_PAT <SIN_r700>;
-  def : COS_PAT <COS_r700>;
 }
 
 //===----------------------------------------------------------------------===//
@@ -1273,8 +1268,6 @@ def SIN_eg : SIN_Common<0x8D>;
 def COS_eg : COS_Common<0x8E>;
 
 def : POW_Common <LOG_IEEE_eg, EXP_IEEE_eg, MUL>;
-def : SIN_PAT <SIN_eg>;
-def : COS_PAT <COS_eg>;
 def : Pat<(fsqrt f32:$src), (MUL $src, (RECIPSQRT_CLAMPED_eg $src))>;
 
 //===----------------------------------------------------------------------===//
@@ -1486,6 +1479,8 @@ let hasSideEffects = 1 in {
 
   def FLT_TO_INT_eg : FLT_TO_INT_Common<0x50> {
     let Pattern = [];
+    let TransOnly = 0;
+    let Itinerary = AnyALU;
   }
 
   def INT_TO_FLT_eg : INT_TO_FLT_Common<0x9B>;
@@ -1495,6 +1490,111 @@ let hasSideEffects = 1 in {
   }
 
   def UINT_TO_FLT_eg : UINT_TO_FLT_Common<0x9C>;
+
+def GROUP_BARRIER : InstR600 <
+    (outs), (ins), "  GROUP_BARRIER", [(int_AMDGPU_barrier_local)], AnyALU>,
+    R600ALU_Word0,
+    R600ALU_Word1_OP2 <0x54> {
+
+  let dst = 0;
+  let dst_rel = 0;
+  let src0 = 0;
+  let src0_rel = 0;
+  let src0_neg = 0;
+  let src0_abs = 0;
+  let src1 = 0;
+  let src1_rel = 0;
+  let src1_neg = 0;
+  let src1_abs = 0;
+  let write = 0;
+  let omod = 0;
+  let clamp = 0;
+  let last = 1;
+  let bank_swizzle = 0;
+  let pred_sel = 0;
+  let update_exec_mask = 0;
+  let update_pred = 0;
+
+  let Inst{31-0}  = Word0;
+  let Inst{63-32} = Word1;
+
+  let ALUInst = 1;
+}
+
+//===----------------------------------------------------------------------===//
+// LDS Instructions
+//===----------------------------------------------------------------------===//
+class R600_LDS  <bits<6> op, dag outs, dag ins, string asm,
+                 list<dag> pattern = []> :
+
+    InstR600 <outs, ins, asm, pattern, XALU>,
+    R600_ALU_LDS_Word0,
+    R600LDS_Word1 {
+
+  bits<6>  offset = 0;
+  let lds_op = op;
+
+  let Word1{27} = offset{0};
+  let Word1{12} = offset{1};
+  let Word1{28} = offset{2};
+  let Word1{31} = offset{3};
+  let Word0{12} = offset{4};
+  let Word0{25} = offset{5};
+
+
+  let Inst{31-0}  = Word0;
+  let Inst{63-32} = Word1;
+
+  let ALUInst = 1;
+  let HasNativeOperands = 1;
+  let UseNamedOperandTable = 1;
+}
+
+class R600_LDS_1A <bits<6> lds_op, string name, list<dag> pattern> : R600_LDS <
+  lds_op,
+  (outs R600_Reg32:$dst),
+  (ins R600_Reg32:$src0, REL:$src0_rel, SEL:$src0_sel,
+       LAST:$last, R600_Pred:$pred_sel,
+       BANK_SWIZZLE:$bank_swizzle),
+  "  "#name#" $last OQAP, $src0$src0_rel $pred_sel",
+  pattern
+  > {
+
+  let src1 = 0;
+  let src1_rel = 0;
+  let src2 = 0;
+  let src2_rel = 0;
+
+  let Defs = [OQAP];
+  let usesCustomInserter = 1;
+  let LDS_1A = 1;
+  let DisableEncoding = "$dst";
+}
+
+class R600_LDS_1A1D <bits<6> lds_op, string name, list<dag> pattern> :
+    R600_LDS <
+  lds_op,
+  (outs),
+  (ins R600_Reg32:$src0, REL:$src0_rel, SEL:$src0_sel,
+       R600_Reg32:$src1, REL:$src1_rel, SEL:$src1_sel,
+       LAST:$last, R600_Pred:$pred_sel,
+       BANK_SWIZZLE:$bank_swizzle),
+  "  "#name#" $last $src0$src0_rel, $src1$src1_rel, $pred_sel",
+  pattern
+  > {
+
+  let src2 = 0;
+  let src2_rel = 0;
+  let LDS_1A1D = 1;
+}
+
+def LDS_READ_RET : R600_LDS_1A <0x32, "LDS_READ_RET",
+  [(set (i32 R600_Reg32:$dst), (local_load R600_Reg32:$src0))]
+>;
+
+def LDS_WRITE : R600_LDS_1A1D <0xD, "LDS_WRITE",
+  [(local_store (i32 R600_Reg32:$src1), R600_Reg32:$src0)]
+>;
 
   // TRUNC is used for the FLT_TO_INT instructions to work around a
   // perceived problem where the rounding modes are applied differently
@@ -1616,8 +1716,6 @@ def COS_cm : COS_Common<0x8E>;
 } // End isVector = 1
 
 def : POW_Common <LOG_IEEE_cm, EXP_IEEE_cm, MUL>;
-def : SIN_PAT <SIN_cm>;
-def : COS_PAT <COS_cm>;
 
 defm DIV_cm : DIV_Common<RECIP_IEEE_cm>;
 

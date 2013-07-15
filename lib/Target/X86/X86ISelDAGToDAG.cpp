@@ -500,7 +500,8 @@ void X86DAGToDAGISel::PreprocessISelDAG() {
 
     // If the source and destination are SSE registers, then this is a legal
     // conversion that should not be lowered.
-    X86TargetLowering *X86Lowering = (X86TargetLowering*)getTargetLowering();
+    const X86TargetLowering *X86Lowering =
+        static_cast<const X86TargetLowering *>(getTargetLowering());
     bool SrcIsSSE = X86Lowering->isScalarFPTypeInSSEReg(SrcVT);
     bool DstIsSSE = X86Lowering->isScalarFPTypeInSSEReg(DstVT);
     if (SrcIsSSE && DstIsSSE)
@@ -2530,6 +2531,11 @@ SDNode *X86DAGToDAGISel::Select(SDNode *Node) {
 
     // Prevent use of AH in a REX instruction by referencing AX instead.
     // Shift it down 8 bits.
+    //
+    // The current assumption of the register allocator is that isel
+    // won't generate explicit references to the GPR8_NOREX registers. If
+    // the allocator and/or the backend get enhanced to be more robust in
+    // that regard, this can be, and should be, removed.
     if (HiReg == X86::AH && Subtarget->is64Bit() &&
         !SDValue(Node, 1).use_empty()) {
       SDValue Result = CurDAG->getCopyFromReg(CurDAG->getEntryNode(), dl,

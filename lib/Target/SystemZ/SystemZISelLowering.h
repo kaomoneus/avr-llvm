@@ -68,9 +68,17 @@ namespace SystemZISD {
     // first input operands are GR128s.  The trailing numbers are the
     // widths of the second operand in bits.
     UMUL_LOHI64,
+    SDIVREM32,
     SDIVREM64,
     UDIVREM32,
     UDIVREM64,
+
+    // Use MVC to copy bytes from one memory location to another.
+    // The first operand is the target address, the second operand is the
+    // source address, and the third operand is the constant length.
+    // This isn't a memory opcode because we'd need to attach two
+    // MachineMemOperands rather than one.
+    MVC,
 
     // Wrappers around the inner loop of an 8- or 16-bit ATOMIC_SWAP or
     // ATOMIC_LOAD_<op>.
@@ -121,9 +129,7 @@ public:
   virtual EVT getSetCCResultType(LLVMContext &, EVT) const {
     return MVT::i32;
   }
-  virtual bool isFMAFasterThanMulAndAdd(EVT) const LLVM_OVERRIDE {
-    return true;
-  }
+  virtual bool isFMAFasterThanFMulAndFAdd(EVT VT) const LLVM_OVERRIDE;
   virtual bool isFPImmLegal(const APFloat &Imm, EVT VT) const;
   virtual bool allowsUnalignedMemoryAccesses(EVT VT, bool *Fast) const;
   virtual const char *getTargetNodeName(unsigned Opcode) const LLVM_OVERRIDE;
@@ -203,6 +209,9 @@ private:
   // Implement EmitInstrWithCustomInserter for individual operation types.
   MachineBasicBlock *emitSelect(MachineInstr *MI,
                                 MachineBasicBlock *BB) const;
+  MachineBasicBlock *emitCondStore(MachineInstr *MI,
+                                   MachineBasicBlock *BB,
+                                   unsigned StoreOpcode, bool Invert) const;
   MachineBasicBlock *emitExt128(MachineInstr *MI,
                                 MachineBasicBlock *MBB,
                                 bool ClearEven, unsigned SubReg) const;
@@ -217,6 +226,8 @@ private:
                                           unsigned BitSize) const;
   MachineBasicBlock *emitAtomicCmpSwapW(MachineInstr *MI,
                                         MachineBasicBlock *BB) const;
+  MachineBasicBlock *emitMVCWrapper(MachineInstr *MI,
+                                    MachineBasicBlock *BB) const;
 };
 } // end namespace llvm
 

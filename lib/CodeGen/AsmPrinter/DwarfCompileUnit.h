@@ -19,6 +19,7 @@
 #include "llvm/ADT/OwningPtr.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/DebugInfo.h"
+#include "llvm/MC/MCExpr.h"
 
 namespace llvm {
 
@@ -155,7 +156,7 @@ public:
 
   /// getDIE - Returns the debug information entry map slot for the
   /// specified debug variable.
-  DIE *getDIE(const MDNode *N) { return MDNodeToDieMap.lookup(N); }
+  DIE *getDIE(const MDNode *N) const { return MDNodeToDieMap.lookup(N); }
 
   DIEBlock *getDIEBlock() {
     return new (DIEValueAllocator) DIEBlock();
@@ -168,12 +169,8 @@ public:
 
   /// getDIEEntry - Returns the debug information entry for the specified
   /// debug variable.
-  DIEEntry *getDIEEntry(const MDNode *N) {
-    DenseMap<const MDNode *, DIEEntry *>::iterator I =
-      MDNodeToDIEEntryMap.find(N);
-    if (I == MDNodeToDIEEntryMap.end())
-      return NULL;
-    return I->second;
+  DIEEntry *getDIEEntry(const MDNode *N) const {
+    return MDNodeToDIEEntryMap.lookup(N);
   }
 
   /// insertDIEEntry - Insert debug information entry into the map.
@@ -217,6 +214,11 @@ public:
   ///
   void addLocalString(DIE *Die, unsigned Attribute, const StringRef Str);
 
+  /// addExpr - Add a Dwarf expression attribute data and value.
+  ///
+  void addExpr(DIE *Die, unsigned Attribute, unsigned Form,
+               const MCExpr *Expr);
+
   /// addLabel - Add a Dwarf label attribute data and value.
   ///
   void addLabel(DIE *Die, unsigned Attribute, unsigned Form,
@@ -230,7 +232,8 @@ public:
   /// addOpAddress - Add a dwarf op address data and value using the
   /// form given and an op of either DW_FORM_addr or DW_FORM_GNU_addr_index.
   ///
-  void addOpAddress(DIE *Die, MCSymbol *Label);
+  void addOpAddress(DIE *Die, const MCSymbol *Label);
+  void addOpAddress(DIE *Die, const MCSymbolRefExpr *Label);
 
   /// addDelta - Add a label delta attribute data and value.
   ///
@@ -260,13 +263,13 @@ public:
                   const MachineLocation &Location, bool Indirect = false);
 
   /// addConstantValue - Add constant value entry in variable DIE.
-  bool addConstantValue(DIE *Die, const MachineOperand &MO, DIType Ty);
-  bool addConstantValue(DIE *Die, const ConstantInt *CI, bool Unsigned);
-  bool addConstantValue(DIE *Die, const APInt &Val, bool Unsigned);
+  void addConstantValue(DIE *Die, const MachineOperand &MO, DIType Ty);
+  void addConstantValue(DIE *Die, const ConstantInt *CI, bool Unsigned);
+  void addConstantValue(DIE *Die, const APInt &Val, bool Unsigned);
 
   /// addConstantFPValue - Add constant value entry in variable DIE.
-  bool addConstantFPValue(DIE *Die, const MachineOperand &MO);
-  bool addConstantFPValue(DIE *Die, const ConstantFP *CFP);
+  void addConstantFPValue(DIE *Die, const MachineOperand &MO);
+  void addConstantFPValue(DIE *Die, const ConstantFP *CFP);
 
   /// addTemplateParams - Add template parameters in buffer.
   void addTemplateParams(DIE &Buffer, DIArray TParams);

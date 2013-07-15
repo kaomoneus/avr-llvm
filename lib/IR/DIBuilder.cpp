@@ -208,11 +208,11 @@ DIEnumerator DIBuilder::createEnumerator(StringRef Name, int64_t Val) {
   return DIEnumerator(MDNode::get(VMContext, Elts));
 }
 
-/// createNullPtrType - Create C++11 nullptr type.
-DIBasicType DIBuilder::createNullPtrType(StringRef Name) {
+/// \brief Create a DWARF unspecified type.
+DIBasicType DIBuilder::createUnspecifiedType(StringRef Name) {
   assert(!Name.empty() && "Unable to create type without name");
-  // nullptr is encoded in DIBasicType format. Line number, filename,
-  // ,size, alignment, offset and flags are always empty here.
+  // Unspecified types are encoded in DIBasicType format. Line number, filename,
+  // size, alignment, offset and flags are always empty here.
   Value *Elts[] = {
     GetTagConstant(VMContext, dwarf::DW_TAG_unspecified_type),
     NULL, // Filename
@@ -226,6 +226,11 @@ DIBasicType DIBuilder::createNullPtrType(StringRef Name) {
     ConstantInt::get(Type::getInt32Ty(VMContext), 0)  // Encoding
   };
   return DIBasicType(MDNode::get(VMContext, Elts));
+}
+
+/// \brief Create C++11 nullptr type.
+DIBasicType DIBuilder::createNullPtrType() {
+  return createUnspecifiedType("decltype(nullptr)");
 }
 
 /// createBasicType - Create debugging information entry for a basic
@@ -312,7 +317,7 @@ DIDerivedType DIBuilder::createMemberPointerType(DIType PointeeTy,
 /// createReferenceType - Create debugging information entry for a reference
 /// type.
 DIDerivedType DIBuilder::createReferenceType(unsigned Tag, DIType RTy) {
-  assert(RTy.Verify() && "Unable to create reference type");
+  assert(RTy.isType() && "Unable to create reference type");
   // References are encoded in DIDerivedType format.
   Value *Elts[] = {
     GetTagConstant(VMContext, Tag),
@@ -333,7 +338,7 @@ DIDerivedType DIBuilder::createReferenceType(unsigned Tag, DIType RTy) {
 DIDerivedType DIBuilder::createTypedef(DIType Ty, StringRef Name, DIFile File,
                                        unsigned LineNo, DIDescriptor Context) {
   // typedefs are encoded in DIDerivedType format.
-  assert(Ty.Verify() && "Invalid typedef type!");
+  assert(Ty.isType() && "Invalid typedef type!");
   Value *Elts[] = {
     GetTagConstant(VMContext, dwarf::DW_TAG_typedef),
     File.getFileNode(),
@@ -352,8 +357,8 @@ DIDerivedType DIBuilder::createTypedef(DIType Ty, StringRef Name, DIFile File,
 /// createFriend - Create debugging information entry for a 'friend'.
 DIDerivedType DIBuilder::createFriend(DIType Ty, DIType FriendTy) {
   // typedefs are encoded in DIDerivedType format.
-  assert(Ty.Verify() && "Invalid type!");
-  assert(FriendTy.Verify() && "Invalid friend type!");
+  assert(Ty.isType() && "Invalid type!");
+  assert(FriendTy.isType() && "Invalid friend type!");
   Value *Elts[] = {
     GetTagConstant(VMContext, dwarf::DW_TAG_friend),
     NULL,
@@ -373,7 +378,7 @@ DIDerivedType DIBuilder::createFriend(DIType Ty, DIType FriendTy) {
 /// inheritance relationship between two types.
 DIDerivedType DIBuilder::createInheritance(
     DIType Ty, DIType BaseTy, uint64_t BaseOffset, unsigned Flags) {
-  assert(Ty.Verify() && "Unable to create inheritance");
+  assert(Ty.isType() && "Unable to create inheritance");
   // TAG_inheritance is encoded in DIDerivedType format.
   Value *Elts[] = {
     GetTagConstant(VMContext, dwarf::DW_TAG_inheritance),
@@ -591,7 +596,7 @@ DICompositeType DIBuilder::createClassType(DIDescriptor Context, StringRef Name,
                                            DIArray Elements,
                                            MDNode *VTableHolder,
                                            MDNode *TemplateParams) {
-  assert((!Context || Context.Verify()) &&
+  assert((!Context || Context.isScope() || Context.isType()) &&
          "createClassType should be called with a valid Context");
   // TAG_class_type is encoded in DICompositeType format.
   Value *Elts[] = {
@@ -611,7 +616,8 @@ DICompositeType DIBuilder::createClassType(DIDescriptor Context, StringRef Name,
     TemplateParams
   };
   DICompositeType R(MDNode::get(VMContext, Elts));
-  assert(R.Verify() && "createClassType should return a verifiable DIType");
+  assert(R.isCompositeType() &&
+         "createClassType should return a DICompositeType");
   return R;
 }
 
@@ -643,7 +649,8 @@ DICompositeType DIBuilder::createStructType(DIDescriptor Context,
     NULL,
   };
   DICompositeType R(MDNode::get(VMContext, Elts));
-  assert(R.Verify() && "createStructType should return a verifiable DIType");
+  assert(R.isCompositeType() &&
+         "createStructType should return a DICompositeType");
   return R;
 }
 
@@ -856,9 +863,10 @@ DIType DIBuilder::createForwardDecl(unsigned Tag, StringRef Name,
     ConstantInt::get(Type::getInt32Ty(VMContext), RuntimeLang)
   };
   MDNode *Node = MDNode::getTemporary(VMContext, Elts);
-  assert(DIType(Node).Verify() &&
-         "createForwardDecl result should be verifiable");
-  return DIType(Node);
+  DIType RetTy(Node);
+  assert(RetTy.isType() &&
+         "createForwardDecl result should be a DIType");
+  return RetTy;
 }
 
 /// getOrCreateArray - Get a DIArray, create one if required.
@@ -948,9 +956,9 @@ DIVariable DIBuilder::createLocalVariable(unsigned Tag, DIDescriptor Scope,
                                           bool AlwaysPreserve, unsigned Flags,
                                           unsigned ArgNo) {
   DIDescriptor Context(getNonCompileUnitScope(Scope));
-  assert((!Context || Context.Verify()) &&
+  assert((!Context || Context.isScope()) &&
          "createLocalVariable should be called with a valid Context");
-  assert(Ty.Verify() &&
+  assert(Ty.isType() &&
          "createLocalVariable should be called with a valid type");
   Value *Elts[] = {
     GetTagConstant(VMContext, Tag),
@@ -971,9 +979,10 @@ DIVariable DIBuilder::createLocalVariable(unsigned Tag, DIDescriptor Scope,
     NamedMDNode *FnLocals = getOrInsertFnSpecificMDNode(M, Fn);
     FnLocals->addOperand(Node);
   }
-  assert(DIVariable(Node).Verify() &&
-         "createLocalVariable should return a verifiable DIVariable");
-  return DIVariable(Node);
+  DIVariable RetVar(Node);
+  assert(RetVar.isVariable() &&
+         "createLocalVariable should return a valid DIVariable");
+  return RetVar;
 }
 
 /// createComplexVariable - Create a new descriptor for the specified variable
@@ -1041,7 +1050,7 @@ DISubprogram DIBuilder::createFunction(DIDescriptor Context,
   if (isDefinition)
     AllSubprograms.push_back(Node);
   DISubprogram S(Node);
-  assert(S.Verify() && "createFunction should return a valid DISubprogram");
+  assert(S.isSubprogram() && "createFunction should return a valid DISubprogram");
   return S;
 }
 
@@ -1089,7 +1098,7 @@ DISubprogram DIBuilder::createMethod(DIDescriptor Context,
   if (isDefinition)
     AllSubprograms.push_back(Node);
   DISubprogram S(Node);
-  assert(S.Verify() && "createMethod should return a valid DISubprogram");
+  assert(S.isSubprogram() && "createMethod should return a valid DISubprogram");
   return S;
 }
 
@@ -1148,7 +1157,8 @@ DILexicalBlock DIBuilder::createLexicalBlock(DIDescriptor Scope, DIFile File,
 Instruction *DIBuilder::insertDeclare(Value *Storage, DIVariable VarInfo,
                                       Instruction *InsertBefore) {
   assert(Storage && "no storage passed to dbg.declare");
-  assert(VarInfo.Verify() && "empty DIVariable passed to dbg.declare");
+  assert(VarInfo.isVariable() &&
+         "empty or invalid DIVariable passed to dbg.declare");
   if (!DeclareFn)
     DeclareFn = Intrinsic::getDeclaration(&M, Intrinsic::dbg_declare);
 
@@ -1160,7 +1170,8 @@ Instruction *DIBuilder::insertDeclare(Value *Storage, DIVariable VarInfo,
 Instruction *DIBuilder::insertDeclare(Value *Storage, DIVariable VarInfo,
                                       BasicBlock *InsertAtEnd) {
   assert(Storage && "no storage passed to dbg.declare");
-  assert(VarInfo.Verify() && "invalid DIVariable passed to dbg.declare");
+  assert(VarInfo.isVariable() &&
+         "empty or invalid DIVariable passed to dbg.declare");
   if (!DeclareFn)
     DeclareFn = Intrinsic::getDeclaration(&M, Intrinsic::dbg_declare);
 
@@ -1179,7 +1190,8 @@ Instruction *DIBuilder::insertDbgValueIntrinsic(Value *V, uint64_t Offset,
                                                 DIVariable VarInfo,
                                                 Instruction *InsertBefore) {
   assert(V && "no value passed to dbg.value");
-  assert(VarInfo.Verify() && "invalid DIVariable passed to dbg.value");
+  assert(VarInfo.isVariable() &&
+         "empty or invalid DIVariable passed to dbg.value");
   if (!ValueFn)
     ValueFn = Intrinsic::getDeclaration(&M, Intrinsic::dbg_value);
 
@@ -1194,7 +1206,8 @@ Instruction *DIBuilder::insertDbgValueIntrinsic(Value *V, uint64_t Offset,
                                                 DIVariable VarInfo,
                                                 BasicBlock *InsertAtEnd) {
   assert(V && "no value passed to dbg.value");
-  assert(VarInfo.Verify() && "invalid DIVariable passed to dbg.value");
+  assert(VarInfo.isVariable() &&
+         "empty or invalid DIVariable passed to dbg.value");
   if (!ValueFn)
     ValueFn = Intrinsic::getDeclaration(&M, Intrinsic::dbg_value);
 
