@@ -122,10 +122,10 @@ namespace CallingConv {
     Intel_OCL_BI = 77,
 
     /// AVR_INTR - Calling convention used for AVR interrupt routines.
-    AVR_INTR = 78,
+    AVR_INTR = 80,
 
     /// AVR_SIGNAL - Calling convention used for AVR signal routines.
-    AVR_SIGNAL = 79
+    AVR_SIGNAL = 81
   };
 } // End CallingConv namespace
 

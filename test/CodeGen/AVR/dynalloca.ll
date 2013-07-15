@@ -3,7 +3,7 @@
 declare void @foo(i16*, i16*, i8*)
 
 define void @test1(i16 %x) {
-; CHECK: test1:
+; CHECK-LABEL: test1:
 ; CHECK: out 61, r28
 ; SP copy
 ; CHECK-NEXT: in [[SPCOPY1:r[0-9]+]], 61
@@ -50,7 +50,7 @@ declare void @foo2(i16*, i64, i64, i64)
 ; allocating the call frame space in the prologue. Also test that SP is restored
 ; after the call frame is restored and not before.
 define void @dynalloca2(i16 %x) {
-; CHECK: dynalloca2:
+; CHECK-LABEL: dynalloca2:
 ; CHECK: in [[SPCOPY1:r[0-9]+]], 61
 ; CHECK: in [[SPCOPY2:r[0-9]+]], 62
 ; CHECK: push

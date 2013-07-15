@@ -1,7 +1,7 @@
 ; RUN: llc < %s -march=avr | FileCheck %s
 
 define i8 @mult8(i8 %a, i8 %b) {
-; CHECK: mult8:
+; CHECK-LABEL: mult8:
 ; CHECK: mul r22, r24
 ; CHECK: mov r24, r0
 ; :TODO: clr r1
@@ -10,7 +10,7 @@ define i8 @mult8(i8 %a, i8 %b) {
 }
 
 define i16 @mult16(i16 %a, i16 %b) {
-; CHECK: mult16:
+; CHECK-LABEL: mult16:
 ; CHECK: movw r18, r24
 ; CHECK: mul r22, r18
 ; CHECK: movw r24, r0

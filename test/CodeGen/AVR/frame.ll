@@ -7,7 +7,7 @@ declare float @dasin(float)
 ; Test prologue and epilogue insertion
 define float @f3(float %days) {
 entry:
-; CHECK: f3:
+; CHECK-LABEL: f3:
 ; prologue code:
 ; CHECK: push r28
 ; CHECK: push r29

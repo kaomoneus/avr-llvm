@@ -1,14 +1,14 @@
 ; RUN: llc < %s -march=avr | FileCheck %s
 
 define void @store8(i8* %x, i8 %y) {
-; CHECK: store8:
+; CHECK-LABEL: store8:
 ; CHECK: st Z, r22
   store i8 %y, i8* %x
   ret void
 }
 
 define void @store16(i16* %x, i16 %y) {
-; CHECK: store16:
+; CHECK-LABEL: store16:
 ; CHECK: st Z, r22
 ; CHECK: std Z+1, r23
   store i16 %y, i16* %x
@@ -16,7 +16,7 @@ define void @store16(i16* %x, i16 %y) {
 }
 
 define void @store8disp(i8* %x, i8 %y) {
-; CHECK: store8disp:
+; CHECK-LABEL: store8disp:
 ; CHECK: std Z+63, r22
   %arrayidx = getelementptr inbounds i8* %x, i16 63
   store i8 %y, i8* %arrayidx
@@ -24,7 +24,7 @@ define void @store8disp(i8* %x, i8 %y) {
 }
 
 define void @store8nodisp(i8* %x, i8 %y) {
-; CHECK: store8nodisp:
+; CHECK-LABEL: store8nodisp:
 ; CHECK: movw r30, r24
 ; CHECK: subi r30, 192
 ; CHECK: sbci r31, 255
@@ -35,7 +35,7 @@ define void @store8nodisp(i8* %x, i8 %y) {
 }
 
 define void @store16disp(i16* %x, i16 %y) {
-; CHECK: store16disp:
+; CHECK-LABEL: store16disp:
 ; CHECK: std Z+62, r22
 ; CHECK: std Z+63, r23
   %arrayidx = getelementptr inbounds i16* %x, i16 31
@@ -44,7 +44,7 @@ define void @store16disp(i16* %x, i16 %y) {
 }
 
 define void @store16nodisp(i16* %x, i16 %y) {
-; CHECK: store16nodisp:
+; CHECK-LABEL: store16nodisp:
 ; CHECK: movw r30, r24
 ; CHECK: subi r30, 192
 ; CHECK: sbci r31, 255
@@ -56,7 +56,7 @@ define void @store16nodisp(i16* %x, i16 %y) {
 }
 
 define void @store8postinc(i8* %x, i8 %y) {
-; CHECK: store8postinc:
+; CHECK-LABEL: store8postinc:
 ; CHECK: st Z+, {{.*}}
 entry:
   %tobool3 = icmp eq i8 %y, 0
@@ -74,7 +74,7 @@ while.end:                                        ; preds = %while.body, %entry
 }
 
 define void @store16postinc(i16* %x, i16 %y) {
-; CHECK: store16postinc:
+; CHECK-LABEL: store16postinc:
 ; CHECK: st X+, {{.*}}
 ; CHECK: st X+, {{.*}}
 entry:
@@ -93,7 +93,7 @@ while.end:                                        ; preds = %while.body, %entry
 }
 
 define void @store8predec(i8* %x, i8 %y) {
-; CHECK: store8predec:
+; CHECK-LABEL: store8predec:
 ; CHECK: st -Z, {{.*}}
 entry:
   %tobool3 = icmp eq i8 %y, 0
@@ -111,7 +111,7 @@ while.end:                                        ; preds = %while.body, %entry
 }
 
 define void @store16predec(i16* %x, i16 %y) {
-; CHECK: store16predec:
+; CHECK-LABEL: store16predec:
 ; CHECK: st -X, {{.*}}
 ; CHECK: st -X, {{.*}}
 entry:

@@ -17,7 +17,7 @@
 @longlong.static = internal global i64 0
 
 define void @global8_store() {
-; CHECK: global8_store:
+; CHECK-LABEL: global8_store:
 ; CHECK: ldi [[REG:r[0-9]+]], 6
 ; CHECK: sts char, [[REG]]
   store i8 6, i8* @char
@@ -25,14 +25,14 @@ define void @global8_store() {
 }
 
 define i8 @global8_load() {
-; CHECK: global8_load:
+; CHECK-LABEL: global8_load:
 ; CHECK: lds r24, char
   %result = load i8* @char
   ret i8 %result
 }
 
 define void @array8_store() {
-; CHECK: array8_store:
+; CHECK-LABEL: array8_store:
 ; CHECK: ldi [[REG1:r[0-9]+]], 1
 ; CHECK: ldi [[REG2:r[0-9]+]], 2
 ; CHECK: sts char.array+1, [[REG2]]
@@ -46,14 +46,14 @@ define void @array8_store() {
 }
 
 define i8 @array8_load() {
-; CHECK: array8_load:
+; CHECK-LABEL: array8_load:
 ; CHECK: lds r24, char.array+2
   %result = load i8* getelementptr inbounds ([3 x i8]* @char.array, i32 0, i64 2)
   ret i8 %result
 }
 
 define i8 @static8_inc() {
-; CHECK: static8_inc:
+; CHECK-LABEL: static8_inc:
 ; CHECK: lds r24, char.static
 ; CHECK: inc r24
 ; CHECK: sts char.static, r24
@@ -64,7 +64,7 @@ define i8 @static8_inc() {
 }
 
 define void @global16_store() {
-; CHECK: global16_store:
+; CHECK-LABEL: global16_store:
 ; CHECK: ldi [[REG1:r[0-9]+]], 187
 ; CHECK: ldi [[REG2:r[0-9]+]], 170
 ; CHECK: sts int+1, [[REG2]]
@@ -74,7 +74,7 @@ define void @global16_store() {
 }
 
 define i16 @global16_load() {
-; CHECK: global16_load:
+; CHECK-LABEL: global16_load:
 ; CHECK: lds r24, int
 ; CHECK: lds r25, int+1
   %result = load i16* @int
@@ -82,7 +82,7 @@ define i16 @global16_load() {
 }
 
 define void @array16_store() {
-; CHECK: array16_store:
+; CHECK-LABEL: array16_store:
 ; CHECK: ldi [[REG1:r[0-9]+]], 187
 ; CHECK: ldi [[REG2:r[0-9]+]], 170
 ; CHECK: sts int.array+1, [[REG2]]
@@ -102,7 +102,7 @@ define void @array16_store() {
 }
 
 define i16 @array16_load() {
-; CHECK: array16_load:
+; CHECK-LABEL: array16_load:
 ; CHECK: lds r24, int.array+4
 ; CHECK: lds r25, int.array+5
   %result = load i16* getelementptr inbounds ([3 x i16]* @int.array, i32 0, i64 2)
@@ -110,7 +110,7 @@ define i16 @array16_load() {
 }
 
 define i16 @static16_inc() {
-; CHECK: static16_inc:
+; CHECK-LABEL: static16_inc:
 ; CHECK: lds r24, int.static
 ; CHECK: lds r25, int.static+1
 ; CHECK: adiw r24, 1
@@ -123,7 +123,7 @@ define i16 @static16_inc() {
 }
 
 define void @global32_store() {
-; CHECK: global32_store:
+; CHECK-LABEL: global32_store:
 ; CHECK: ldi [[REG1:r[0-9]+]], 187
 ; CHECK: ldi [[REG2:r[0-9]+]], 170
 ; CHECK: sts long+3, [[REG2]]
@@ -137,7 +137,7 @@ define void @global32_store() {
 }
 
 define i32 @global32_load() {
-; CHECK: global32_load:
+; CHECK-LABEL: global32_load:
 ; CHECK: lds r22, long
 ; CHECK: lds r23, long+1
 ; CHECK: lds r24, long+2
@@ -147,7 +147,7 @@ define i32 @global32_load() {
 }
 
 define void @array32_store() {
-; CHECK: array32_store:
+; CHECK-LABEL: array32_store:
 ; CHECK: ldi [[REG1:r[0-9]+]], 27
 ; CHECK: ldi [[REG2:r[0-9]+]], 172
 ; CHECK: sts long.array+3, [[REG2]]
@@ -179,7 +179,7 @@ define void @array32_store() {
 }
 
 define i32 @array32_load() {
-; CHECK: array32_load:
+; CHECK-LABEL: array32_load:
 ; CHECK: lds r22, long.array+8
 ; CHECK: lds r23, long.array+9
 ; CHECK: lds r24, long.array+10
@@ -189,7 +189,7 @@ define i32 @array32_load() {
 }
 
 define i32 @static32_inc() {
-; CHECK: static32_inc:
+; CHECK-LABEL: static32_inc:
 ; CHECK: lds r22, long.static
 ; CHECK: lds r23, long.static+1
 ; CHECK: lds r24, long.static+2
@@ -209,7 +209,7 @@ define i32 @static32_inc() {
 }
 
 define void @global64_store() {
-; CHECK: global64_store:
+; CHECK-LABEL: global64_store:
 ; CHECK: ldi [[REG1:r[0-9]+]], 34
 ; CHECK: ldi [[REG2:r[0-9]+]], 17
 ; CHECK: sts longlong+7, [[REG2]]
@@ -231,7 +231,7 @@ define void @global64_store() {
 }
 
 define i64 @global64_load() {
-; CHECK: global64_load:
+; CHECK-LABEL: global64_load:
 ; CHECK: lds r18, longlong
 ; CHECK: lds r19, longlong+1
 ; CHECK: lds r20, longlong+2
@@ -245,7 +245,7 @@ define i64 @global64_load() {
 }
 
 define void @array64_store() {
-; CHECK: array64_store:
+; CHECK-LABEL: array64_store:
 ; CHECK: ldi [[REG1:r[0-9]+]], 34
 ; CHECK: ldi [[REG2:r[0-9]+]], 17
 ; CHECK: sts longlong.array+7, [[REG2]]
@@ -269,7 +269,7 @@ define void @array64_store() {
 }
 
 define i64 @array64_load() {
-; CHECK: array64_load:
+; CHECK-LABEL: array64_load:
 ; CHECK: lds r18, longlong.array+16
 ; CHECK: lds r19, longlong.array+17
 ; CHECK: lds r20, longlong.array+18
@@ -283,7 +283,7 @@ define i64 @array64_load() {
 }
 
 define i64 @static64_inc() {
-; CHECK: static64_inc:
+; CHECK-LABEL: static64_inc:
 ; CHECK: lds r18, longlong.static
 ; CHECK: lds r19, longlong.static+1
 ; CHECK: lds r20, longlong.static+2
@@ -315,14 +315,14 @@ define i64 @static64_inc() {
 }
 
 define i8 @constantaddr_read8() {
-; CHECK: constantaddr_read8:
+; CHECK-LABEL: constantaddr_read8:
 ; CHECK: lds r24, 1234
   %1 = load i8* inttoptr (i16 1234 to i8*)
   ret i8 %1
 }
 
 define i16 @constantaddr_read16() {
-; CHECK: constantaddr_read16:
+; CHECK-LABEL: constantaddr_read16:
 ; CHECK: lds r24, 1234
 ; CHECK: lds r25, 1235
   %1 = load i16* inttoptr (i16 1234 to i16*)
@@ -330,14 +330,14 @@ define i16 @constantaddr_read16() {
 }
 
 define void @constantaddr_write8() {
-; CHECK: constantaddr_write8:
+; CHECK-LABEL: constantaddr_write8:
 ; CHECK: sts 1234
   store i8 22, i8* inttoptr (i16 1234 to i8*)
   ret void
 }
 
 define void @constantaddr_write16() {
-; CHECK: constantaddr_write16:
+; CHECK-LABEL: constantaddr_write16:
 ; CHECK: sts 1235
 ; CHECK: sts 1234
   store i16 2222, i16* inttoptr (i16 1234 to i16*)

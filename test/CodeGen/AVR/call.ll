@@ -16,7 +16,7 @@ declare i64 @foo64_1(i64)
 declare i64 @foo64_2(i64, i64, i64)
 
 define i8 @calli8_reg() {
-; CHECK: calli8_reg:
+; CHECK-LABEL: calli8_reg:
 ; CHECK: ldi r24, 12
 ; CHECK: call foo8_1
 ; CHECK: ldi r24, 12
@@ -29,7 +29,7 @@ define i8 @calli8_reg() {
 }
 
 define i8 @calli8_stack() {
-; CHECK: calli8_stack:
+; CHECK-LABEL: calli8_stack:
 ; CHECK: ldi [[REG1:r[0-9]+]], 10
 ; CHECK: ldi [[REG2:r[0-9]+]], 11
 ; CHECK: push [[REG2]]
@@ -40,7 +40,7 @@ define i8 @calli8_stack() {
 }
 
 define i16 @calli16_reg() {
-; CHECK: calli16_reg:
+; CHECK-LABEL: calli16_reg:
 ; CHECK: ldi r24, 1
 ; CHECK: ldi r25, 2
 ; CHECK: ldi r22, 2
@@ -51,7 +51,7 @@ define i16 @calli16_reg() {
 }
 
 define i16 @calli16_stack() {
-; CHECK: calli16_stack:
+; CHECK-LABEL: calli16_stack:
 ; CHECK: ldi [[REG1:r[0-9]+]], 10
 ; CHECK: ldi [[REG2:r[0-9]+]], 2
 ; CHECK: push [[REG2]]
@@ -66,7 +66,7 @@ define i16 @calli16_stack() {
 }
 
 define i32 @calli32_reg() {
-; CHECK: calli32_reg:
+; CHECK-LABEL: calli32_reg:
 ; CHECK: ldi r22, 64
 ; CHECK: ldi r23, 66
 ; CHECK: ldi r24, 15
@@ -81,7 +81,7 @@ define i32 @calli32_reg() {
 }
 
 define i32 @calli32_stack() {
-; CHECK: calli32_stack:
+; CHECK-LABEL: calli32_stack:
 ; CHECK: ldi [[REG1:r[0-9]+]], 15
 ; CHECK: ldi [[REG2:r[0-9]+]], 2
 ; CHECK: push [[REG2]]
@@ -96,7 +96,7 @@ define i32 @calli32_stack() {
 }
 
 define i64 @calli64_reg() {
-; CHECK: calli64_reg:
+; CHECK-LABEL: calli64_reg:
 ; CHECK: ldi r18, 255
 ; CHECK: ldi r19, 255
 ; CHECK: ldi r20, 155
@@ -111,7 +111,7 @@ define i64 @calli64_reg() {
 }
 
 define i64 @calli64_stack() {
-; CHECK: calli64_stack:
+; CHECK-LABEL: calli64_stack:
 ; CHECK: ldi [[REG1:r[0-9]+]], 31
 ; CHECK: ldi [[REG2:r[0-9]+]], 242
 ; CHECK: push [[REG2]]
@@ -138,7 +138,7 @@ define i64 @calli64_stack() {
 declare void @foo64_3(i64, i64, i64, i8, i16*)
 
 define void @testcallprologue() {
-; CHECK: testcallprologue:
+; CHECK-LABEL: testcallprologue:
 ; CHECK: push r28
 ; CHECK: push r29
 ; CHECK: sbiw r28, 27
@@ -169,7 +169,7 @@ define void @testcallprologue() {
 }
 
 define i32 @icall(i32 (i32)* %foo) {
-; CHECK: icall:
+; CHECK-LABEL: icall:
 ; CHECK: movw [[REG:r[0-9]+]], r24
 ; CHECK: ldi r22, 147
 ; CHECK: ldi r23, 248
@@ -191,7 +191,7 @@ define i32 @icall(i32 (i32)* %foo) {
 declare i32 @foofloat(float)
 
 define i32 @externcall(float %a, float %b) {
-; CHECK: externcall:
+; CHECK-LABEL: externcall:
 ; CHECK: movw [[REG1:r[0-9]+]], r24
 ; CHECK: movw [[REG2:r[0-9]+]], r22
 ; CHECK: movw r22, r18

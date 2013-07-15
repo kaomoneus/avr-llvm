@@ -3,7 +3,7 @@
 ; zext R25:R24, R24
 ; eor R25, R25
 define i16 @zext1(i8 %x) {
-; CHECK: zext1:
+; CHECK-LABEL: zext1:
 ; CHECK: eor r25, r25
   %1 = zext i8 %x to i16
   ret i16 %1
@@ -13,7 +13,7 @@ define i16 @zext1(i8 %x) {
 ; mov R24, R20
 ; eor R25, R25
 define i16 @zext2(i8 %x, i8 %y) {
-; CHECK: zext2:
+; CHECK-LABEL: zext2:
 ; CHECK: mov r24, r22
 ; CHECK: eor r25, r25
   %1 = zext i8 %y to i16

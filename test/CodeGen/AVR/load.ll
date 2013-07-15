@@ -1,14 +1,14 @@
 ; RUN: llc < %s -march=avr | FileCheck %s
 
 define i8 @load8(i8* %x) {
-; CHECK: load8:
+; CHECK-LABEL: load8:
 ; CHECK: ld r24, Z
   %1 = load i8* %x
   ret i8 %1
 }
 
 define i16 @load16(i16* %x) {
-; CHECK: load16:
+; CHECK-LABEL: load16:
 ; CHECK: ld r24, Z
 ; CHECK: ldd r25, Z+1
   %1 = load i16* %x
@@ -16,7 +16,7 @@ define i16 @load16(i16* %x) {
 }
 
 define i8 @load8disp(i8* %x) {
-; CHECK: load8disp:
+; CHECK-LABEL: load8disp:
 ; CHECK: ldd r24, Z+63
   %1 = getelementptr inbounds i8* %x, i64 63
   %2 = load i8* %1
@@ -24,7 +24,7 @@ define i8 @load8disp(i8* %x) {
 }
 
 define i8 @load8nodisp(i8* %x) {
-; CHECK: load8nodisp:
+; CHECK-LABEL: load8nodisp:
 ; CHECK: movw r30, r24
 ; CHECK: subi r30, 192
 ; CHECK: sbci r31, 255
@@ -35,7 +35,7 @@ define i8 @load8nodisp(i8* %x) {
 }
 
 define i16 @load16disp(i16* %x) {
-; CHECK: load16disp:
+; CHECK-LABEL: load16disp:
 ; CHECK: ldd r24, Z+62
 ; CHECK: ldd r25, Z+63
   %1 = getelementptr inbounds i16* %x, i64 31
@@ -44,7 +44,7 @@ define i16 @load16disp(i16* %x) {
 }
 
 define i16 @load16nodisp(i16* %x) {
-; CHECK: load16nodisp:
+; CHECK-LABEL: load16nodisp:
 ; CHECK: movw r30, r24
 ; CHECK: subi r30, 192
 ; CHECK: sbci r31, 255
@@ -56,7 +56,7 @@ define i16 @load16nodisp(i16* %x) {
 }
 
 define i8 @load8postinc(i8* %x, i8 %y) {
-; CHECK: load8postinc:
+; CHECK-LABEL: load8postinc:
 ; CHECK: ld {{.*}}, Z+
 entry:
   %tobool6 = icmp eq i8 %y, 0
@@ -77,7 +77,7 @@ while.end:                                        ; preds = %while.body, %entry
 }
 
 define i16 @load16postinc(i16* %x, i16 %y) {
-; CHECK: load16postinc:
+; CHECK-LABEL: load16postinc:
 ; CHECK: ld {{.*}}, X+
 ; CHECK: ld {{.*}}, X+
 entry:
@@ -99,7 +99,7 @@ while.end:                                        ; preds = %while.body, %entry
 }
 
 define i8 @load8predec(i8* %x, i8 %y) {
-; CHECK: load8predec:
+; CHECK-LABEL: load8predec:
 ; CHECK: ld {{.*}}, -Z
 entry:
   %tobool6 = icmp eq i8 %y, 0
@@ -120,7 +120,7 @@ while.end:                                        ; preds = %while.body, %entry
 }
 
 define i16 @load16predec(i16* %x, i16 %y) {
-; CHECK: load16predec:
+; CHECK-LABEL: load16predec:
 ; CHECK: ld {{.*}}, -X
 ; CHECK: ld {{.*}}, -X
 entry:

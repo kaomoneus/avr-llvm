@@ -5,7 +5,7 @@ declare i16 @allocate(i16*, i16*)
 ; Test taking an address of an alloca with a small offset (adiw)
 define i16 @alloca_addressof_small() {
 entry:
-; CHECK: alloca_addressof_small:
+; CHECK-LABEL: alloca_addressof_small:
 ; Test that Y is saved
 ; CHECK: push r28
 ; CHECK: push r29
@@ -27,7 +27,7 @@ entry:
 ; Test taking an address of an alloca with a big offset (subi/sbci pair)
 define i16 @alloca_addressof_big() {
 entry:
-; CHECK: alloca_addressof_big:
+; CHECK-LABEL: alloca_addressof_big:
 ; CHECK: movw r24, r28
 ; CHECK: adiw r24, 17
 ; CHECK: movw r22, r28
@@ -44,7 +44,7 @@ entry:
 ; Test writing to an allocated variable with a small and a big offset
 define i16 @alloca_write(i16 %x) {
 entry:
-; CHECK: alloca_write:
+; CHECK-LABEL: alloca_write:
 ; Big offset here
 ; CHECK: adiw r28, 57
 ; CHECK: std Y+62, {{.*}}
@@ -68,7 +68,7 @@ entry:
 ; Test writing to an allocated variable with a huge offset that cant be
 ; materialized with adiw/sbiw but with a subi/sbci pair.
 define void @alloca_write_huge() {
-; CHECK: alloca_write_huge:
+; CHECK-LABEL: alloca_write_huge:
 ; CHECK: subi r28, 41
 ; CHECK: sbci r29, 255
 ; CHECK: std Y+62, {{.*}}

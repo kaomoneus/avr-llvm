@@ -104,20 +104,7 @@ AVRDAGToDAGISel::SelectAddr(SDNode *Op, SDValue N, SDValue &Base, SDValue &Disp)
 
     // The value type of the memory instruction determines what is the maximum
     // offset allowed.
-    MVT VT;
-    if (MemSDNode* MemNode = dyn_cast<MemSDNode>(Op))
-    {
-      VT = MemNode->getMemoryVT().getSimpleVT();
-    }
-    // Special support for INLINEASM memory operand.
-    else if (N.getOperand(0)->getOpcode() == ISD::CopyFromReg)
-    {
-      VT = RHS->getValueType(0).getSimpleVT();
-    }
-    else
-    {
-      llvm_unreachable("Unexpected operand type.");
-    }
+    MVT VT = cast<MemSDNode>(Op)->getMemoryVT().getSimpleVT();
 
     // We only accept offsets that fit in 6 bits (unsigned).
     if ((VT == MVT::i8 && isUInt<6>(RHSC))
@@ -125,6 +112,7 @@ AVRDAGToDAGISel::SelectAddr(SDNode *Op, SDValue N, SDValue &Base, SDValue &Disp)
     {
       Base = N.getOperand(0);
       Disp = CurDAG->getTargetConstant(RHSC, MVT::i8);
+
       return true;
     }
   }
@@ -214,6 +202,25 @@ bool AVRDAGToDAGISel::SelectInlineAsmMemoryOperand(const SDValue &Op,
                                                    char ConstraintCode,
                                                    std::vector<SDValue> &OutOps)
 {
+  // Yes hardcoded 'm' symbol. Just because it also has been hardcoded in
+  // SelectionDAGISel (callee for this method).
+  assert(ConstraintCode == 'm' && "Unexpected asm memory constraint");
+
+  //MachineFunction& MF = CurDAG->getMachineFunction();
+  MachineRegisterInfo &RI = MF->getRegInfo();
+  const TargetLowering* TL = MF->getTarget().getTargetLowering();
+
+  const RegisterSDNode *RegNode = dyn_cast<RegisterSDNode>(Op);
+
+  // If address operand is of PTRDISPREGS class, all is OK, then.
+
+  if (RegNode && RI.getRegClass(RegNode->getReg()) ==
+      &AVR::PTRDISPREGSRegClass)
+  {
+    OutOps.push_back(Op);
+    return false;
+  }
+
   if (Op->getOpcode() == ISD::FrameIndex)
   {
     SDValue Base, Disp;
@@ -228,34 +235,93 @@ bool AVRDAGToDAGISel::SelectInlineAsmMemoryOperand(const SDValue &Op,
     return true;
   }
 
-  if (Op->getOpcode() == ISD::ADD || Op->getOpcode() == ISD::SUB)
+  // If Op is add reg, imm and
+  // reg is either virtual register or register of PTRDISPREGSRegClass
+  if (Op->getOpcode() == ISD::ADD ||
+      Op->getOpcode() == ISD::SUB)
   {
-    SDValue Base, Disp;
-    if (SelectAddr(Op.getNode(), Op, Base, Disp))
+    SDValue CopyFromRegOp = Op->getOperand(0);
+    SDValue ImmOp = Op->getOperand(1);
+    ConstantSDNode *ImmNode = dyn_cast<ConstantSDNode>(ImmOp);
+
+    unsigned Reg;
+
+    bool CanHandleRegImmOpt = true;
+
+    CanHandleRegImmOpt &= ImmNode != 0;
+    CanHandleRegImmOpt &= ImmNode->getAPIntValue().getZExtValue() < 64;
+
+    if (CopyFromRegOp->getOpcode() == ISD::CopyFromReg)
     {
-      OutOps.push_back(Base);
-      OutOps.push_back(Disp);
-      return false;
+      RegisterSDNode *RegNode =
+          cast<RegisterSDNode>(CopyFromRegOp->getOperand(1));
+      Reg = RegNode->getReg();
+      CanHandleRegImmOpt &= (TargetRegisterInfo::isVirtualRegister(Reg) ||
+                             AVR::PTRDISPREGSRegClass.contains(Reg));
     }
     else
     {
-      return true;
+      CanHandleRegImmOpt = false;
+    }
+
+    if (CanHandleRegImmOpt)
+    {
+      // If we detect proper case - correct virtual register class
+      // if needed and go to another inlineasm operand.
+
+      SDValue Base, Disp;
+
+      if (RI.getRegClass(Reg)
+          != &AVR::PTRDISPREGSRegClass)
+      {
+        SDLoc dl(CopyFromRegOp);
+
+        unsigned VReg = RI.createVirtualRegister(
+            &AVR::PTRDISPREGSRegClass);
+
+        SDValue CopyToReg = CurDAG->getCopyToReg(CopyFromRegOp, dl,
+                                                 VReg, CopyFromRegOp);
+
+        SDValue NewCopyFromRegOp =
+            CurDAG->getCopyFromReg(CopyToReg, dl, VReg, TL->getPointerTy());
+
+        Base = NewCopyFromRegOp;
+      }
+      else
+      {
+        Base = CopyFromRegOp;
+      }
+
+      if (ImmNode->getValueType(0) != MVT::i8)
+      {
+        Disp = CurDAG->getTargetConstant(
+            ImmNode->getAPIntValue().getZExtValue(), MVT::i8);
+      }
+      else
+      {
+        Disp = ImmOp;
+      }
+
+      OutOps.push_back(Base);
+      OutOps.push_back(Disp);
+
+      return false;
     }
   }
 
-  // Yes hardcoded 'm' symbol. Just because it also has been hardcoded in
-  // SelectionDAGISel (callee for this method).
-  assert(ConstraintCode == 'm' && "Unexpected asm memory constraint");
+  // More generic case.
+  // Create chain that puts Op into pointer register
+  // and return that register.
 
-  const RegisterSDNode *RegNode = dyn_cast<RegisterSDNode>(Op);
-  if (!RegNode || MF->getRegInfo().getRegClass(RegNode->getReg()) !=
-      &AVR::PTRDISPREGSRegClass)
-  {
-    llvm_unreachable(
-      "Unknown memory operand type. Should be either X, Y or a FrameIndex");
-  }
+  SDLoc dl(Op);
 
-  OutOps.push_back(Op);
+  unsigned VReg = RI.createVirtualRegister(&AVR::PTRDISPREGSRegClass);
+
+  SDValue CopyToReg = CurDAG->getCopyToReg(Op, dl, VReg, Op);
+  SDValue CopyFromReg =
+      CurDAG->getCopyFromReg(CopyToReg, dl, VReg, TL->getPointerTy());
+
+  OutOps.push_back(CopyFromReg);
 
   return false;
 }

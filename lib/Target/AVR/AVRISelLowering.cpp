@@ -130,8 +130,6 @@ AVRTargetLowering::AVRTargetLowering(AVRTargetMachine &tm) :
   setOperationAction(ISD::MULHS, MVT::i8, Expand);
   setOperationAction(ISD::MULHS, MVT::i16, Expand);
 
-  setOperationAction(ISD::INLINEASM, MVT::Other, Custom);
-
   setMinFunctionAlignment(1);
   setSupportJumpTables(false);
 }
@@ -484,151 +482,6 @@ SDValue AVRTargetLowering::LowerBR_CC(SDValue Op, SelectionDAG &DAG) const
                      Cmp);
 }
 
-SDValue AVRTargetLowering::LowerINLINEASM(SDValue Op, SelectionDAG &DAG) const
-{
-  bool IsModified = false;
-  const SDNode *Node = Op.getNode();
-  MachineFunction &MF = DAG.getMachineFunction();
-
-  assert(Node->getOpcode() == ISD::INLINEASM &&
-         "Only INLINEASM nodes are allowed here");
-
-  // First just clone all the existing operands.
-  unsigned NumOps = Node->getNumOperands();
-  SmallVector<SDValue, 16> NewOps(NumOps, SDValue());
-  for (unsigned i = 0; i != NumOps; ++i)
-  {
-    NewOps[i] = Node->getOperand(i);
-  }
-
-  // Skip the flag operand.
-  if (Node->getOperand(NumOps - 1).getValueType() == MVT::Glue)
-  {
-    NewOps.push_back(Node->getOperand(NumOps - 1));
-    --NumOps;
-  }
-
-  // Now scan for memory operands and replace them with PTRDISPREGS regs.
-  for (unsigned i = InlineAsm::Op_FirstOperand; i != NumOps; )
-  {
-    unsigned Flags = cast<ConstantSDNode>(Node->getOperand(i))->getZExtValue();
-    unsigned NumVals = InlineAsm::getNumOperandRegisters(Flags);
-
-    // Skip the ID value.
-    ++i;
-
-    if (InlineAsm::getKind(Flags) == InlineAsm::Kind_Mem)
-    {
-      assert(NumVals == 1 && "Memory operands can only have one value");
-      const SDValue &Addr = Node->getOperand(i);
-      MachineRegisterInfo &RI = MF.getRegInfo();
-
-      // Skip legal cases:
-      // 1. Addr is a frame index.
-      // 2. It is already Z or Y.
-      const RegisterSDNode *RegNode = dyn_cast<RegisterSDNode>(Addr);
-      if ((Addr->getOpcode() == ISD::FrameIndex)
-          || (RegNode && RI.getRegClass(RegNode->getReg())
-              == &AVR::PTRDISPREGSRegClass))
-      {
-        for (; NumVals; --NumVals, ++i);
-        continue;
-      }
-
-      // Optimize "add vreg, imm" case
-      if (Addr->getOpcode() == ISD::ADD ||
-          Addr->getOpcode() == ISD::SUB)
-      {
-        SDValue CopyFromRegOp = Addr->getOperand(0);
-        SDValue ImmOp = Addr->getOperand(1);
-        ConstantSDNode* ImmNode = dyn_cast<ConstantSDNode>(ImmOp);
-
-        if (CopyFromRegOp->getOpcode() == ISD::CopyFromReg && ImmNode)
-        {
-          RegisterSDNode* RegNode =
-              cast<RegisterSDNode>(CopyFromRegOp->getOperand(1));
-
-          uint64_t Imm = ImmNode->getAPIntValue().getZExtValue();
-          if (Imm < 64)
-          {
-            unsigned Reg = RegNode->getReg();
-
-            // Do correct register class if possible:
-            // If register is virtual, just recreate it with a proper class,
-            // if register is physical, check that PTRDISPREGS constains it.
-
-            if (TargetRegisterInfo::isVirtualRegister(Reg) ||
-                AVR::PTRDISPREGSRegClass.contains(Reg))
-            {
-              // If we detect proper case - just skip it.
-
-              if (RI.getRegClass(Reg)
-                  != &AVR::PTRDISPREGSRegClass) {
-
-                unsigned VReg = RI.createVirtualRegister(
-                    &AVR::PTRDISPREGSRegClass);
-
-                SDValue CopyToReg = DAG.getCopyToReg(CopyFromRegOp,
-                    SDLoc(CopyFromRegOp), VReg, CopyFromRegOp);
-
-                SDValue NewCopyFromRegOp =
-                    DAG.getCopyFromReg(CopyToReg, SDLoc(CopyToReg),
-                                       VReg,
-                                       getPointerTy());
-
-                SDValue Add = DAG.getNode(Addr->getOpcode() /*ADD or SUB*/,
-                                          SDLoc(Addr),
-                                          Addr->getValueType(0),
-                                          NewCopyFromRegOp,
-                                          ImmOp);
-
-                // If old Addr chain was also used as inlineasm chain,
-                // replace it with new one.
-                if (NewOps[0] == CopyFromRegOp)
-                {
-                  NewOps[0] = NewCopyFromRegOp;
-                }
-
-                NewOps[i] = Add;
-
-                IsModified = true;
-              }
-
-
-              for (; NumVals; --NumVals, ++i) {
-              }
-              continue;
-            }
-          }
-        }
-      }
-
-      // Most general case: address is not based on SP+Offset, copy it to
-      // a pointer register and use it.
-      unsigned VReg = RI.createVirtualRegister(&AVR::PTRDISPREGSRegClass);
-
-      SDValue Chain = NewOps[0];
-      Chain = DAG.getCopyToReg(Chain, SDLoc(Addr), VReg, Addr);
-      NewOps[0] = Chain;
-      NewOps[i] = DAG.getRegister(VReg, getPointerTy());
-      IsModified |= true;
-    }
-
-    for (; NumVals; --NumVals, ++i);
-  }
-
-  // If we made any replacements create a new Op.
-  if (IsModified)
-  {
-    SDVTList VTs = Op.getNode()->getVTList();
-
-    return DAG.getNode(Op.getOpcode(), SDLoc(Op), VTs, &NewOps[0],
-                       NewOps.size());
-  }
-
-  return Op;
-}
-
 SDValue AVRTargetLowering::LowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const
 {
   SDValue LHS = Op.getOperand(0);
@@ -704,8 +557,6 @@ SDValue AVRTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const
     return LowerSETCC(Op, DAG);
   case ISD::VASTART:
     return LowerVASTART(Op, DAG);
-  case ISD::INLINEASM:
-    return LowerINLINEASM(Op, DAG);
   }
 
   return SDValue();
@@ -1143,9 +994,9 @@ AVRTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
 {
   SelectionDAG &DAG = CLI.DAG;
   SDLoc &dl = CLI.DL;
-  SmallVector<ISD::OutputArg, 32> &Outs = CLI.Outs;
-  SmallVector<SDValue, 32> &OutVals = CLI.OutVals;
-  SmallVector<ISD::InputArg, 32> &Ins = CLI.Ins;
+  SmallVectorImpl<ISD::OutputArg> &Outs = CLI.Outs;
+  SmallVectorImpl<SDValue> &OutVals = CLI.OutVals;
+  SmallVectorImpl<ISD::InputArg> &Ins = CLI.Ins;
   SDValue Chain = CLI.Chain;
   SDValue Callee = CLI.Callee;
   bool &isTailCall = CLI.IsTailCall;
