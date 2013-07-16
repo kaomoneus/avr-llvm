@@ -1665,7 +1665,14 @@ AVRTargetLowering::getRegForInlineAsmConstraint(const std::string &Constraint,
     case 'q': // Stack pointer register: SPH:SPL.
       return std::make_pair(0U, &AVR::GPRSPRegClass);
     case 'r': // Any register: r0..r31.
-      return std::make_pair(0U, &AVR::GPR8RegClass);
+      if (VT == MVT::i8)
+      {
+        return std::make_pair(0U, &AVR::GPR8RegClass);
+      }
+      else
+      {
+        return std::make_pair(0U, &AVR::DREGSRegClass);
+      }
     case 't': // Temporary register: r0.
       return std::make_pair(unsigned(AVR::R0), &AVR::GPR8RegClass);
     case 'w': // Special upper register pairs: r24, r26, r28, r30.
